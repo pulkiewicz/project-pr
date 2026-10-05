@@ -1,5 +1,25 @@
 # Changelog
 
+## E1 — HRF + Dashboard (05.10.2026)
+
+**HRF (M2)**
+- Model: zadania (hierarchia Etap → zadanie), zależności FS/SS/FF z opóźnieniem, plany bazowe, profile importu. Strona „Konsorcjum” dla zadań wspólnych („Envcheck / Arsanit”).
+- Import XLSX: kreator plik → mapowanie kolumn (z podpowiedzią po nagłówkach) i wartości strony → podgląd z błędami, ostrzeżeniami i diffem → import. Re-import po kodzie nie nadpisuje dat rzeczywistych, statusu, % wykonania, prognozy, osoby odpowiedzialnej ani strony. Profile importu.
+- Kotwica dnia „0”: podgląd różnic, potem przeliczenie wszystkich dat w jednej transakcji z wpisem w audit log i kontrolą wersji projektu.
+- Lista (drzewo, filtry: strona, status, Etap, zakres dat, ścieżka krytyczna; edycja inline % i statusu) oraz panel szczegółów (postęp, struktura, pole [W], poprzedniki).
+- Gantt (frappe-gantt): skala dzień/tydzień/miesiąc, linia „dziś”, linia terminu umownego, zależności, nakładka planu bazowego, kolory statusów, wyróżnienie ścieżki krytycznej, klik → szczegóły.
+- Ścieżka krytyczna (CPM, `server/modules/hrf/cpm.ts`): liczona po każdej zmianie zależności lub terminów; wykrywa cykle.
+- Eksport: lista XLSX, Gantt PDF A3 poziomo (`@react-pdf`, font DejaVu z polskimi znakami).
+- Uprawnienia: postęp edytują strony z `hrf:edit` dla własnych zadań; struktura, import, dzień „0”, plany bazowe i zależności wymagają `hrf:approve`; pole [W] `contract_value` jest usuwane z API i eksportów dla ról bez `penalties:view`.
+
+**Dashboard (M1, kafle 1–7)**
+- Odliczanie (dni kalendarzowe i robocze z polskimi świętami, kolor wg prognozy), postęp ważony czasem trwania z planem na dziś i odchyleniem w dniach, status Etapów, 5 najbliższych odbiorów, alerty HRF, mini-Gantt (bieżący miesiąc ± 1), moje zadania. Jeden endpoint `GET /api/projects/:id/dashboard`.
+
+**Inne**
+- Słownik tłumaczeń przeniesiony do `shared/i18n/pl.json` (używa go też backend).
+- Logowanie deweloperskie dla `netlify dev` (`DEV_AUTH=1`), bo Identity nie działa lokalnie. Nieaktywne poza `netlify dev`, usuwane z buildu produkcyjnego.
+- Testy: 298 (Vitest), w tym import prawdziwego HRF rev.10 z porównaniem dat z formułami Excela (lokalnie, plik poza repozytorium) oraz macierz ról dla 17 nowych endpointów.
+
 ## E0 — Szkielet (05.10.2026)
 
 **Platforma**

@@ -1,6 +1,9 @@
 import '@mantine/core/styles.css'
 import '@mantine/dates/styles.css'
 import '@mantine/notifications/styles.css'
+import 'mantine-react-table/styles.css'
+import dayjs from 'dayjs'
+import customParseFormat from 'dayjs/plugin/customParseFormat'
 import 'dayjs/locale/pl'
 import './i18n'
 import { MantineProvider } from '@mantine/core'
@@ -15,6 +18,9 @@ import { App } from './App'
 import { AuthProvider } from './auth/AuthProvider'
 import { ApiError } from './lib/api'
 import { theme } from './theme'
+
+// Wpisywanie dat w polach DateInput w formacie DD.MM.YYYY.
+dayjs.extend(customParseFormat)
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -1,0 +1,19 @@
+.pmo-gantt .gantt-container {
+  --g-bar-color: #c9d3e0;
+  --g-bar-border: #b6c2d2;
+  --g-progress-color: #406cab;
+  --g-today-highlight: #2e9d57;
+  font-family: inherit;
+}
+.pmo-gantt .bar-wrapper[class*='g-sum-'] .bar { fill: #1f3a5f; }
+.pmo-gantt .bar-wrapper[class*='g-sum-'] .bar-progress { fill: #4d75af; }
+.pmo-gantt .bar-wrapper[class*='g-sum-'] .bar-label { fill: #fff; font-weight: 600; }
+.pmo-gantt .bar-wrapper[class*='-delayed-'] .bar-progress { fill: #d64545; }
+.pmo-gantt .bar-wrapper[class*='-at_risk-'] .bar-progress { fill: #f2a900; }
+.pmo-gantt .bar-wrapper[class*='-accepted-'] .bar-progress { fill: #2e9d57; }
+.pmo-gantt .bar-wrapper[class*='-ready_for_acceptance-'] .bar-progress { fill: #7e57c2; }
+.pmo-gantt .bar-wrapper[class*='-c1'] .bar { stroke: #d64545; stroke-width: 2; }
+.pmo-gantt .bar-wrapper[class*='g-acc-'] .bar { fill: #b39ddb; }
+.pmo-gantt .pmo-deadline { stroke: #d64545; stroke-width: 2; stroke-dasharray: 6 4; }
+.pmo-gantt .pmo-deadline-label { fill: #d64545; font-size: 11px; font-weight: 600; }
+.pmo-gantt .pmo-baseline { fill: none; stroke: #6b7785; stroke-width: 1; stroke-dasharray: 3 2; }

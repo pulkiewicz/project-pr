@@ -9,3 +9,6 @@ playwright-report/
 test-results/
 .DS_Store
 *.log
+
+# Pliki źródłowe od Admina (HRF, umowa) — mogą zawierać dane [W], nie commitować
+input/

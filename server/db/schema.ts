@@ -16,7 +16,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { ROLES } from '#shared'
+import { DEPENDENCY_TYPES, HRF_STATUSES, ROLES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -125,3 +125,86 @@ export const auditLog = pgTable(
     index('audit_log_user_idx').on(t.userId, t.ts),
   ],
 )
+
+// ---------------- E1: HRF ----------------
+
+export const hrfStatusEnum = pgEnum('hrf_status', HRF_STATUSES)
+export const dependencyTypeEnum = pgEnum('hrf_dependency_type', DEPENDENCY_TYPES)
+
+export const hrfTasks = pgTable(
+  'hrf_tasks',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    parentId: uuid('parent_id'),
+    party: text('party').notNull(),
+    responsibleUserId: uuid('responsible_user_id').references(() => users.id),
+    startOffsetDays: integer('start_offset_days').notNull(),
+    durationDays: integer('duration_days').notNull(),
+    /** Wyliczane z dnia „0” + offset; null dopóki dzień „0” nieustawiony. */
+    plannedStart: date('planned_start', { mode: 'string' }),
+    plannedEnd: date('planned_end', { mode: 'string' }),
+    actualStart: date('actual_start', { mode: 'string' }),
+    actualEnd: date('actual_end', { mode: 'string' }),
+    forecastEnd: date('forecast_end', { mode: 'string' }),
+    percentComplete: numeric('percent_complete', { precision: 5, scale: 2, mode: 'number' }).notNull().default(0),
+    status: hrfStatusEnum('status').notNull().default('not_started'),
+    isMilestone: boolean('is_milestone').notNull().default(false),
+    isAcceptancePoint: boolean('is_acceptance_point').notNull().default(false),
+    postAcceptanceAllowed: boolean('post_acceptance_allowed').notNull().default(false),
+    /** [W] wartość Etapu z umowy. */
+    contractValue: numeric('contract_value', { precision: 14, scale: 2 }),
+    isCriticalPath: boolean('is_critical_path').notNull().default(false),
+    totalFloatDays: integer('total_float_days'),
+    notes: text('notes'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [
+    uniqueIndex('hrf_tasks_project_code_idx').on(t.projectId, t.code).where(sql`${t.deletedAt} IS NULL`),
+    index('hrf_tasks_parent_idx').on(t.parentId),
+  ],
+)
+
+export const hrfDependencies = pgTable(
+  'hrf_dependencies',
+  {
+    taskId: uuid('task_id').notNull().references(() => hrfTasks.id),
+    predecessorId: uuid('predecessor_id').notNull().references(() => hrfTasks.id),
+    type: dependencyTypeEnum('type').notNull().default('FS'),
+    lagDays: integer('lag_days').notNull().default(0),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    createdBy: uuid('created_by'),
+  },
+  (t) => [primaryKey({ columns: [t.taskId, t.predecessorId] }), index('hrf_dependencies_pred_idx').on(t.predecessorId)],
+)
+
+export const hrfBaselines = pgTable('hrf_baselines', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  name: text('name').notNull(),
+  dayZeroDate: date('day_zero_date', { mode: 'string' }),
+  ...auditColumns,
+})
+
+export const hrfBaselineTasks = pgTable(
+  'hrf_baseline_tasks',
+  {
+    baselineId: uuid('baseline_id').notNull().references(() => hrfBaselines.id),
+    taskId: uuid('task_id').notNull().references(() => hrfTasks.id),
+    start: date('start', { mode: 'string' }),
+    end: date('end', { mode: 'string' }),
+  },
+  (t) => [primaryKey({ columns: [t.baselineId, t.taskId] })],
+)
+
+export const hrfImportProfiles = pgTable('hrf_import_profiles', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  name: text('name').notNull(),
+  columnMapping: jsonb('column_mapping').$type<ImportMapping>().notNull(),
+  ...auditColumns,
+})

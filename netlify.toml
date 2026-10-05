@@ -5,6 +5,10 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+  # Fonty z polskimi znakami dla PDF (@react-pdf) — czytane z dysku w runtime.
+  # @react-pdf/pdfkit ładuje standardowe fonty dynamicznie — nie bundlować, dołączyć pakiet w całości.
+  external_node_modules = ["@react-pdf/renderer"]
+  included_files = ["node_modules/dejavu-fonts-ttf/ttf/DejaVuSans.ttf", "node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf", "node_modules/pdfkit/js/standard-fonts/**"]
 
 [dev]
   command = "npm run dev"

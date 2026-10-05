@@ -63,12 +63,18 @@ function Countdown() {
   const project = useMe().projects[0]
   if (!project) return null
   const days = daysUntil(project.contractEndDate)
-  const color = days < 30 ? 'red' : days <= 90 ? 'yellow' : 'green'
+  // Kolor neutralny — ocena zagrożenia (prognoza vs termin) jest na kaflu Dashboardu.
+  const color = days < 0 ? 'red' : 'navy'
   return (
     <Tooltip label={t('app.contractDeadline', { date: formatDate(project.contractEndDate) })}>
-      <Badge size="lg" variant="light" color={color} data-testid="countdown">
-        {days >= 0 ? t('app.daysToDeadline', { count: days }) : t('app.deadlinePassed', { count: -days })}
-      </Badge>
+      <span>
+        <Badge size="lg" variant="light" color={color} data-testid="countdown" visibleFrom="sm">
+          {days >= 0 ? t('app.daysToDeadline', { count: days }) : t('app.deadlinePassed', { count: -days })}
+        </Badge>
+        <Badge size="md" variant="light" color={color} hiddenFrom="sm">
+          {t('app.daysShort', { count: days })}
+        </Badge>
+      </span>
     </Tooltip>
   )
 }

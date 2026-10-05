@@ -1,8 +1,11 @@
 export const ROLES = ['Admin', 'EnvcheckInternal', 'Arsanit', 'Client', 'Subcontractor'] as const
 export type Role = (typeof ROLES)[number]
 
-/** Strona projektu. Dla podwykonawcy: `Subcontractor:{id}`. */
-export const BASE_PARTIES = ['Envcheck', 'Arsanit', 'Client'] as const
+/**
+ * Strona projektu. Dla podwykonawcy: `Subcontractor:{id}`.
+ * `Konsorcjum` — zadanie wspólne Envcheck i Arsanit (w HRF: „Envcheck / Arsanit”); edytują obie strony.
+ */
+export const BASE_PARTIES = ['Envcheck', 'Arsanit', 'Konsorcjum', 'Client'] as const
 export type Party = (typeof BASE_PARTIES)[number] | `Subcontractor:${string}`
 
 export function isParty(value: string): value is Party {

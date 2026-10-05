@@ -5,6 +5,8 @@ import { HttpProblem, problemResponse } from './lib/problem.ts'
 import { adminPermissionsRouter } from './modules/admin/permissions.ts'
 import { adminUsersRouter } from './modules/admin/users.ts'
 import { auditRouter } from './modules/audit/routes.ts'
+import { dashboardRouter } from './modules/dashboard/routes.ts'
+import { hrfRouter } from './modules/hrf/routes.ts'
 import { meRouter } from './modules/me/routes.ts'
 import { mfaRouter } from './modules/mfa/routes.ts'
 import { ROUTE_POLICIES, newRouter } from './routing.ts'
@@ -30,6 +32,8 @@ export function createApp(deps: AppDeps) {
   app.route('/admin', adminUsersRouter)
   app.route('/admin', adminPermissionsRouter)
   app.route('/admin', auditRouter)
+  app.route('/', hrfRouter)
+  app.route('/', dashboardRouter)
 
   // Dokumentacja OpenAPI — tylko Admin.
   app.use('/openapi.json', requireMfa, requirePermission('admin', 'view'))

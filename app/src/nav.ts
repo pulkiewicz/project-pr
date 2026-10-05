@@ -11,7 +11,7 @@ export interface NavItem {
 
 export const NAV: NavItem[] = [
   { module: 'dashboard', path: '/', stage: 'E1', ready: true },
-  { module: 'hrf', path: '/hrf', stage: 'E1', ready: false },
+  { module: 'hrf', path: '/hrf', stage: 'E1', ready: true },
   { module: 'weeklyPlan', path: '/plan-tygodniowy', stage: 'E3', ready: false },
   { module: 'purchases', path: '/zakupy', stage: 'E3', ready: false },
   { module: 'avizations', path: '/awizacje', stage: 'E3', ready: false },

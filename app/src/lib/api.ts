@@ -1,5 +1,6 @@
 import { refreshSession } from '@netlify/identity'
 import type { ProblemDetails } from '#shared'
+import { devToken } from '../auth/devAuth'
 
 export class ApiError extends Error {
   constructor(public readonly problem: ProblemDetails) {
@@ -20,6 +21,8 @@ function readCookie(name: string): string | null {
 
 /** JWT Identity do nagłówka Authorization (cookie nf_jwt utrzymywane przez @netlify/identity). */
 async function identityToken(): Promise<string | null> {
+  const dev = devToken()
+  if (dev) return dev
   try {
     await refreshSession()
   } catch {

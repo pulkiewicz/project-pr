@@ -1,7 +1,7 @@
 import { Center, Loader } from '@mantine/core'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import type { Action, ModuleKey } from '#shared'
-import type { ReactNode } from 'react'
+import { Suspense, lazy, type ReactNode } from 'react'
 import { useAuth } from './auth/AuthProvider'
 import { LoginPage } from './auth/LoginPage'
 import { MfaSetupPage, MfaVerifyPage } from './auth/MfaPages'
@@ -14,6 +14,9 @@ import { AuditPage } from './pages/admin/AuditPage'
 import { PermissionsPage } from './pages/admin/PermissionsPage'
 import { SettingsPage } from './pages/admin/SettingsPage'
 import { UsersPage } from './pages/admin/UsersPage'
+
+// Moduł HRF (frappe-gantt, mantine-react-table) ładowany na żądanie — mniejszy bundle startowy.
+const HrfPage = lazy(() => import('./features/hrf/HrfPage').then((m) => ({ default: m.HrfPage })))
 
 /** Ukrywa trasę w UI; właściwa autoryzacja zawsze po stronie API. */
 function Guard({ module, action = 'view', children }: { module: ModuleKey; action?: Action; children: ReactNode }) {
@@ -58,6 +61,7 @@ export function App() {
             </Guard>
           }
         />
+        <Route path="/hrf" element={<Guard module="hrf"><Suspense fallback={<Loader />}><HrfPage /></Suspense></Guard>} />
         {NAV.filter((n) => !n.ready).map((n) => (
           <Route
             key={n.module}

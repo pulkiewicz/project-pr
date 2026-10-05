@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AuthLayout } from './AuthLayout'
 import { useAuth } from './AuthProvider'
+import { devAuthEnabled, devLogin } from './devAuth'
 
 export function LoginPage({ deniedCode }: { deniedCode?: string }) {
   const { t } = useTranslation()
@@ -55,6 +56,20 @@ export function LoginPage({ deniedCode }: { deniedCode?: string }) {
           <Text size="xs" c="dimmed" ta="center">
             {t('auth.inviteOnly')}
           </Text>
+          {devAuthEnabled && (
+            <Button
+              variant="outline"
+              color="orange"
+              data-testid="dev-login"
+              disabled={!email}
+              onClick={() => {
+                devLogin(email)
+                void refresh()
+              }}
+            >
+              DEV: zaloguj bez Identity
+            </Button>
+          )}
         </Stack>
       </form>
     </AuthLayout>

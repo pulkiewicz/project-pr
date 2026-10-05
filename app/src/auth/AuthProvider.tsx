@@ -3,6 +3,7 @@ import { getUser, handleAuthCallback, logout as identityLogout } from '@netlify/
 import type { MeResponse } from '#shared'
 import { hasPermission, type Action, type ModuleKey } from '#shared'
 import { ApiError, api } from '../lib/api'
+import { devLogout, devToken } from './devAuth'
 
 export type AuthState =
   | { status: 'loading' }
@@ -24,7 +25,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 async function loadMe(): Promise<AuthState> {
-  const identityUser = await getUser()
+  const identityUser = devToken() ? true : await getUser()
   if (!identityUser) return { status: 'anonymous' }
   try {
     const me = await api<MeResponse>('/me')
@@ -56,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await api('/mfa/logout', { method: 'POST' }).catch(() => undefined)
+    devLogout()
     await identityLogout().catch(() => undefined)
     setState({ status: 'anonymous' })
   }, [])

@@ -30,7 +30,9 @@ export const authenticate: MiddlewareHandler<AppEnv> = async (c, next) => {
   c.set('user', user)
   if (resolved.linked) await writeAudit(c, { action: 'user.identity_linked', entity: 'users', entityId: user.id })
 
-  const required = (await mfaRequiredRoles(deps.db)).includes(user.role)
+  // Równolegle: polityka 2FA i uprawnienia roli (uprawnienia odrzucane, jeśli sesja 2FA nie jest ważna).
+  const [requiredRoles, rolePermissions] = await Promise.all([mfaRequiredRoles(deps.db), loadPermissions(deps.db, user.role)])
+  const required = requiredRoles.includes(user.role)
   let verified = false
   const cookie = getCookie(c, MFA_COOKIE)
   if (cookie) {
@@ -45,7 +47,7 @@ export const authenticate: MiddlewareHandler<AppEnv> = async (c, next) => {
     }
   }
   c.set('mfa', { required, verified })
-  c.set('permissions', !required || verified ? await loadPermissions(deps.db, user.role) : new Set())
+  c.set('permissions', !required || verified ? rolePermissions : new Set())
   await next()
 }
 

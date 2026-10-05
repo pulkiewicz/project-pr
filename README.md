@@ -26,7 +26,7 @@ npx netlify dev                   # http://localhost:8888 — Vite + funkcje + l
 npm run db:migrate                # w drugim terminalu: migracje na lokalną bazę
 ```
 
-Netlify Identity **nie działa pod `netlify dev`** — logowanie, zaproszenia i 2FA testuje się na deploy preview.
+Netlify Identity **nie działa pod `netlify dev`**. Lokalnie można się zalogować przyciskiem „DEV: zaloguj bez Identity” po ustawieniu `DEV_AUTH=1` w `.env`. Działa to tylko pod `netlify dev` i tylko w buildzie deweloperskim; 2FA, role i uprawnienia nadal pochodzą z bazy. Pierwsze logowanie adresem z `BOOTSTRAP_ADMIN_EMAIL` tworzy Admina. Prawdziwe logowanie, zaproszenia i e-maile testuje się na deploy preview.
 
 | Polecenie | Opis |
 |---|---|
