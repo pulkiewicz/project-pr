@@ -40,7 +40,7 @@ describe('import HRF — fikstura', () => {
     expect(errors).toEqual(['1.1', '4.1', '1.2', '1.3'])
   })
 
-  it('termin umowny: błąd dla zwykłych zadań, ostrzeżenie dla § 3 ust. 8', async () => {
+  it('termin umowny: zawsze ostrzeżenie (nie blokuje importu), z podpowiedzią § 3 ust. 8', async () => {
     const wb = await loadWorkbook(await buildHrfFixture())
     const parsed = parseTasks(wb, FIXTURE_MAPPING)
     const p = buildPreview(parsed, [], { dayZero: '2026-09-21', contractEnd: '2027-11-15', notesMapped: false })
@@ -53,7 +53,11 @@ describe('import HRF — fikstura', () => {
     const strict = buildPreview(parseTasks(wb, { ...FIXTURE_MAPPING, postAcceptanceStageCodes: [] }), [], {
       dayZero: '2026-09-21', contractEnd: '2027-11-15', notesMapped: false,
     })
-    expect(strict.canCommit).toBe(false)
+    expect(strict.canCommit).toBe(true)
+    const late = strict.issues.filter((i) => i.code === '3.1')
+    expect(late).toHaveLength(1)
+    expect(late[0]).toMatchObject({ severity: 'warning' })
+    expect(late[0]!.message).toContain('§ 3 ust. 8')
   })
 
   it('diff re-importu: nowe / zmienione / bez zmian / brak w pliku; strona nie jest nadpisywana', async () => {

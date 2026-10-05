@@ -241,14 +241,15 @@ export function buildPreview(
   }
   const tasks = parsed.tasks.map((t) => {
     const { plannedStart, plannedEnd } = plannedDates(ctx.dayZero, t.startOffsetDays, t.durationDays)
+    // Decyzja Admina (05.10.2026): termin po dacie umownej nigdy nie blokuje importu — zawsze ostrzeżenie.
     if (plannedEnd && plannedEnd > ctx.contractEnd) {
       issues.push({
         row: t.row,
         code: t.code,
-        severity: t.postAcceptanceAllowed ? 'warning' : 'error',
+        severity: 'warning',
         message: t.postAcceptanceAllowed
           ? `Koniec ${plannedEnd} po terminie umownym — dopuszczone po odbiorze (§ 3 ust. 8)`
-          : `Koniec ${plannedEnd} po terminie umownym ${ctx.contractEnd}`,
+          : `Koniec ${plannedEnd} po terminie umownym ${ctx.contractEnd} — jeśli to czynności po odbiorze, zaznacz Etap jako § 3 ust. 8`,
       })
     }
     return { ...t, plannedStart, plannedEnd }

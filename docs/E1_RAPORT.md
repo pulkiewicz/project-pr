@@ -16,7 +16,8 @@ Stan: gotowe lokalnie, czeka na potwierdzenie Admina. Nie wdrożone (brak projek
 1. „Envcheck / Arsanit” importuje się jako wspólna strona **Konsorcjum**. Edytują ją Envcheck i Arsanit; Admin może zawęzić pojedyncze zadanie do jednej strony.
 2. Zależności (poprzedniki) wprowadza się **tylko w aplikacji**; import ich nie czyta. Bez zależności ścieżka krytyczna nie jest liczona (komunikat w UI).
 3. Udziały procentowe Etapów z kolumn H–K **pominięte**. Pole [W] „Wartość Etapu” jest dostępne do ręcznego wpisania.
-4. Dzień „0” **ustawia Admin ręcznie**; import nie czyta komórki B2. Plik zakłada 21.09.2026.
+4. Zadania kończące się po terminie umownym **nie blokują importu** — zawsze ostrzeżenie (odstępstwo od sekcji M2 spec., gdzie błąd był przewidziany dla zadań bez § 3 ust. 8). Ostrzeżenie podpowiada oznaczenie Etapu jako § 3 ust. 8.
+5. Dzień „0” **ustawia Admin ręcznie**; import nie czyta komórki B2. Plik zakłada 21.09.2026.
 
 ## Uwaga z danych
 
