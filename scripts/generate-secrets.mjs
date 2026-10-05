@@ -19,6 +19,6 @@ const secrets = {
 console.log('# Skopiuj i uruchom (wartości pokazywane tylko raz). FIELD_ENCRYPTION_KEY przechowaj także w sejfie haseł —')
 console.log('# bez niego zaszyfrowanych pól (sekrety 2FA, dane awizacji) nie da się odczytać.\n')
 for (const [k, v] of Object.entries(secrets)) {
-  console.log(`npx netlify env:set ${k} '${v}' --secret --scope functions`)
+  console.log(`netlify env:set ${k} '${v}' --secret --scope functions`)
 }
-console.log(`npx netlify env:set BOOTSTRAP_ADMIN_EMAIL '${adminEmail}' --scope functions`)
+console.log(`netlify env:set BOOTSTRAP_ADMIN_EMAIL '${adminEmail}' --scope functions`)

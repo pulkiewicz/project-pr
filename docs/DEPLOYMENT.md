@@ -22,14 +22,14 @@ Ustawienia budowania czytane są z `netlify.toml` — w formularzu zostaw puste 
 | Publish directory | `app/dist` |
 | Functions directory | `netlify/functions` |
 
-Alternatywnie z terminala w katalogu repozytorium: `npx netlify init` (tworzy projekt i podłącza Git). Katalog `.netlify/` jest już w `.gitignore`.
+Alternatywnie z terminala (Netlify CLI globalnie: `npm install -g netlify-cli`): `netlify init` (tworzy projekt i podłącza Git). Katalog `.netlify/` jest już w `.gitignore`.
 
 ## 2. Zmienne środowiskowe (przed pierwszym deployem)
 
 Sekrety wyłącznie w Netlify (nigdy w `netlify.toml` ani w repozytorium), scope **Functions**, oznaczone jako secret:
 
 ```bash
-npx netlify link                                  # jeśli projekt utworzono w panelu
+netlify link                                  # jeśli projekt utworzono w panelu
 npm run secrets:generate -- adres@firmy.pl        # wypisuje gotowe polecenia netlify env:set
 ```
 
@@ -80,7 +80,7 @@ Po deployu sprawdź `https://<projekt>.netlify.app/api/health` → `{"ok":true}`
 
 - **Ochrona deploy previews hasłem** (Project configuration → Access control). Previews dostają kopię danych produkcyjnych i bez ochrony są dostępne dla każdego z linkiem.
 - **Region funkcji**: Project configuration → Functions → Region → Frankfurt (`fra`), następnie redeploy (plan Pro).
-- **Region bazy**: sprawdź `npx netlify database status` — dane osobowe (awizacje, kolejne etapy) muszą być w UE.
+- **Region bazy**: sprawdź `netlify database status` — dane osobowe (awizacje, kolejne etapy) muszą być w UE.
 - Własna domena (np. `pmo.envcheck.com`) z HTTPS — Identity wymaga HTTPS.
 
 ## Kopie zapasowe bazy

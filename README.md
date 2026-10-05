@@ -17,12 +17,12 @@ scripts/    skrypty pomocnicze (generator seeda uprawnień)
 
 ## Uruchomienie lokalne
 
-Wymagania: Node ≥ 22.
+Wymagania: Node ≥ 22 oraz Netlify CLI zainstalowane globalnie: `npm install -g netlify-cli` (nie jest zależnością projektu, by nie spowalniać buildu na Netlify).
 
 ```bash
 npm install
 cp .env.example .env              # uzupełnij sekrety (polecenia openssl w pliku)
-npx netlify dev                   # http://localhost:8888 — Vite + funkcje + lokalny Postgres
+netlify dev                       # http://localhost:8888 — Vite + funkcje + lokalny Postgres
 npm run db:migrate                # w drugim terminalu: migracje na lokalną bazę
 ```
 
