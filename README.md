@@ -35,6 +35,8 @@ Netlify Identity **nie działa pod `netlify dev`**. Lokalnie można się zalogow
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript (strict) |
 | `npm run db:generate` | nowa migracja z `server/db/schema.ts` |
 
+**Zależności:** build na Netlify nie widzi wydań npm młodszych niż ok. tydzień (kończy się błędem `ETARGET`). Nowe pakiety dodawaj z odcięciem daty: `npm install <pakiet> --before=$(date -v-10d +%F)` (macOS) lub `--before=$(date -d '-10 days' +%F)` (Linux), a przed pushem uruchom `npm run deps:check-age`.
+
 Migracje: po zmianie schematu `npm run db:generate`, przegląd SQL, commit razem ze schematem. Netlify stosuje je automatycznie przy deployu. **Nigdy** `drizzle-kit push` ani `drizzle-kit migrate` na bazie hostowanej.
 
 ## Konfiguracja Netlify (jednorazowo, przez Admina)
