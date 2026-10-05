@@ -12,6 +12,7 @@ import { errorMessage } from '../../lib/errors'
 import { formatDate } from '../../lib/format'
 import { usePatchTask, useSetDependencies } from './api'
 import { StatusBadge } from './StatusBadge'
+import { LinkedDocuments } from '../documents/LinkedDocuments'
 
 interface Props {
   task: HrfTaskDto | null
@@ -170,6 +171,9 @@ export function TaskDrawer({ task, tasks, dependencies, onClose }: Props) {
             </Button>
           )}
         </Group>
+
+        <Divider label={t('documents.linkedDocs')} labelPosition="left" />
+        <LinkedDocuments targetType="hrf_task" targetId={task.id} />
 
         {!isStage && (
           <>

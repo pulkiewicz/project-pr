@@ -23,6 +23,9 @@ import { newRouter, secureRoute } from '../../routing.ts'
 import { writeAudit } from '../audit/service.ts'
 import { getProject } from '../hrf/service.ts'
 import { buildExportRows } from './format.ts'
+import { inBackground } from '../../lib/background.ts'
+import { archiveToDrive } from '../documents/service.ts'
+import { AUTO_FOLDERS } from '../documents/structure.ts'
 import { ownOnly } from './people.ts'
 import { avizationSettings, exportData, findOverlaps, loadAvizations } from './service.ts'
 
@@ -231,7 +234,22 @@ avizationsRouter.openapi(
         changes: { from: a.status, to: rule.to, ...(t.action === 'reject' ? { reason: t.reason } : {}), ...(t.action === 'accept_external' ? { externalRef: t.externalRef } : {}) },
       }, tx)
     })
-    return c.json(await getOne(c, projectId, id), 200)
+    const updated = await getOne(c, projectId, id)
+    // Zaakceptowana lista dla ochrony archiwizowana w repozytorium (M7), powiązana z awizacją.
+    if (updated.status === 'accepted') {
+      await inBackground(c, async () => {
+        const project = await getProject(deps.db, projectId)
+        const e = await buildExport(c, projectId, [updated], `Awizacja ${updated.number}`, [
+          `${project.name} · ${project.client}`,
+          `Termin: ${fmt(updated.dateFrom)}${updated.dateTo !== updated.dateFrom ? ` – ${fmt(updated.dateTo)}` : ''}${updated.entryPointName ? ` · Wjazd: ${updated.entryPointName}` : ''}`,
+          `Cel: ${updated.purpose}`,
+        ])
+        const { renderAvizationPdf } = await import('../../pdf/avization.tsx')
+        const pdf = await renderAvizationPdf({ title: e.title, meta: e.meta, template: e.settings.exportTemplate, rows: e.rows, generatedBy: user.name })
+        await archiveToDrive(deps.db, deps.drive, projectId, AUTO_FOLDERS.avizationLists, { name: `${updated.number.replace(/\//g, '-')}_${updated.dateFrom}.pdf`, mimeType: 'application/pdf', data: new Uint8Array(pdf) }, { targetType: 'avization', targetId: id })
+      })
+    }
+    return c.json(updated, 200)
   },
 )
 

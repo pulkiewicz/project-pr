@@ -19,9 +19,11 @@ const TITLES: Record<number, string> = {
   404: 'Not Found',
   409: 'Conflict',
   422: 'Unprocessable Entity',
+  416: 'Range Not Satisfiable',
   429: 'Too Many Requests',
   500: 'Internal Server Error',
   502: 'Bad Gateway',
+  503: 'Service Unavailable',
 }
 
 export function problemResponse(status: number, code: string, detail?: string, extra: Record<string, unknown> = {}) {

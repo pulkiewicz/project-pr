@@ -20,7 +20,7 @@ function readCookie(name: string): string | null {
 }
 
 /** JWT Identity do nagłówka Authorization (cookie nf_jwt utrzymywane przez @netlify/identity). */
-async function identityToken(): Promise<string | null> {
+export async function identityToken(): Promise<string | null> {
   const dev = devToken()
   if (dev) return dev
   try {

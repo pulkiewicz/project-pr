@@ -181,6 +181,7 @@ export function AppLayout() {
               <Divider my="xs" label={t('nav.admin')} labelPosition="left" />
               <NavLink component={RouterLink} to="/admin/users" label={t('nav.adminUsers')} leftSection={<IconUsers size={18} />} active={isActive('/admin/users')} onClick={close} />
               <NavLink component={RouterLink} to="/admin/permissions" label={t('nav.adminPermissions')} leftSection={<IconKey size={18} />} active={isActive('/admin/permissions')} onClick={close} />
+              <NavLink component={RouterLink} to="/admin/repozytorium" label={t('nav.adminDocuments')} leftSection={<IconFolder size={18} />} active={isActive('/admin/repozytorium')} onClick={close} />
               <NavLink component={RouterLink} to="/admin/settings" label={t('nav.adminSettings')} leftSection={<IconSettings size={18} />} active={isActive('/admin/settings')} onClick={close} />
             </>
           )}

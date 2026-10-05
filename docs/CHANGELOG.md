@@ -1,5 +1,19 @@
 # Changelog
 
+## E2 — Repozytorium dokumentów (Google Shared Drive) + zadania cykliczne (05.10.2026)
+
+- **Struktura folderów** zatwierdzona przez Admina: 00_Szablony … 99_Backup, z podfolderami modułów. Podfoldery Etapu 1 i punktów odbioru powstają z HRF. Inicjalizacja jest idempotentna: istniejące foldery i ACL zmienione przez Admina zostają.
+- **Uprawnienia folderów (ACL):** rola albo konkretny podwykonawca × brak / odczyt / zapis / zarządzanie, z dziedziczeniem w dół i nadpisaniem na podfolderze. Folder bez ACL widzi tylko Admin. Edytor macierzy w Administracji; zmiany trafiają do audit logu.
+- **Upload bezpośrednio do Google:** sesja resumable utworzona przez backend z nagłówkiem Origin, porcje 8 MiB z paskiem postępu i wznowieniem. Biała lista typów i rozmiaru (do 200 MB), weryfikacja po uploadzie (folder, rozmiar, typ, nazwa); niezgodny plik jest usuwany.
+- **Pobieranie i podgląd** przez API porcjami po 4 MB (`Range`, 206), token w nagłówku. Podgląd PDF przez pdf.js, obrazy do 4 MB w całości, większe jako miniatura. Każde pobranie i podgląd trafia do audit logu (jeden wpis na plik).
+- **Google Docs, Sheets i Slides:** podgląd jako PDF dla wszystkich uprawnionych, pobieranie jako PDF/DOCX/XLSX/PPTX. „Otwórz w Google Docs” mają tylko Admin i Envcheck z konta w domenie firmy. „Nowy z szablonu” kopiuje dokument z `00_Szablony` do wybranego folderu.
+- **Metadane:** kategoria, status (roboczy, do akceptacji, zatwierdzony, nieaktualny), tagi, zmiana nazwy, przeniesienie, kosz, wersje z Drive. Powiązania z zadaniami HRF, pozycjami zakupów, awizacjami i pozycjami planu tygodniowego; sekcja „Dokumenty” w szczegółach tych rekordów.
+- **Wyszukiwanie** po nazwie, kategorii i tagach z filtrem ACL.
+- **Synchronizacja co 5 min** (Drive Changes API, `pageToken`, limit 12 min z zapisem postępu): pliki dodane wprost na Drive pojawiają się w aplikacji z uprawnieniami folderu.
+- **Zadania cykliczne** (spec. 3.4): `sched-drive-sync` (co 5 min), `sched-hourly` i `job-runner-background` (`x-job-secret`) z tabelą `job_runs` (idempotencja).
+- **Automatyczna archiwizacja:** każdy import HRF trafia do `02_…/Rewizje_HRF`; zaakceptowana lista awizacyjna (PDF) do `10_…/Listy_awizacyjne`, powiązana z awizacją.
+- **Testy:** 695 (Vitest) na atrapie Drive'a.
+
 ## E3 (część 2) — Awizacje osób i pojazdów (05.10.2026)
 
 - **Słowniki osób i pojazdów.** Numer dokumentu i numer rejestracyjny są szyfrowane AES-256-GCM (osobny IV na rekord, `key_id` pod rotację). Duplikaty i wyszukiwanie po rejestracji działają przez HMAC-SHA256 bez odszyfrowania. Na listach numery dokumentów są zamaskowane (np. `ABC •••456`); pełny numer pokazuje osobna akcja z wpisem w audit logu.

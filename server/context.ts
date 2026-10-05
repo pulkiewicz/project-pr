@@ -1,5 +1,6 @@
 import type { Action, ModuleKey, Role } from '#shared'
 import type { IdentityAdmin, IdentityClaims, IdentityVerifier } from './auth/identity.ts'
+import type { DriveClient } from './integrations/drive/types.ts'
 import type { Database } from './db/client.ts'
 import type { users } from './db/schema.ts'
 import type { Keyring } from './lib/field-crypto.ts'
@@ -18,6 +19,8 @@ export interface AppDeps {
   db: Database
   identity: IdentityVerifier
   identityAdmin: IdentityAdmin
+  /** null = brak konfiguracji konta serwisowego Google. */
+  drive: DriveClient | null
   config: AppConfig
   now?: () => Date
 }

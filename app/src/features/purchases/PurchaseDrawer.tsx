@@ -10,6 +10,7 @@ import { errorMessage } from '../../lib/errors'
 import { formatDate } from '../../lib/format'
 import { useHrfTasks } from '../hrf/api'
 import { useSavePurchase } from './api'
+import { LinkedDocuments } from '../documents/LinkedDocuments'
 
 const toDate = (d: string | null | undefined) => (d ? new Date(`${d}T00:00:00`) : null)
 const fromDate = (d: Date | string | null) => (d ? format(typeof d === 'string' ? new Date(d) : d, 'yyyy-MM-dd') : null)
@@ -99,6 +100,12 @@ export function PurchaseDrawer({ item, opened, defaultBuffer, onClose }: { item:
         <Text size="xs" c="dimmed">
           {t('purchases.noPrices')}
         </Text>
+        {item && (
+          <>
+            <Divider label={t('documents.linkedDocs')} labelPosition="left" />
+            <LinkedDocuments targetType="purchase_item" targetId={item.id} defaultFolderPath="/09_Zakupy_i_dostawy" />
+          </>
+        )}
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
             {t('app.cancel')}

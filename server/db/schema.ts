@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
+  bigint,
   bigserial,
   boolean,
   date,
@@ -17,7 +18,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { AVIZATION_STATUSES, DEPENDENCY_TYPES, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
+import { ACL_LEVELS, AVIZATION_STATUSES, DOC_STATUSES, LINK_TARGETS, DEPENDENCY_TYPES, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -376,4 +377,116 @@ export const avizationVehicles = pgTable(
     driverPersonId: uuid('driver_person_id').references(() => persons.id),
   },
   (t) => [primaryKey({ columns: [t.avizationId, t.vehicleId] })],
+)
+
+// ---------------- M7: Repozytorium dokumentów (Google Shared Drive) ----------------
+export const docStatusEnum = pgEnum('doc_status', DOC_STATUSES)
+export const aclLevelEnum = pgEnum('acl_level', ACL_LEVELS)
+export const linkTargetEnum = pgEnum('link_target', LINK_TARGETS)
+
+export const driveFolders = pgTable(
+  'drive_folders',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    driveFolderId: text('drive_folder_id').notNull(),
+    parentId: uuid('parent_id'),
+    name: text('name').notNull(),
+    path: text('path').notNull(),
+    trashedAt: ts('trashed_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('drive_folders_drive_id_idx').on(t.projectId, t.driveFolderId), index('drive_folders_parent_idx').on(t.parentId)],
+)
+
+export const driveFiles = pgTable(
+  'drive_files',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    driveFileId: text('drive_file_id').notNull(),
+    folderId: uuid('folder_id').notNull().references(() => driveFolders.id),
+    name: text('name').notNull(),
+    mimeType: text('mime_type').notNull(),
+    size: bigint('size', { mode: 'number' }),
+    driveVersion: text('drive_version'),
+    md5: text('md5'),
+    modifiedAt: ts('modified_at'),
+    webViewLink: text('web_view_link'),
+    category: text('category'),
+    status: docStatusEnum('status').notNull().default('draft'),
+    tags: jsonb('tags').$type<string[]>().notNull().default([]),
+    uploadedBy: uuid('uploaded_by').references(() => users.id),
+    syncedAt: ts('synced_at'),
+    trashedAt: ts('trashed_at'),
+    version: integer('version').notNull().default(1),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('drive_files_drive_id_idx').on(t.projectId, t.driveFileId), index('drive_files_folder_idx').on(t.folderId)],
+)
+
+/** ACL folderu: brak wierszy = dziedziczenie; zestaw wierszy = jawne uprawnienia (brakujący podmiot = brak dostępu). */
+export const folderAcl = pgTable(
+  'folder_acl',
+  {
+    folderId: uuid('folder_id').notNull().references(() => driveFolders.id),
+    /** `role:<Rola>` lub `party:Subcontractor:<id>`. */
+    subject: text('subject').notNull(),
+    level: aclLevelEnum('level').notNull(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+    updatedBy: uuid('updated_by'),
+  },
+  (t) => [primaryKey({ columns: [t.folderId, t.subject] })],
+)
+
+export const pendingUploads = pgTable('pending_uploads', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  userId: uuid('user_id').notNull().references(() => users.id),
+  folderId: uuid('folder_id').notNull().references(() => driveFolders.id),
+  name: text('name').notNull(),
+  size: bigint('size', { mode: 'number' }).notNull(),
+  mimeType: text('mime_type').notNull(),
+  sessionUriHash: text('session_uri_hash').notNull(),
+  link: jsonb('link').$type<{ targetType: string; targetId: string } | null>(),
+  completedAt: ts('completed_at'),
+  expiresAt: ts('expires_at').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+})
+
+export const driveSyncState = pgTable('drive_sync_state', {
+  projectId: uuid('project_id').primaryKey().references(() => projects.id),
+  pageToken: text('page_token'),
+  lastRunAt: ts('last_run_at'),
+  lastError: text('last_error'),
+})
+
+export const recordLinks = pgTable(
+  'record_links',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    fileId: uuid('file_id').notNull().references(() => driveFiles.id),
+    targetType: linkTargetEnum('target_type').notNull(),
+    targetId: uuid('target_id').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    createdBy: uuid('created_by'),
+  },
+  (t) => [uniqueIndex('record_links_uniq_idx').on(t.fileId, t.targetType, t.targetId), index('record_links_target_idx').on(t.targetType, t.targetId)],
+)
+
+/** Spec. 3.4: idempotencja zadań cyklicznych. */
+export const jobRuns = pgTable(
+  'job_runs',
+  {
+    job: text('job').notNull(),
+    runKey: text('run_key').notNull(),
+    status: text('status').notNull(),
+    startedAt: ts('started_at').notNull().defaultNow(),
+    finishedAt: ts('finished_at'),
+    error: text('error'),
+    details: jsonb('details'),
+  },
+  (t) => [primaryKey({ columns: [t.job, t.runKey] })],
 )

@@ -11,10 +11,11 @@ import { useAuth } from '../../auth/AuthProvider'
 import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 import { ApiError } from '../../lib/api'
-import { formatDate, formatDateTime } from '../../lib/format'
+import { formatDateTime } from '../../lib/format'
 import { useHrfTasks, useProjectId } from '../hrf/api'
 import { exportUrl, useAvizationMutations, useEntryPoints, usePersons, useVehicles } from './api'
 import { AVIZ_COLOR } from './colors'
+import { LinkedDocuments } from '../documents/LinkedDocuments'
 
 export interface AvizationPreset {
   dateFrom?: string
@@ -204,7 +205,12 @@ export function AvizationDrawer({ opened, avization: a, preset, onClose }: Props
             )}
           </Group>
         </Group>
-        {a && <Text size="xs" c="dimmed">{formatDate(a.dateFrom)} – {formatDate(a.dateTo)}</Text>}
+        {a && (
+          <>
+            <Divider label={t('documents.linkedDocs')} labelPosition="left" />
+            <LinkedDocuments targetType="avization" targetId={a.id} defaultFolderPath="/10_BHP_i_awizacje" />
+          </>
+        )}
       </Stack>
     </Drawer>
   )

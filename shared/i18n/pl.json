@@ -99,7 +99,8 @@
     "adminSettings": "Ustawienia",
     "presentation": "Tryb prezentacji",
     "hrfSettings": "Dzień „0”",
-    "adminAvizations": "Awizacje"
+    "adminAvizations": "Awizacje",
+    "adminDocuments": "Repozytorium"
   },
   "roles": {
     "Admin": "Administrator",
@@ -225,7 +226,14 @@
     "person_doc_exists": "Osoba z tym numerem dokumentu już istnieje",
     "vehicle_exists": "Pojazd o tym numerze rejestracyjnym już istnieje",
     "people_import_header_missing": "Nie znaleziono nagłówka „Nazwisko i imię, nr dokumentu”",
-    "weekly_item_not_found": "Nie znaleziono pozycji planu tygodniowego"
+    "weekly_item_not_found": "Nie znaleziono pozycji planu tygodniowego",
+    "drive_not_configured": "Repozytorium nie jest połączone z Google Drive",
+    "drive_connection_failed": "Nie udało się połączyć z dyskiem — sprawdź ID i czy konto serwisowe jest członkiem dysku",
+    "folder_access_denied": "Brak uprawnień do tego folderu",
+    "upload_type_not_allowed": "Niedozwolony typ pliku",
+    "upload_verification_failed": "Weryfikacja pliku po wysłaniu nie powiodła się — plik usunięto",
+    "upload_not_found": "Sesja wysyłania wygasła",
+    "template_not_google": "Szablon musi być dokumentem Google"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -233,7 +241,8 @@
     "subcontractorRequired": "Dla roli Podwykonawca wymagany jest identyfikator podwykonawcy",
     "hrfCode": "Kod w formacie 1, 1.2, 2.10",
     "isoWeek": "Tydzień w formacie 2026-W41",
-    "dateRange": "Data końcowa przed początkową"
+    "dateRange": "Data końcowa przed początkową",
+    "fileName": "Nazwa nie może zawierać / ani \\"
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -598,5 +607,95 @@
     "filterAll": "wszystkie",
     "personsShort": "{{count}} os.",
     "vehiclesShort": "{{count}} poj."
+  },
+  "documents": {
+    "title": "Repozytorium dokumentów",
+    "folders": "Foldery",
+    "search": "Szukaj po nazwie, kategorii, tagach…",
+    "noFiles": "Brak plików w tym folderze",
+    "pickFolder": "Wybierz folder",
+    "upload": "Dodaj pliki",
+    "dropHere": "Upuść pliki tutaj lub kliknij „Dodaj pliki” (maks. 200 MB / plik)",
+    "newFolder": "Nowy folder",
+    "folderName": "Nazwa folderu",
+    "fromTemplate": "Nowy z szablonu",
+    "templateName": "Nazwa dokumentu",
+    "template": "Szablon",
+    "noTemplates": "Brak szablonów — dodaj dokumenty Google do folderu 00_Szablony",
+    "name": "Nazwa",
+    "size": "Rozmiar",
+    "modified": "Zmodyfikowano",
+    "category": "Kategoria",
+    "status": {
+      "draft": "roboczy",
+      "review": "do akceptacji",
+      "approved": "zatwierdzony",
+      "obsolete": "nieaktualny"
+    },
+    "statusLabel": "Status",
+    "tags": "Tagi",
+    "uploadedBy": "Dodał",
+    "download": "Pobierz",
+    "downloadAs": "Pobierz jako {{fmt}}",
+    "openInDocs": "Otwórz w Google Docs",
+    "preview": "Podgląd",
+    "previewTooLarge": "Plik jest duży — wyświetlono miniaturę. Pobierz, aby zobaczyć całość.",
+    "noPreview": "Brak podglądu dla tego typu pliku",
+    "versions": "Wersje",
+    "links": "Powiązania",
+    "link": "Podepnij dokument",
+    "unlink": "Odepnij",
+    "trash": "Usuń do kosza",
+    "trashConfirm": "Przenieść plik „{{name}}” do kosza na Dysku Google?",
+    "move": "Przenieś do folderu",
+    "rename": "Zmień nazwę",
+    "readOnly": "tylko odczyt",
+    "uploading": "Wysyłanie…",
+    "uploaded": "Wysłano {{name}}",
+    "linkedDocs": "Dokumenty",
+    "noLinked": "Brak powiązanych dokumentów",
+    "linkTargets": {
+      "hrf_task": "Zadanie HRF",
+      "purchase_item": "Pozycja zakupów",
+      "avization": "Awizacja",
+      "weekly_item": "Pozycja planu tygodniowego"
+    },
+    "notConfigured": "Repozytorium nie jest jeszcze połączone z Google Drive.",
+    "notConfiguredAdmin": "Skonfiguruj połączenie w Administracja → Repozytorium.",
+    "admin": {
+      "title": "Repozytorium — Google Drive",
+      "sharedDriveId": "ID dysku współdzielonego (Shared Drive)",
+      "googleDomain": "Domena kont Google firmy (przycisk „Otwórz w Google Docs”)",
+      "save": "Zapisz i sprawdź połączenie",
+      "connected": "Połączono z dyskiem „{{name}}”",
+      "initialize": "Utwórz / uzupełnij strukturę folderów",
+      "initialized": "Utworzono {{created}} folderów, zindeksowano {{scanned}} plików",
+      "sync": "Synchronizuj teraz",
+      "synced": "Zsynchronizowano {{count}} zmian",
+      "credentials": "Konto serwisowe",
+      "credentialsMissing": "Brak zmiennych GOOGLE_SA_EMAIL / GOOGLE_SA_PRIVATE_KEY w Netlify",
+      "credentialsOk": "skonfigurowane",
+      "lastSync": "Ostatnia synchronizacja",
+      "stats": "{{folders}} folderów · {{files}} plików",
+      "acl": "Uprawnienia folderów",
+      "inherit": "dziedziczy",
+      "explicit": "jawne",
+      "editAcl": "Uprawnienia: {{path}}",
+      "inheritToggle": "Dziedzicz z folderu nadrzędnego",
+      "subject": "Podmiot",
+      "addSubcontractor": "Dodaj podwykonawcę (ID firmy)"
+    },
+    "acl": {
+      "none": "brak",
+      "read": "odczyt",
+      "write": "zapis",
+      "manage": "zarządzanie"
+    },
+    "subjects": {
+      "EnvcheckInternal": "Envcheck",
+      "Arsanit": "Arsanit",
+      "Client": "Zamawiający",
+      "Subcontractor": "Podwykonawcy (wszyscy)"
+    }
   }
 }

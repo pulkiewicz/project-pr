@@ -12,6 +12,7 @@ import type { Database } from '../db/client.ts'
 import * as schema from '../db/schema.ts'
 import { encryptField, parseKeyring } from '../lib/field-crypto.ts'
 import { newTotpSecret } from '../auth/totp.ts'
+import { FakeDrive } from '../integrations/drive/fake.ts'
 
 export const MIGRATIONS_DIR = new URL('../../netlify/database/migrations', import.meta.url).pathname
 
@@ -38,6 +39,7 @@ export interface Harness {
   deps: AppDeps
   app: ReturnType<typeof createApp>
   identityAdmin: FakeIdentityAdmin
+  drive: FakeDrive
   clock: { now: Date }
   stop(): Promise<void>
 }
@@ -51,10 +53,12 @@ export async function startHarness(): Promise<Harness> {
   const db = drizzle({ schema }) as unknown as Database
   const identityAdmin = new FakeIdentityAdmin()
   const clock = { now: new Date() }
+  const drive = new FakeDrive()
   const deps: AppDeps = {
     db,
     identity: fakeIdentity,
     identityAdmin,
+    drive,
     config: {
       mfaSecret: randomBytes(32),
       keyring: parseKeyring(`k1:${randomBytes(32).toString('base64')}`),
@@ -71,6 +75,7 @@ export async function startHarness(): Promise<Harness> {
     deps,
     app,
     identityAdmin,
+    drive,
     clock,
     async stop() {
       const client = (db as unknown as { $client: { end?: () => Promise<void> } }).$client

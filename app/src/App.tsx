@@ -19,6 +19,8 @@ import { UsersPage } from './pages/admin/UsersPage'
 const HrfPage = lazy(() => import('./features/hrf/HrfPage').then((m) => ({ default: m.HrfPage })))
 const WeeklyPlanPage = lazy(() => import('./features/weekly/WeeklyPlanPage').then((m) => ({ default: m.WeeklyPlanPage })))
 const AvizationsPage = lazy(() => import('./features/avizations/AvizationsPage').then((m) => ({ default: m.AvizationsPage })))
+const DocumentsPage = lazy(() => import('./features/documents/DocumentsPage').then((m) => ({ default: m.DocumentsPage })))
+const DocumentsAdminPage = lazy(() => import('./pages/admin/DocumentsAdminPage').then((m) => ({ default: m.DocumentsAdminPage })))
 const PurchasesPage = lazy(() => import('./features/purchases/PurchasesPage').then((m) => ({ default: m.PurchasesPage })))
 
 /** Ukrywa trasę w UI; właściwa autoryzacja zawsze po stronie API. */
@@ -67,6 +69,8 @@ export function App() {
         <Route path="/hrf" element={<Guard module="hrf"><Suspense fallback={<Loader />}><HrfPage /></Suspense></Guard>} />
         <Route path="/plan-tygodniowy" element={<Guard module="weeklyPlan"><Suspense fallback={<Loader />}><WeeklyPlanPage /></Suspense></Guard>} />
         <Route path="/awizacje" element={<Guard module="avizations"><Suspense fallback={<Loader />}><AvizationsPage /></Suspense></Guard>} />
+        <Route path="/dokumenty" element={<Guard module="documents"><Suspense fallback={<Loader />}><DocumentsPage /></Suspense></Guard>} />
+        <Route path="/admin/repozytorium" element={<Guard module="admin"><Suspense fallback={<Loader />}><DocumentsAdminPage /></Suspense></Guard>} />
         <Route path="/zakupy" element={<Guard module="purchases"><Suspense fallback={<Loader />}><PurchasesPage /></Suspense></Guard>} />
         {NAV.filter((n) => !n.ready).map((n) => (
           <Route

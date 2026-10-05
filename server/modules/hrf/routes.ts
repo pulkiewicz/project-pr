@@ -22,6 +22,9 @@ import type { AppEnv } from '../../context.ts'
 import { hrfBaselineTasks, hrfBaselines, hrfDependencies, hrfImportProfiles, hrfTasks, projects } from '../../db/schema.ts'
 import { plannedDates, todayWarsaw } from '../../lib/dates.ts'
 import { hrfToXlsx } from './export.ts'
+import { inBackground } from '../../lib/background.ts'
+import { archiveToDrive } from '../documents/service.ts'
+import { AUTO_FOLDERS } from '../documents/structure.ts'
 import { HttpProblem, conflict, forbidden, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
 import { diffFields, writeAudit } from '../audit/service.ts'
@@ -258,7 +261,7 @@ async function readUpload(c: Context<AppEnv>) {
     if (!parsed.success) throw new HttpProblem(422, 'validation_failed', undefined, { issues: parsed.error.issues })
     mapping = parsed.data
   }
-  return { wb, mapping, fileName: file.name, sha256: createHash('sha256').update(new Uint8Array(buf)).digest('hex') }
+  return { wb, mapping, fileName: file.name, buf, sha256: createHash('sha256').update(new Uint8Array(buf)).digest('hex') }
 }
 
 async function previewFor(c: Context<AppEnv>, projectId: string, mapping: ImportMapping, wb: Awaited<ReturnType<typeof loadWorkbook>>) {
@@ -305,7 +308,7 @@ hrfRouter.openapi(
   route({ method: 'post', path: `${BASE}/import/commit`, request: { params: projectParam, body: multipart }, responses: ok }, { module: 'hrf', action: 'approve' }),
   async (c) => {
     const { projectId } = c.req.valid('param')
-    const { wb, mapping, fileName, sha256 } = await readUpload(c)
+    const { wb, mapping, fileName, sha256, buf } = await readUpload(c)
     if (!mapping) throw new HttpProblem(422, 'import_mapping_missing')
     const { parsed, preview } = await previewFor(c, projectId, mapping, wb)
     if (!preview.canCommit) throw new HttpProblem(422, 'import_has_errors', undefined, { issues: preview.issues.filter((i) => i.severity === 'error') })
@@ -323,6 +326,14 @@ hrfRouter.openapi(
       }, tx)
       return r
     })
+    // Archiwum rewizji HRF w repozytorium (M7) — w tle, best-effort.
+    await inBackground(c, () =>
+      archiveToDrive(deps.db, deps.drive, projectId, AUTO_FOLDERS.hrfRevisions, {
+        name: `${todayWarsaw(deps.now?.())}_${fileName}`,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        data: new Uint8Array(buf),
+      }),
+    )
     return c.json({ ...result, diff: preview.diff, warnings: preview.issues.filter((i) => i.severity === 'warning') }, 200)
   },
 )

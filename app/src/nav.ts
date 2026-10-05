@@ -22,7 +22,7 @@ export const NAV: NavItem[] = [
   { module: 'risks', path: '/ryzyka', stage: 'E5', ready: false },
   { module: 'letters', path: '/korespondencja', stage: 'E5', ready: false },
   { module: 'meetings', path: '/spotkania', stage: 'E5', ready: false },
-  { module: 'documents', path: '/dokumenty', stage: 'E2', ready: false },
+  { module: 'documents', path: '/dokumenty', stage: 'E2', ready: true },
   { module: 'weeklyReport', path: '/raport-tygodniowy', stage: 'E7', ready: false },
   // [W]
   { module: 'weeklyReportInternal', path: '/raport-tygodniowy-w', stage: 'E7', ready: false },
