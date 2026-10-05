@@ -138,6 +138,7 @@ export function TaskTable({ tasks, showInternal, onOpen }: Props) {
     data,
     localization: MRT_Localization_PL,
     layoutMode: 'grid',
+    enableColumnActions: false,
     enableExpanding: true,
     enableExpandAll: true,
     getSubRows: (r) => r.subRows,

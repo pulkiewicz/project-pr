@@ -1,5 +1,27 @@
 # Changelog
 
+## E3 (część 1) — Plan tygodniowy + Plan zakupów (05.10.2026)
+
+**M3 Plan tygodniowy**
+- Widok tygodnia ISO z nawigacją ← → (np. „2026-W41, 05.10–11.10”). Zadania HRF aktywne w tygodniu pokazują się automatycznie (dla ról z dostępem do HRF) i można z nich utworzyć pozycję jednym kliknięciem.
+- Pozycje: tytuł, opis, zadanie HRF, strona, wykonawca, dni pon–niedz, status (plan, w toku, wykonane, przesunięte, anulowane).
+- „Zamknij tydzień”: wybrane niewykonane pozycje przechodzą na następny tydzień z oznaczeniem pochodzenia. Oryginał dostaje status „przesunięte” i liczy się w statystykach.
+- Macierz 8 tygodni: wiersze to zadania HRF i strony, kolumny to tygodnie (aktywność HRF i liczba pozycji wykonanych/wszystkich).
+- Podwykonawca widzi tylko pozycje przypisane do swojej firmy. Na telefonie pozycje mają widok kart.
+- Eksport tygodnia lub 8 tygodni do XLSX.
+
+**M4 Plan zakupów i komponenty krytyczne**
+- Pozycje bez pól cenowych. Data potrzeby to start zadania HRF minus bufor w dniach roboczych (domyślnie 5, z polskimi świętami). „Zamówić do” to data potrzeby minus lead time. Obie daty liczą się na bieżąco z HRF.
+- Alerty: termin zamówienia za 14 dni lub mniej (żółty) albo już minął (czerwony); dostawa po dacie potrzeby, z liczbą dni i zadaniem HRF (czerwony; ścieżka krytyczna w treści na dashboardzie); brak potwierdzenia terminu 7 dni po zamówieniu (żółty).
+- Lista z filtrami, oś czasu komponentów krytycznych, eksport XLSX.
+- Alerty zakupów na dashboardzie widzą tylko role z dostępem do modułu (Zamawiający nie).
+
+**Dashboard:** „Moje zadania” obejmują też pozycje planu tygodniowego z bieżącego tygodnia.
+
+**Testy:** 399 (Vitest), w tym macierz ról dla 12 nowych endpointów.
+
+**Build:** zależności starsze niż 10 dni (`npm run deps:check-age`, również w CI), bo build Netlify nie widzi świeżych wydań npm.
+
 ## E1 — HRF + Dashboard (05.10.2026)
 
 **HRF (M2)**

@@ -1,7 +1,7 @@
 import { Alert, Badge, Box, Card, Group, Loader, Progress, ScrollArea, SimpleGrid, Stack, Text, Title, Tooltip } from '@mantine/core'
 import { IconAlertTriangle, IconDiamond } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
-import type { DashboardResponse } from '#shared'
+import type { DashboardResponse, HrfStatus } from '#shared'
 import { useDashboard } from '../features/hrf/api'
 import { STATUS_COLOR, StatusBadge } from '../features/hrf/StatusBadge'
 import { formatDate } from '../lib/format'
@@ -191,7 +191,13 @@ export function DashboardPage() {
                     <Text size="xs" c="dimmed">
                       {formatDate(m.plannedEnd)}
                     </Text>
-                    <StatusBadge status={m.status} />
+                    {m.source === 'weekly' ? (
+                      <Badge size="sm" variant="light" color="navy">
+                        {t(`weekly.status.${m.status}`)}
+                      </Badge>
+                    ) : (
+                      <StatusBadge status={m.status as HrfStatus} />
+                    )}
                   </Group>
                 </Group>
               ))}

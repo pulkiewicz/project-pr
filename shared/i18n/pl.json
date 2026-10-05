@@ -208,13 +208,18 @@
     "import_file_invalid": "Nie udało się odczytać pliku XLSX",
     "day_zero_not_set": "Najpierw ustaw dzień „0”",
     "actual_end_before_start": "Koniec rzeczywisty przed startem",
-    "identity_invite_failed": "Netlify Identity odrzuciło zaproszenie. Sprawdź, czy Identity jest włączone (Invite only), lub zaproś użytkownika w panelu Netlify (Identity → Invite users) — konto powiąże się po e-mailu przy pierwszym logowaniu."
+    "identity_invite_failed": "Netlify Identity odrzuciło zaproszenie. Sprawdź, czy Identity jest włączone (Invite only), lub zaproś użytkownika w panelu Netlify (Identity → Invite users) — konto powiąże się po e-mailu przy pierwszym logowaniu.",
+    "party_not_allowed": "Nie możesz tworzyć rekordów dla tej strony",
+    "not_own_record": "Możesz edytować tylko rekordy swojej strony lub przypisane do Ciebie",
+    "hrf_task_not_found": "Nie znaleziono zadania HRF",
+    "weekly_items_not_open_or_not_own": "Część pozycji nie jest otwarta lub nie należy do Ciebie"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
     "recoveryCode": "Format: XXXXX-XXXXX",
     "subcontractorRequired": "Dla roli Podwykonawca wymagany jest identyfikator podwykonawcy",
-    "hrfCode": "Kod w formacie 1, 1.2, 2.10"
+    "hrfCode": "Kod w formacie 1, 1.2, 2.10",
+    "isoWeek": "Tydzień w formacie 2026-W41"
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -333,5 +338,120 @@
       "row": "Wiersz"
     },
     "structure": "Struktura harmonogramu"
+  },
+  "weekly": {
+    "title": "Plan tygodniowy",
+    "status": {
+      "plan": "plan",
+      "in_progress": "w toku",
+      "done": "wykonane",
+      "moved": "przesunięte",
+      "cancelled": "anulowane"
+    },
+    "days": [
+      "Pn",
+      "Wt",
+      "Śr",
+      "Cz",
+      "Pt",
+      "So",
+      "Nd"
+    ],
+    "tabs": {
+      "week": "Tydzień",
+      "matrix": "8 tygodni"
+    },
+    "prev": "Poprzedni tydzień",
+    "next": "Następny tydzień",
+    "today": "Bieżący tydzień",
+    "hrfActive": "Zadania HRF aktywne w tygodniu",
+    "items": "Pozycje tygodnia",
+    "noItems": "Brak pozycji w tym tygodniu",
+    "noHrf": "Brak aktywnych zadań HRF",
+    "add": "Dodaj pozycję",
+    "edit": "Edytuj pozycję",
+    "itemTitle": "Pozycja",
+    "description": "Opis",
+    "hrfTask": "Zadanie HRF",
+    "assignee": "Wykonawca",
+    "plannedDays": "Dni",
+    "close": "Zamknij tydzień",
+    "closeHint": "Zaznaczone niewykonane pozycje zostaną przeniesione na {{week}} (oryginał dostanie status „przesunięte”).",
+    "closeNone": "Brak niewykonanych pozycji do przeniesienia.",
+    "closed": "Przeniesiono {{count}} pozycji na {{week}}",
+    "carriedFrom": "z {{week}}",
+    "stats": "Wykonane {{done}} z {{total}} · przesunięte {{moved}} · przeniesione z poprz. {{carriedIn}}",
+    "matrixHint": "● zadanie HRF aktywne w tygodniu · liczba = pozycje (wykonane/wszystkie)",
+    "fromHrf": "Z zadania HRF",
+    "exportWeek": "Eksport tygodnia (XLSX)",
+    "exportMatrix": "Eksport 8 tygodni (XLSX)"
+  },
+  "purchases": {
+    "title": "Plan zakupów i komponenty krytyczne",
+    "status": {
+      "to_inquire": "do zapytania",
+      "inquiry_sent": "zapytanie wysłane",
+      "offer": "oferta",
+      "ordered": "zamówione",
+      "confirmed": "potwierdzone",
+      "in_transit": "w transporcie",
+      "delivered": "dostarczone",
+      "quality_accepted": "odebrane jakościowo",
+      "complaint": "reklamacja"
+    },
+    "alert": {
+      "order_due_soon": "zamówić w ciągu {{count}} dni",
+      "order_overdue": "termin zamówienia minął {{count}} dni temu",
+      "delivery_after_need": "dostawa {{count}} dni po dacie potrzeby",
+      "no_confirmation": "brak potwierdzenia terminu od {{count}} dni po zamówieniu"
+    },
+    "tabs": {
+      "list": "Lista",
+      "critical": "Krytyczne — oś czasu"
+    },
+    "add": "Dodaj komponent",
+    "edit": "Edytuj komponent",
+    "name": "Komponent",
+    "category": "Kategoria",
+    "manufacturer": "Producent",
+    "partNo": "Nr katalogowy",
+    "quantity": "Ilość",
+    "unit": "J.m.",
+    "supplierName": "Dostawca",
+    "supplierContact": "Kontakt do dostawcy",
+    "party": "Kupuje",
+    "hrfTask": "Zadanie HRF (potrzebne do)",
+    "bufferDays": "Bufor (dni robocze)",
+    "bufferDefault": "domyślnie {{count}}",
+    "leadTime": "Lead time (tygodnie)",
+    "inquiryDate": "Data zapytania",
+    "orderDatePlanned": "Planowana data zamówienia",
+    "orderDateActual": "Data zamówienia",
+    "orderRef": "Nr zamówienia",
+    "confirmedDelivery": "Potwierdzona dostawa",
+    "actualDelivery": "Dostawa rzeczywista",
+    "statusLabel": "Status",
+    "isCritical": "Komponent krytyczny",
+    "deliveryLocation": "Miejsce dostawy",
+    "requiresAvization": "Wymaga awizacji",
+    "notes": "Uwagi",
+    "needDate": "Data potrzeby",
+    "orderBy": "Zamówić do",
+    "alerts": "Alerty",
+    "onlyAlerts": "Tylko z alertami",
+    "onlyCritical": "Tylko krytyczne",
+    "noItems": "Brak pozycji w planie zakupów",
+    "export": "Eksport XLSX",
+    "timelineHint": "▲ zamówić do · ● data potrzeby · ■ potwierdzona dostawa",
+    "noTask": "bez zadania HRF — data potrzeby nieznana",
+    "noPrices": "Plan zakupów nie zawiera cen ani kosztów.",
+    "col": {
+      "party": "Kupuje",
+      "leadTime": "Lead (tyg.)",
+      "orderBy": "Zamówić do",
+      "needDate": "Potrzebne",
+      "confirmed": "Dostawa",
+      "status": "Status"
+    }
   }
 }

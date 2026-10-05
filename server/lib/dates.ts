@@ -68,3 +68,14 @@ export function workingDaysBetween(from: string, to: string): number {
   for (let d = addDays(from, 1); d <= to; d = addDays(d, 1)) if (isWorkingDay(d)) n++
   return n
 }
+
+/** Data `n` dni roboczych przed `d` (weekendy i święta PL pomijane). */
+export function subtractWorkingDays(d: string, n: number): string {
+  let cur = d
+  let left = n
+  while (left > 0) {
+    cur = addDays(cur, -1)
+    if (isWorkingDay(cur)) left--
+  }
+  return cur
+}

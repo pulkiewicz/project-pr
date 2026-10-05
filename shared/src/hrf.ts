@@ -198,6 +198,6 @@ export interface DashboardResponse {
   milestones: { id: string; code: string; name: string; date: string; isAcceptancePoint: boolean }[]
   alerts: { severity: 'yellow' | 'red'; module: string; message: string; entityId?: string }[]
   miniGantt: { from: string; to: string; tasks: { id: string; code: string; name: string; start: string; end: string; percent: number; status: HrfStatus; critical: boolean }[] }
-  myTasks: { id: string; code: string; name: string; plannedEnd: string | null; status: HrfStatus; source: 'hrf' }[]
+  myTasks: { id: string; code: string; name: string; plannedEnd: string | null; status: string; source: 'hrf' | 'weekly' }[]
   dayZeroSet: boolean
 }

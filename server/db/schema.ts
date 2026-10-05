@@ -11,12 +11,13 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { DEPENDENCY_TYPES, HRF_STATUSES, ROLES, type ImportMapping } from '#shared'
+import { DEPENDENCY_TYPES, HRF_STATUSES, PURCHASE_STATUSES, ROLES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -208,3 +209,66 @@ export const hrfImportProfiles = pgTable('hrf_import_profiles', {
   columnMapping: jsonb('column_mapping').$type<ImportMapping>().notNull(),
   ...auditColumns,
 })
+
+// ---------------- E3: Plan tygodniowy (M3) ----------------
+export const weeklyStatusEnum = pgEnum('weekly_status', WEEKLY_STATUSES)
+
+export const weeklyItems = pgTable(
+  'weekly_items',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    isoWeek: text('iso_week').notNull(),
+    hrfTaskId: uuid('hrf_task_id').references(() => hrfTasks.id),
+    title: text('title').notNull(),
+    description: text('description'),
+    party: text('party').notNull(),
+    assigneeUserId: uuid('assignee_user_id').references(() => users.id),
+    /** Tabela podwykonawców dochodzi w E4 — wtedy FK. */
+    assigneeSubcontractorId: uuid('assignee_subcontractor_id'),
+    /** Maska dni (bit 0 = poniedziałek). */
+    plannedDays: smallint('planned_days').notNull().default(0),
+    status: weeklyStatusEnum('status').notNull().default('plan'),
+    carryOverFromId: uuid('carry_over_from_id'),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [index('weekly_items_week_idx').on(t.projectId, t.isoWeek), index('weekly_items_assignee_idx').on(t.assigneeUserId)],
+)
+
+// ---------------- E3: Plan zakupów (M4) — bez pól cenowych ----------------
+export const purchaseStatusEnum = pgEnum('purchase_status', PURCHASE_STATUSES)
+
+export const purchaseItems = pgTable(
+  'purchase_items',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    name: text('name').notNull(),
+    category: text('category'),
+    manufacturer: text('manufacturer'),
+    partNo: text('part_no'),
+    quantity: numeric('quantity', { precision: 14, scale: 3, mode: 'number' }),
+    unit: text('unit'),
+    supplierName: text('supplier_name'),
+    supplierContact: text('supplier_contact'),
+    party: text('party').notNull(),
+    hrfTaskId: uuid('hrf_task_id').references(() => hrfTasks.id),
+    bufferDays: integer('buffer_days'),
+    leadTimeWeeks: numeric('lead_time_weeks', { precision: 6, scale: 1, mode: 'number' }),
+    inquiryDate: date('inquiry_date', { mode: 'string' }),
+    orderDatePlanned: date('order_date_planned', { mode: 'string' }),
+    orderDateActual: date('order_date_actual', { mode: 'string' }),
+    orderRef: text('order_ref'),
+    confirmedDeliveryDate: date('confirmed_delivery_date', { mode: 'string' }),
+    actualDeliveryDate: date('actual_delivery_date', { mode: 'string' }),
+    status: purchaseStatusEnum('status').notNull().default('to_inquire'),
+    isCritical: boolean('is_critical').notNull().default(false),
+    deliveryLocation: text('delivery_location'),
+    requiresAvization: boolean('requires_avization').notNull().default(false),
+    notes: text('notes'),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [index('purchase_items_project_idx').on(t.projectId), index('purchase_items_task_idx').on(t.hrfTaskId)],
+)
