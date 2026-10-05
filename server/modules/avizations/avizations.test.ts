@@ -24,7 +24,10 @@ beforeAll(async () => {
 })
 afterAll(() => h.stop())
 
-const post = <T>(user: TestUser, path: string, body: object) => req(h, 'POST', `${P}${path}`, user.headers, body).then(async (r) => ({ status: r.status, body: (await r.json()) as T }))
+const post = async <T>(user: TestUser, path: string, body: object) => {
+  const r = await req(h, 'POST', `${P}${path}`, user.headers, body)
+  return { status: r.status, body: (await r.json()) as T }
+}
 const transition = (user: TestUser, a: AvizationDto, body: object) => post<AvizationDto>(user, `/avizations/${a.id}/transition`, { version: a.version, ...body })
 
 describe('M5 słowniki — szyfrowanie i maskowanie', () => {
