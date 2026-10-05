@@ -1,8 +1,8 @@
 # Raport z etapu E3 (część 1: M3 + M4)
 
-Stan: M3 (Plan tygodniowy) i M4 (Plan zakupów) gotowe. **M5 Awizacje wstrzymane.**
+Stan: M3, M4 i M5 gotowe (E3 zakończony).
 
-## M5 wstrzymane: region bazy danych
+## Region bazy danych (M5)
 
 Produkcyjna baza Netlify Database działa w regionie **us-east-2 (USA, Ohio)**: tak wynika z nazwy hosta zwracanej przez `netlify database status`. Awizacje przechowują dane osobowe (imiona, nazwiska, numery dokumentów, numery rejestracyjne). Specyfikacja (sekcja 3.3) wymaga ich przechowywania w UE, a jeśli to niemożliwe, zgłoszenia sprawy Adminowi przed E3. Zgłosiłem to 05.10.2026; Admin zdecydował: M3 i M4 teraz, M5 po decyzji w sprawie regionu.
 
@@ -28,3 +28,17 @@ Możliwe drogi:
 
 - Decyzja w sprawie regionu bazy, potem M5 Awizacje z szyfrowaniem pól.
 - Pytanie 3 ze specyfikacji (przed M5): format listy awizacyjnej wymaganej przez ochronę PIT-RADWAR (kolumny, wyprzedzenie zgłoszenia, adresaci).
+
+## Decyzje Admina dla M5 (05.10.2026)
+
+1. **Region USA (us-east-2) zaakceptowany** decyzją Administratora. Numery dokumentów i rejestracje są szyfrowane w aplikacji; klucz jest wyłącznie w zmiennej środowiskowej Netlify.
+2. **Minimalne wyprzedzenie zgłoszenia: 1 dzień roboczy.** Krótsze zgłoszenie daje ostrzeżenie, nie blokadę. Wartość można zmienić w Ustawieniach.
+3. **Format listy dla ochrony:** Lp | Nazwisko i imię, nr dokumentu | Marka i nr rejestracyjny auta | Firma (wg wzoru Admina). Domyślny szablon wpisuje „Imię Nazwisko, nr dokumentu”, tak jak w obecnych listach; kolejność „Nazwisko Imię” jest dostępna w ustawieniach szablonu.
+4. **Wysyłka e-mail do ochrony** w E7. Do tego czasu Admin pobiera PDF lub XLSX i wysyła sam.
+
+## Założenia M5 do potwierdzenia
+
+1. **Pełny numer dokumentu** (odsłonięcie, eksport) jest dostępny dla ról z uprawnieniem `avizations:export` (Admin, Envcheck, Arsanit, Zamawiający, podwykonawca dla własnych wpisów). Każdy odczyt trafia do audit logu.
+2. **Numery rejestracyjne na listach** są pełne (potrzebne do identyfikacji pojazdów); każde pobranie listy pojazdów trafia do audit logu.
+3. **Edycja słowników i awizacji:** Envcheck edytuje wpisy Envcheck/Konsorcjum, Arsanit wpisy Arsanit/Konsorcjum, podwykonawca tylko własne. Akceptuje Zamawiający (lub Admin w jego imieniu, także „poza systemem”).
+4. **Ostrzeżenie BHP** (osoba bez ważnego szkolenia lub uprawnień) dojdzie z modułem compliance M6 w E4.

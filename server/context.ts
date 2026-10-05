@@ -7,6 +7,8 @@ import type { Keyring } from './lib/field-crypto.ts'
 export interface AppConfig {
   mfaSecret: Uint8Array
   keyring: Keyring
+  /** Klucz HMAC-SHA256 do wyszukiwania po polach szyfrowanych (FIELD_HMAC_KEY). */
+  hmacKey: Buffer
   /** E-mail pierwszego Admina — tworzony przy pierwszym logowaniu, jeśli w bazie nie ma żadnego Admina. */
   bootstrapAdminEmail?: string
   secureCookies: boolean

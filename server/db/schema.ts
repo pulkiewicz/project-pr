@@ -17,7 +17,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { DEPENDENCY_TYPES, HRF_STATUSES, PURCHASE_STATUSES, ROLES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
+import { AVIZATION_STATUSES, DEPENDENCY_TYPES, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -271,4 +271,109 @@ export const purchaseItems = pgTable(
     ...auditColumns,
   },
   (t) => [index('purchase_items_project_idx').on(t.projectId), index('purchase_items_task_idx').on(t.hrfTaskId)],
+)
+
+// ---------------- E3: Awizacje (M5) — dane osobowe ----------------
+export const idDocTypeEnum = pgEnum('id_doc_type', ID_DOC_TYPES)
+export const vehicleTypeEnum = pgEnum('vehicle_type', VEHICLE_TYPES)
+export const avizationStatusEnum = pgEnum('avization_status', AVIZATION_STATUSES)
+
+export const persons = pgTable(
+  'persons',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    firstName: text('first_name').notNull(),
+    lastName: text('last_name').notNull(),
+    idDocType: idDocTypeEnum('id_doc_type').notNull(),
+    /** AES-256-GCM (osobny IV), format `<keyId>.<iv>.<tag>.<ct>`. */
+    idDocNumberEnc: text('id_doc_number_enc').notNull(),
+    idDocKeyId: text('id_doc_key_id').notNull(),
+    /** HMAC-SHA256 znormalizowanego numeru — wykrywanie duplikatów bez odszyfrowania. */
+    idDocNumberHmac: text('id_doc_number_hmac').notNull(),
+    company: text('company').notNull(),
+    subcontractorId: uuid('subcontractor_id'),
+    phone: text('phone'),
+    roleOnSite: text('role_on_site'),
+    notes: text('notes'),
+    party: text('party').notNull(),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [
+    index('persons_project_idx').on(t.projectId),
+    uniqueIndex('persons_doc_hmac_idx').on(t.projectId, t.idDocNumberHmac).where(sql`${t.deletedAt} IS NULL`),
+  ],
+)
+
+export const vehicles = pgTable(
+  'vehicles',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    registrationNumberEnc: text('registration_number_enc').notNull(),
+    registrationNumberHmac: text('registration_number_hmac').notNull(),
+    keyId: text('key_id').notNull(),
+    makeModel: text('make_model'),
+    vehicleType: vehicleTypeEnum('vehicle_type').notNull().default('car'),
+    company: text('company').notNull(),
+    defaultDriverId: uuid('default_driver_id').references(() => persons.id),
+    party: text('party').notNull(),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [uniqueIndex('vehicles_reg_hmac_idx').on(t.projectId, t.registrationNumberHmac).where(sql`${t.deletedAt} IS NULL`)],
+)
+
+export const entryPoints = pgTable('entry_points', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  name: text('name').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  ...auditColumns,
+})
+
+export const avizations = pgTable(
+  'avizations',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    number: text('number').notNull(),
+    dateFrom: date('date_from', { mode: 'string' }).notNull(),
+    dateTo: date('date_to', { mode: 'string' }).notNull(),
+    entryPointId: uuid('entry_point_id').references(() => entryPoints.id),
+    purpose: text('purpose').notNull(),
+    hrfTaskId: uuid('hrf_task_id').references(() => hrfTasks.id),
+    weeklyItemId: uuid('weekly_item_id').references(() => weeklyItems.id),
+    status: avizationStatusEnum('status').notNull().default('draft'),
+    party: text('party').notNull(),
+    requestedBy: uuid('requested_by').references(() => users.id),
+    sentAt: ts('sent_at'),
+    decidedBy: uuid('decided_by').references(() => users.id),
+    decidedAt: ts('decided_at'),
+    rejectionReason: text('rejection_reason'),
+    externalRef: text('external_ref'),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [uniqueIndex('avizations_number_idx').on(t.projectId, t.number), index('avizations_dates_idx').on(t.projectId, t.dateFrom, t.dateTo)],
+)
+
+export const avizationPersons = pgTable(
+  'avization_persons',
+  {
+    avizationId: uuid('avization_id').notNull().references(() => avizations.id),
+    personId: uuid('person_id').notNull().references(() => persons.id),
+  },
+  (t) => [primaryKey({ columns: [t.avizationId, t.personId] }), index('avization_persons_person_idx').on(t.personId)],
+)
+
+export const avizationVehicles = pgTable(
+  'avization_vehicles',
+  {
+    avizationId: uuid('avization_id').notNull().references(() => avizations.id),
+    vehicleId: uuid('vehicle_id').notNull().references(() => vehicles.id),
+    driverPersonId: uuid('driver_person_id').references(() => persons.id),
+  },
+  (t) => [primaryKey({ columns: [t.avizationId, t.vehicleId] })],
 )

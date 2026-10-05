@@ -25,6 +25,7 @@ export function runtimeDeps(): AppDeps {
     config: {
       mfaSecret: new TextEncoder().encode(requireEnv('MFA_JWT_SECRET')),
       keyring: parseKeyring(requireEnv('FIELD_ENCRYPTION_KEY')),
+      hmacKey: Buffer.from(requireEnv('FIELD_HMAC_KEY'), 'base64'),
       bootstrapAdminEmail: env('BOOTSTRAP_ADMIN_EMAIL'),
       secureCookies: env('NETLIFY_DEV') !== 'true',
     },

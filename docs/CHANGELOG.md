@@ -1,5 +1,17 @@
 # Changelog
 
+## E3 (część 2) — Awizacje osób i pojazdów (05.10.2026)
+
+- **Słowniki osób i pojazdów.** Numer dokumentu i numer rejestracyjny są szyfrowane AES-256-GCM (osobny IV na rekord, `key_id` pod rotację). Duplikaty i wyszukiwanie po rejestracji działają przez HMAC-SHA256 bez odszyfrowania. Na listach numery dokumentów są zamaskowane (np. `ABC •••456`); pełny numer pokazuje osobna akcja z wpisem w audit logu.
+- **Import listy osób i pojazdów** z XLSX w formacie listy ochrony: rozpoznaje nazwisko i imię, numer i rodzaj dokumentu oraz pojazd z kierowcą. Podgląd pozwala zamienić imię z nazwiskiem; duplikaty są pomijane.
+- **Awizacje:** numer AW/rrrr/nnn, termin, brama, cel, zadanie HRF, osoby, pojazdy z kierowcą. Przepływ szkic → wysłana → zaakceptowana albo odrzucona (z powodem) → anulowana. Admin może zarejestrować akceptację udzieloną poza systemem (z referencją). Zamawiający nie widzi szkiców; podwykonawca widzi tylko własne wpisy.
+- **Walidacje:** ta sama osoba nie może mieć dwóch nakładających się awizacji (409 z listą kolizji). Krótsze wyprzedzenie niż ustawione (domyślnie 1 dzień roboczy) daje ostrzeżenie, nie blokadę.
+- **„Kto jest dziś na obiekcie”:** osoby i pojazdy z zaakceptowanych awizacji na wybrany dzień.
+- **Eksport listy dla ochrony** (PDF A4 i XLSX) w formacie PIT-RADWAR: Lp | Nazwisko i imię, nr dokumentu | Marka i nr rejestracyjny auta | Firma; pojazd przy kierowcy, wiersze do 20. Eksport jest możliwy dla pojedynczej awizacji albo dla całego dnia. Każdy eksport trafia do audit logu. Szablon (kolumny, nagłówki, szerokości) edytuje się w ustawieniach.
+- **Ustawienia (Admin):** minimalne wyprzedzenie, bramy wjazdowe, szablon listy.
+- **Plan tygodniowy:** z pozycji można utworzyć szkic awizacji (dni, cel i zadanie HRF uzupełniają się same).
+- **Testy:** 562 (Vitest), w tym brak jawnych numerów w bazie, maskowanie, audit odczytów i eksportów, widoczność dla Zamawiającego i podwykonawcy.
+
 ## E3 (część 1) — Plan tygodniowy + Plan zakupów (05.10.2026)
 
 **M3 Plan tygodniowy**

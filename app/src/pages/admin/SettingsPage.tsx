@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Role } from '#shared'
 import { api } from '../../lib/api'
+import { AvizationSettingsCard } from '../../features/avizations/AvizationSettingsCard'
 import { errorMessage } from '../../lib/errors'
 
 export function SettingsPage() {
@@ -42,6 +43,7 @@ export function SettingsPage() {
           </Group>
         </Stack>
       </Card>
+      <AvizationSettingsCard />
     </Stack>
   )
 }

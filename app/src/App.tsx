@@ -18,6 +18,7 @@ import { UsersPage } from './pages/admin/UsersPage'
 // Moduł HRF (frappe-gantt, mantine-react-table) ładowany na żądanie — mniejszy bundle startowy.
 const HrfPage = lazy(() => import('./features/hrf/HrfPage').then((m) => ({ default: m.HrfPage })))
 const WeeklyPlanPage = lazy(() => import('./features/weekly/WeeklyPlanPage').then((m) => ({ default: m.WeeklyPlanPage })))
+const AvizationsPage = lazy(() => import('./features/avizations/AvizationsPage').then((m) => ({ default: m.AvizationsPage })))
 const PurchasesPage = lazy(() => import('./features/purchases/PurchasesPage').then((m) => ({ default: m.PurchasesPage })))
 
 /** Ukrywa trasę w UI; właściwa autoryzacja zawsze po stronie API. */
@@ -65,6 +66,7 @@ export function App() {
         />
         <Route path="/hrf" element={<Guard module="hrf"><Suspense fallback={<Loader />}><HrfPage /></Suspense></Guard>} />
         <Route path="/plan-tygodniowy" element={<Guard module="weeklyPlan"><Suspense fallback={<Loader />}><WeeklyPlanPage /></Suspense></Guard>} />
+        <Route path="/awizacje" element={<Guard module="avizations"><Suspense fallback={<Loader />}><AvizationsPage /></Suspense></Guard>} />
         <Route path="/zakupy" element={<Guard module="purchases"><Suspense fallback={<Loader />}><PurchasesPage /></Suspense></Guard>} />
         {NAV.filter((n) => !n.ready).map((n) => (
           <Route

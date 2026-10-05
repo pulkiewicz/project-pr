@@ -1,8 +1,9 @@
 import { Button, Chip, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { BASE_PARTIES, WEEKLY_STATUSES, daysToMask, maskToDays, type WeeklyItemDto, type WeeklyItemInput, type WeeklyStatus } from '#shared'
+import { BASE_PARTIES, WEEKLY_STATUSES, daysToMask, maskToDays, weekDay, type WeeklyItemDto, type WeeklyItemInput, type WeeklyStatus } from '#shared'
 import { useAuth, useMe } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { useHrfTasks } from '../hrf/api'
@@ -23,6 +24,7 @@ export function ItemModal({ opened, isoWeek, item, presetTask, onClose }: Props)
   const people = usePeople()
   const hrf = useHrfTasks()
   const save = useSaveItem()
+  const navigate = useNavigate()
   const defaultParty = me.user.party === 'Envcheck' ? 'Envcheck' : me.user.party === 'Arsanit' ? 'Arsanit' : 'Konsorcjum'
   const [f, setF] = useState<WeeklyItemInput>({ isoWeek, title: '', party: 'Konsorcjum', plannedDays: 0, status: 'plan' })
 
@@ -80,6 +82,23 @@ export function ItemModal({ opened, isoWeek, item, presetTask, onClose }: Props)
         <Select label={t('hrf.statusLabel')} allowDeselect={false} disabled={!editable} data={WEEKLY_STATUSES.filter((s) => s !== 'moved').map((s) => ({ value: s, label: t(`weekly.status.${s}`) }))} value={f.status} onChange={(v) => v && setF({ ...f, status: v as WeeklyStatus })} />
         <Textarea label={t('weekly.description')} autosize minRows={2} disabled={!editable} value={f.description ?? ''} onChange={(e) => setF({ ...f, description: e.currentTarget.value || null })} />
         <Group justify="flex-end">
+          {item && can('avizations', 'create') && (
+            <Button
+              variant="subtle"
+              mr="auto"
+              onClick={() => {
+                // Szkic awizacji: dni planowane pozycji (lub cały tydzień), cel = tytuł, powiązanie z HRF i pozycją.
+                const days = maskToDays(item.plannedDays)
+                const from = weekDay(item.isoWeek, days[0] ?? 0)
+                const to = weekDay(item.isoWeek, days.at(-1) ?? 4)
+                const q = new URLSearchParams({ from, to, purpose: item.title, weeklyItem: item.id, ...(item.hrfTaskId ? { hrfTask: item.hrfTaskId } : {}) })
+                onClose()
+                navigate(`/awizacje?${q}`)
+              }}
+            >
+              {t('avizations.createFromWeekly')}
+            </Button>
+          )}
           <Button variant="default" onClick={onClose}>
             {t('app.cancel')}
           </Button>

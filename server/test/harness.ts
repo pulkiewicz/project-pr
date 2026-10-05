@@ -58,6 +58,7 @@ export async function startHarness(): Promise<Harness> {
     config: {
       mfaSecret: randomBytes(32),
       keyring: parseKeyring(`k1:${randomBytes(32).toString('base64')}`),
+      hmacKey: randomBytes(32),
       bootstrapAdminEmail: 'krzysztof@envcheck.test',
       secureCookies: true,
     },

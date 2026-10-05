@@ -98,7 +98,8 @@
     "adminPermissions": "Uprawnienia",
     "adminSettings": "Ustawienia",
     "presentation": "Tryb prezentacji",
-    "hrfSettings": "Dzień „0”"
+    "hrfSettings": "Dzień „0”",
+    "adminAvizations": "Awizacje"
   },
   "roles": {
     "Admin": "Administrator",
@@ -212,14 +213,27 @@
     "party_not_allowed": "Nie możesz tworzyć rekordów dla tej strony",
     "not_own_record": "Możesz edytować tylko rekordy swojej strony lub przypisane do Ciebie",
     "hrf_task_not_found": "Nie znaleziono zadania HRF",
-    "weekly_items_not_open_or_not_own": "Część pozycji nie jest otwarta lub nie należy do Ciebie"
+    "weekly_items_not_open_or_not_own": "Część pozycji nie jest otwarta lub nie należy do Ciebie",
+    "avization_person_overlap": "Osoba ma już awizację w tym terminie",
+    "avization_not_draft": "Edytować można tylko szkic awizacji",
+    "avization_empty": "Dodaj osoby lub pojazdy",
+    "avization_invalid_transition": "Niedozwolona zmiana statusu",
+    "avization_transition_denied": "Brak uprawnień do tej akcji",
+    "avization_unknown_person": "Nieznana osoba",
+    "avization_unknown_vehicle": "Nieznany pojazd",
+    "avization_driver_not_listed": "Kierowca musi być na liście osób",
+    "person_doc_exists": "Osoba z tym numerem dokumentu już istnieje",
+    "vehicle_exists": "Pojazd o tym numerze rejestracyjnym już istnieje",
+    "people_import_header_missing": "Nie znaleziono nagłówka „Nazwisko i imię, nr dokumentu”",
+    "weekly_item_not_found": "Nie znaleziono pozycji planu tygodniowego"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
     "recoveryCode": "Format: XXXXX-XXXXX",
     "subcontractorRequired": "Dla roli Podwykonawca wymagany jest identyfikator podwykonawcy",
     "hrfCode": "Kod w formacie 1, 1.2, 2.10",
-    "isoWeek": "Tydzień w formacie 2026-W41"
+    "isoWeek": "Tydzień w formacie 2026-W41",
+    "dateRange": "Data końcowa przed początkową"
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -453,5 +467,136 @@
       "confirmed": "Dostawa",
       "status": "Status"
     }
+  },
+  "avizations": {
+    "title": "Awizacje osób i pojazdów",
+    "status": {
+      "draft": "szkic",
+      "sent": "wysłana",
+      "accepted": "zaakceptowana",
+      "rejected": "odrzucona",
+      "cancelled": "anulowana"
+    },
+    "tabs": {
+      "list": "Awizacje",
+      "today": "Dziś na obiekcie",
+      "persons": "Osoby",
+      "vehicles": "Pojazdy"
+    },
+    "add": "Nowa awizacja",
+    "edit": "Awizacja",
+    "number": "Numer",
+    "dates": "Termin",
+    "dateFrom": "Od",
+    "dateTo": "Do",
+    "entryPoint": "Brama / wjazd",
+    "purpose": "Cel wejścia",
+    "hrfTask": "Zadanie HRF",
+    "persons": "Osoby",
+    "vehicles": "Pojazdy",
+    "driver": "Kierowca",
+    "requestedBy": "Zgłaszający",
+    "decidedBy": "Decyzja",
+    "rejectionReason": "Powód odrzucenia",
+    "externalRef": "Akceptacja poza systemem — nr / referencja",
+    "noAvizations": "Brak awizacji",
+    "saveDraft": "Zapisz szkic",
+    "actions": {
+      "send": "Wyślij do akceptacji",
+      "withdraw": "Wycofaj do szkicu",
+      "accept": "Akceptuj",
+      "reject": "Odrzuć",
+      "cancel": "Anuluj awizację",
+      "accept_external": "Zaakceptowano poza systemem"
+    },
+    "rejectPrompt": "Podaj powód odrzucenia",
+    "externalPrompt": "Numer lub opis akceptacji (np. e-mail ochrony z dnia …)",
+    "exportPdf": "Lista PDF",
+    "exportXlsx": "Lista XLSX",
+    "exportDay": "Lista na dzień",
+    "onSiteDate": "Dzień",
+    "onSitePersons": "Osoby na obiekcie",
+    "onSiteVehicles": "Pojazdy na obiekcie",
+    "nobodyOnSite": "Brak zaakceptowanych awizacji na ten dzień",
+    "person": {
+      "add": "Dodaj osobę",
+      "edit": "Osoba",
+      "firstName": "Imię",
+      "lastName": "Nazwisko",
+      "docType": "Dokument",
+      "docNumber": "Nr dokumentu",
+      "company": "Firma",
+      "phone": "Telefon",
+      "role": "Funkcja na budowie",
+      "notes": "Uwagi",
+      "reveal": "Pokaż numer",
+      "revealed": "Odczyt numeru zapisano w audit log",
+      "docKeep": "zostaw puste, aby nie zmieniać"
+    },
+    "docTypes": {
+      "id_card": "dowód osobisty",
+      "passport": "paszport"
+    },
+    "vehicle": {
+      "add": "Dodaj pojazd",
+      "edit": "Pojazd",
+      "registration": "Nr rejestracyjny",
+      "makeModel": "Marka i model",
+      "type": "Rodzaj",
+      "company": "Firma",
+      "defaultDriver": "Domyślny kierowca"
+    },
+    "vehicleTypes": {
+      "car": "osobowy",
+      "van": "dostawczy",
+      "truck": "ciężarowy",
+      "hds": "HDS",
+      "crane": "dźwig"
+    },
+    "import": {
+      "title": "Import listy osób i pojazdów",
+      "button": "Import z XLSX",
+      "hint": "Plik w formacie listy ochrony: kolumny „Nazwisko i imię, nr dokumentu”, „Marka i nr rejestracyjny auta”, „Firma”. Sprawdź kolejność imienia i nazwiska — w razie potrzeby zamień.",
+      "swap": "Zamień imię/nazwisko",
+      "duplicate": "już w bazie — pominięta",
+      "commit": "Importuj",
+      "done": "Dodano {{persons}} osób i {{vehicles}} pojazdów (pominięto {{skipped}})"
+    },
+    "settings": {
+      "title": "Awizacje",
+      "minLead": "Minimalne wyprzedzenie zgłoszenia (dni robocze)",
+      "entryPoints": "Bramy / punkty wjazdu",
+      "addEntryPoint": "Dodaj bramę",
+      "template": "Szablon listy dla ochrony",
+      "column": "Kolumna",
+      "header": "Nagłówek",
+      "width": "Szerokość",
+      "minRows": "Minimalna liczba wierszy (puste do dopisania)",
+      "addColumn": "Dodaj kolumnę"
+    },
+    "columns": {
+      "lp": "Lp",
+      "nameWithDoc": "Imię Nazwisko, nr dokumentu",
+      "nameWithDocLastFirst": "Nazwisko Imię, nr dokumentu",
+      "lastFirst": "Nazwisko Imię",
+      "firstLast": "Imię Nazwisko",
+      "docType": "Rodzaj dokumentu",
+      "docNumber": "Nr dokumentu",
+      "vehicle": "Marka, nr rejestracyjny",
+      "makeModel": "Marka",
+      "registration": "Nr rejestracyjny",
+      "company": "Firma",
+      "phone": "Telefon",
+      "roleOnSite": "Funkcja",
+      "dateFrom": "Data od",
+      "dateTo": "Data do",
+      "entryPoint": "Brama"
+    },
+    "createFromWeekly": "Utwórz szkic awizacji",
+    "personalData": "Numery dokumentów i rejestracje są szyfrowane. Każdy odczyt pełnego numeru i eksport listy trafia do audit logu.",
+    "filterActive": "aktywne",
+    "filterAll": "wszystkie",
+    "personsShort": "{{count}} os.",
+    "vehiclesShort": "{{count}} poj."
   }
 }

@@ -14,7 +14,7 @@ export const NAV: NavItem[] = [
   { module: 'hrf', path: '/hrf', stage: 'E1', ready: true },
   { module: 'weeklyPlan', path: '/plan-tygodniowy', stage: 'E3', ready: true },
   { module: 'purchases', path: '/zakupy', stage: 'E3', ready: true },
-  { module: 'avizations', path: '/awizacje', stage: 'E3', ready: false },
+  { module: 'avizations', path: '/awizacje', stage: 'E3', ready: true },
   { module: 'subcontractors', path: '/podwykonawcy', stage: 'E4', ready: false },
   { module: 'acceptances', path: '/odbiory', stage: 'E4', ready: false },
   { module: 'acceptanceDocs', path: '/dokumentacja-odbiorowa', stage: 'E4', ready: false },

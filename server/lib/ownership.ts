@@ -15,6 +15,14 @@ export const OWN_PARTIES: Record<string, Record<Role, readonly string[]>> = {
     Client: [],
     Subcontractor: [],
   },
+  /** M5: słowniki i awizacje. Podwykonawca — wyłącznie własne wpisy (party = Subcontractor:{id}), patrz `ownParties`. */
+  avizations: {
+    Admin: [],
+    EnvcheckInternal: ['Envcheck', 'Konsorcjum'],
+    Arsanit: ['Arsanit', 'Konsorcjum'],
+    Client: [],
+    Subcontractor: [],
+  },
   /** M4: „kto kupuje” — tylko Envcheck albo Arsanit. */
   purchases: {
     Admin: [],
@@ -25,7 +33,24 @@ export const OWN_PARTIES: Record<string, Record<Role, readonly string[]>> = {
   },
 }
 
-/** `<moduł>:approve` (domyślnie Admin) = dostęp do rekordów wszystkich stron. */
+function ownParties(user: UserRow, scope: keyof typeof OWN_PARTIES): readonly string[] {
+  if (user.role === 'Subcontractor') return [user.party]
+  return OWN_PARTIES[scope]![user.role]
+}
+
+/** `<moduł>:approve` (domyślnie Admin) = dostęp do rekordów wszystkich stron. Dla M5 approve ma Zamawiający — patrz `avizations`. */
+/** M5: approve oznacza akceptację awizacji (Zamawiający), nie edycję cudzych rekordów — pełny dostęp tylko `avizations:delete` (Admin). */
+export function canEditAvizationRecord(user: UserRow, perms: Perms, record: { party: string }) {
+  if (perms.has('avizations:delete')) return true
+  return perms.has('avizations:edit') && ownParties(user, 'avizations').includes(record.party)
+}
+
+export function defaultPartyFor(user: UserRow): string {
+  if (user.role === 'Subcontractor') return user.party
+  if (user.role === 'Arsanit') return 'Arsanit'
+  return 'Envcheck'
+}
+
 export function canEditRecord(
   user: UserRow,
   perms: Perms,
@@ -35,10 +60,10 @@ export function canEditRecord(
 ) {
   if (perms.has(`${module}:approve`)) return true
   if (!perms.has(`${module}:edit`)) return false
-  return OWN_PARTIES[scope]![user.role].includes(record.party) || (!!record.assigneeUserId && record.assigneeUserId === user.id)
+  return ownParties(user, scope).includes(record.party) || (!!record.assigneeUserId && record.assigneeUserId === user.id)
 }
 
 export function canCreateForParty(user: UserRow, perms: Perms, module: ModuleKey, party: string, scope: keyof typeof OWN_PARTIES = 'default') {
   if (perms.has(`${module}:approve`)) return true
-  return perms.has(`${module}:create`) && OWN_PARTIES[scope]![user.role].includes(party)
+  return perms.has(`${module}:create`) && ownParties(user, scope).includes(party)
 }
