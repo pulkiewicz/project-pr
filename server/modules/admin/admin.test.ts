@@ -29,7 +29,8 @@ describe('zarządzanie użytkownikami', () => {
     h.identityAdmin.fail = true
     const res = await req(h, 'POST', '/api/admin/users', admin.headers, { email: 'fail@x.test', name: 'F', role: 'Client' })
     h.identityAdmin.fail = false
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(502)
+    expect(await res.json()).toMatchObject({ code: 'identity_invite_failed' })
     const rows = await h.db.select().from(schema.users).where(eq(schema.users.email, 'fail@x.test'))
     expect(rows).toHaveLength(0)
   })

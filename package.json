@@ -14,7 +14,9 @@
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "netlify database migrations apply",
-    "db:seed-permissions": "tsx scripts/generate-permissions-seed.ts"
+    "db:seed-permissions": "tsx scripts/generate-permissions-seed.ts",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build",
+    "secrets:generate": "node scripts/generate-secrets.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

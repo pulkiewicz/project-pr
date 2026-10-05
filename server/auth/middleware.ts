@@ -19,7 +19,7 @@ export const authenticate: MiddlewareHandler<AppEnv> = async (c, next) => {
   const header = c.req.header('authorization')
   const token = header?.match(/^Bearer\s+(.+)$/i)?.[1]
   if (!token) throw unauthorized('missing_token')
-  const claims = await deps.identity.verify(token)
+  const claims = await deps.identity.verify(token, new URL(c.req.url).origin)
   if (!claims) throw unauthorized('invalid_token')
   c.set('identity', claims)
 

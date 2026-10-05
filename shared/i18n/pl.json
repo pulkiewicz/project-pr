@@ -207,7 +207,8 @@
     "import_file_type": "Dozwolony jest tylko plik .xlsx",
     "import_file_invalid": "Nie udało się odczytać pliku XLSX",
     "day_zero_not_set": "Najpierw ustaw dzień „0”",
-    "actual_end_before_start": "Koniec rzeczywisty przed startem"
+    "actual_end_before_start": "Koniec rzeczywisty przed startem",
+    "identity_invite_failed": "Netlify Identity odrzuciło zaproszenie. Sprawdź, czy Identity jest włączone (Invite only), lub zaproś użytkownika w panelu Netlify (Identity → Invite users) — konto powiąże się po e-mailu przy pierwszym logowaniu."
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",

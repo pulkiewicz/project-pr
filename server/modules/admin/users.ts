@@ -14,6 +14,15 @@ const body = <T extends z.ZodType>(schema: T) => ({ ...json(schema), required: t
 const ok = { 200: { description: 'OK', ...json(z.any()) } }
 const idParam = z.object({ id: z.uuid() })
 
+async function inviteOrFail(identityAdmin: { invite(email: string, name: string): Promise<void> }, email: string, name: string) {
+  try {
+    await identityAdmin.invite(email, name)
+  } catch (e) {
+    console.error('[pmo] identity invite failed', e)
+    throw new HttpProblem(502, 'identity_invite_failed', e instanceof Error ? e.message : undefined)
+  }
+}
+
 export function toUserDto(u: UserRow): UserDto {
   return {
     id: u.id,
@@ -71,7 +80,7 @@ adminUsersRouter.openapi(
         .returning()
       await writeAudit(c, { action: 'user.invite', entity: 'users', entityId: row!.id, changes: { email: input.email, role: input.role } }, tx)
       // Błąd zaproszenia w Identity wycofuje transakcję — brak „osieroconych” rekordów.
-      await deps.identityAdmin.invite(input.email, input.name)
+      await inviteOrFail(deps.identityAdmin, input.email, input.name)
       return row!
     })
     return c.json(toUserDto(created), 201)
@@ -168,7 +177,7 @@ adminUsersRouter.openapi(
     const [user] = await deps.db.select().from(users).where(and(eq(users.id, id), isNull(users.deletedAt)))
     if (!user) throw notFound()
     if (user.identitySub) throw new HttpProblem(409, 'user_already_linked')
-    await deps.identityAdmin.invite(user.email, user.name)
+    await inviteOrFail(deps.identityAdmin, user.email, user.name)
     await deps.db.update(users).set({ invitedAt: sql`now()` }).where(eq(users.id, id))
     await writeAudit(c, { action: 'user.invite_resent', entity: 'users', entityId: id })
     return c.json({ ok: true }, 200)

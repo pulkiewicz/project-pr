@@ -14,7 +14,6 @@ import {
   IconLock,
   IconLogout,
   IconMail,
-  IconPresentation,
   IconReportAnalytics,
   IconSearch,
   IconSettings,
@@ -87,7 +86,8 @@ export function AppLayout() {
   const [opened, { toggle, close }] = useDisclosure()
   const project = me.projects[0]
 
-  const visible = NAV.filter((n) => can(n.module, 'view'))
+  // W menu tylko moduły już wdrożone (kolejne etapy pojawią się wraz z implementacją).
+  const visible = NAV.filter((n) => n.ready && can(n.module, 'view'))
   const shared = visible.filter((n) => !isInternal(n.module))
   const internal = visible.filter((n) => isInternal(n.module) && n.module !== 'auditLog')
   const isActive = (path: string) => (path === '/' ? location.pathname === '/' : location.pathname.startsWith(path))
@@ -187,9 +187,6 @@ export function AppLayout() {
           {can('auditLog', 'view') && (
             <NavLink component={RouterLink} to="/admin/audit" label={t('nav.auditLog')} leftSection={<IconHistory size={18} />} active={isActive('/admin/audit')} onClick={close} />
           )}
-        </AppShell.Section>
-        <AppShell.Section>
-          <NavLink label={t('nav.presentation')} leftSection={<IconPresentation size={18} />} disabled description="E7" />
         </AppShell.Section>
       </AppShell.Navbar>
 

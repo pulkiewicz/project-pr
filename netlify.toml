@@ -2,6 +2,10 @@
   command = "npm run build"
   publish = "app/dist"
 
+[build.environment]
+  # Wersja Node dla buildu i runtime funkcji (bez sekretów — te wyłącznie w UI/CLI Netlify).
+  NODE_VERSION = "22"
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"

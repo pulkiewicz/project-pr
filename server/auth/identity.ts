@@ -9,7 +9,8 @@ export interface IdentityClaims {
 
 /** Weryfikacja tokenu Identity (Bearer) — abstrakcja, by testy mogły podstawić fałszywą implementację. */
 export interface IdentityVerifier {
-  verify(token: string): Promise<IdentityClaims | null>
+  /** `origin` żądania — zapasowe źródło adresu Identity, gdy runtime go nie udostępnia. */
+  verify(token: string, origin?: string): Promise<IdentityClaims | null>
 }
 
 /** Operacje administracyjne Identity (wyłącznie w runtime Netlify Functions). */
@@ -32,7 +33,7 @@ declare global {
  * Wynik buforowany w pamięci instancji maks. 60 s (nigdy dłużej niż `exp` tokenu).
  */
 export const netlifyIdentityVerifier: IdentityVerifier = {
-  async verify(token) {
+  async verify(token, origin) {
     let exp: number | undefined
     let sub: string | undefined
     try {
@@ -54,9 +55,9 @@ export const netlifyIdentityVerifier: IdentityVerifier = {
     if (runtimeUser?.sub && runtimeUser.sub === sub && runtimeUser.email) {
       claims = { sub, email: runtimeUser.email }
     } else {
-      const cfg = getIdentityConfig()
-      if (!cfg?.url) return null
-      const res = await fetch(`${cfg.url}/user`, { headers: { Authorization: `Bearer ${token}` } })
+      const identityUrl = getIdentityConfig()?.url ?? (origin ? `${origin}/.netlify/identity` : null)
+      if (!identityUrl) return null
+      const res = await fetch(`${identityUrl}/user`, { headers: { Authorization: `Bearer ${token}` } })
       if (!res.ok) return null
       const body = (await res.json()) as { id?: string; email?: string }
       if (!body.id || body.id !== sub || !body.email) return null
