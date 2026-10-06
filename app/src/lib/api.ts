@@ -2,6 +2,12 @@ import { refreshSession } from '@netlify/identity'
 import type { ProblemDetails } from '#shared'
 import { devToken } from '../auth/devAuth'
 
+/** Wywoływane przy wygaśnięciu sesji (401) — AuthProvider odświeża stan (logowanie / 2FA). */
+let onUnauthorized: (() => void) | null = null
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn
+}
+
 export class ApiError extends Error {
   constructor(public readonly problem: ProblemDetails) {
     super(problem.detail ?? problem.code ?? problem.title)
@@ -45,6 +51,7 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
     const problem = res.headers.get('content-type')?.includes('json')
       ? ((await res.json()) as ProblemDetails)
       : { type: 'about:blank', title: res.statusText, status: res.status, code: 'http_error' }
+    if (res.status === 401 && path !== '/me') onUnauthorized?.()
     throw new ApiError(problem)
   }
   if (res.status === 204) return undefined as T

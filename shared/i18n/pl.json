@@ -233,7 +233,30 @@
     "upload_type_not_allowed": "Niedozwolony typ pliku",
     "upload_verification_failed": "Weryfikacja pliku po wysłaniu nie powiodła się — plik usunięto",
     "upload_not_found": "Sesja wysyłania wygasła",
-    "template_not_google": "Szablon musi być dokumentem Google"
+    "template_not_google": "Szablon musi być dokumentem Google",
+    "hrf_code_exists": "Zadanie o tym kodzie już istnieje",
+    "hrf_dependency_unknown_task": "Nieznane zadanie w zależnościach",
+    "hrf_parent_missing": "Brak nadrzędnego Etapu dla tego kodu",
+    "import_file_missing": "Nie wybrano pliku",
+    "import_mapping_missing": "Brak mapowania kolumn",
+    "invalid_token": "Sesja wygasła — zaloguj się ponownie",
+    "missing_token": "Sesja wygasła — zaloguj się ponownie",
+    "mfa_required": "Wymagana ponowna weryfikacja 2FA",
+    "mfa_enrollment_required": "Skonfiguruj uwierzytelnianie dwuskładnikowe",
+    "mfa_already_enrolled": "2FA jest już skonfigurowane",
+    "mfa_invalid_code": "Nieprawidłowy kod",
+    "mfa_locked": "Zbyt wiele prób — spróbuj później",
+    "mfa_not_enrolled": "2FA nie jest skonfigurowane",
+    "mfa_setup_not_started": "Rozpocznij konfigurację 2FA od nowa",
+    "no_thumbnail": "Brak miniatury",
+    "not_found": "Nie znaleziono rekordu (mógł zostać usunięty) — odśwież stronę",
+    "permission_denied": "Brak uprawnień do tej operacji",
+    "project_not_found": "Nie znaleziono projektu",
+    "range_invalid": "Niepoprawny zakres pobierania",
+    "user_already_linked": "Użytkownik już aktywował konto",
+    "user_inactive": "Konto zostało dezaktywowane",
+    "user_not_registered": "Konto nie jest zarejestrowane w aplikacji",
+    "unknown": "Wystąpił błąd ({{status}} {{code}}). Spróbuj ponownie lub zgłoś administratorowi."
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -242,7 +265,9 @@
     "hrfCode": "Kod w formacie 1, 1.2, 2.10",
     "isoWeek": "Tydzień w formacie 2026-W41",
     "dateRange": "Data końcowa przed początkową",
-    "fileName": "Nazwa nie może zawierać / ani \\"
+    "fileName": "Nazwa nie może zawierać / ani \\",
+    "date": "Niepoprawna data",
+    "subcontractor": "Wybierz podwykonawcę"
   },
   "parties": {
     "Envcheck": "Envcheck",

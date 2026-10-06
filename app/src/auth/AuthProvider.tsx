@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { getUser, handleAuthCallback, logout as identityLogout } from '@netlify/identity'
 import type { MeResponse } from '#shared'
 import { hasPermission, type Action, type ModuleKey } from '#shared'
-import { ApiError, api } from '../lib/api'
+import { ApiError, api, setUnauthorizedHandler } from '../lib/api'
 import { devLogout, devToken } from './devAuth'
 
 export type AuthState =
@@ -53,6 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (callback?.type === 'recovery') return setState({ status: 'recovery' })
       await refresh()
     })()
+  }, [refresh])
+
+  // Sesja Identity lub 2FA wygasła w trakcie pracy → ponowne ustalenie stanu (ekran logowania / weryfikacji 2FA).
+  useEffect(() => {
+    setUnauthorizedHandler(() => void refresh())
+    return () => setUnauthorizedHandler(null)
   }, [refresh])
 
   const logout = useCallback(async () => {

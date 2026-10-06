@@ -25,6 +25,11 @@ export function createApp(deps: AppDeps) {
     await next()
     c.header('Cache-Control', 'no-store')
     c.header('X-Content-Type-Options', 'nosniff')
+    // Diagnostyka produkcji: odrzucone żądania (4xx) w logu funkcji — bez treści i danych osobowych.
+    if (c.res.status >= 400 && c.res.status < 500) {
+      const code = c.res.headers.get('content-type')?.includes('problem+json') ? ((await c.res.clone().json().catch(() => ({}))) as { code?: string }).code : undefined
+      console.warn(`[pmo] ${c.req.method} ${new URL(c.req.url).pathname} → ${c.res.status} ${code ?? ''} user=${c.get('user')?.id ?? '-'}`)
+    }
   })
 
   app.get('/health', (c) => c.json({ ok: true }))
