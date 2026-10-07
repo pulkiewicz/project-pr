@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { MfaEnableResponse, MfaSetupResponse } from '#shared'
 import { ApiError, api } from '../lib/api'
 import { AuthLayout } from './AuthLayout'
+import { rememberPreference } from './remember'
 import { useAuth } from './AuthProvider'
 
 function useErrorText() {
@@ -41,7 +42,7 @@ export function MfaSetupPage() {
     setBusy(true)
     setError(null)
     try {
-      const res = await api<MfaEnableResponse>('/mfa/enable', { method: 'POST', json: { code } })
+      const res = await api<MfaEnableResponse>('/mfa/enable', { method: 'POST', json: { code, remember: rememberPreference() } })
       setCodes(res.recoveryCodes)
     } catch (e) {
       setError(errorText(e))
@@ -115,7 +116,7 @@ export function MfaVerifyPage() {
     setBusy(true)
     setError(null)
     try {
-      await api('/mfa/verify', { method: 'POST', json: useRecovery ? { recoveryCode } : { code: value ?? code } })
+      await api('/mfa/verify', { method: 'POST', json: { ...(useRecovery ? { recoveryCode } : { code: value ?? code }), remember: rememberPreference() } })
       await refresh()
     } catch (e) {
       setError(errorText(e))

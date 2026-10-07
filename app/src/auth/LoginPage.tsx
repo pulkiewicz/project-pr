@@ -1,16 +1,18 @@
-import { Alert, Anchor, Button, PasswordInput, Stack, Text, TextInput } from '@mantine/core'
+import { Alert, Anchor, Button, Checkbox, PasswordInput, Stack, Text, TextInput } from '@mantine/core'
 import { login, requestPasswordRecovery } from '@netlify/identity'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AuthLayout } from './AuthLayout'
 import { useAuth } from './AuthProvider'
 import { devAuthEnabled, devLogin } from './devAuth'
+import { rememberPreference, rememberedEmail, setRemember } from './remember'
 
 export function LoginPage({ deniedCode }: { deniedCode?: string }) {
   const { t } = useTranslation()
   const { refresh } = useAuth()
   const [mode, setMode] = useState<'login' | 'recover'>('login')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(rememberedEmail)
+  const [remember, setRememberState] = useState(rememberPreference)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(
     deniedCode ? t(deniedCode === 'user_inactive' ? 'auth.inactive' : 'auth.notRegistered') : null,
@@ -25,6 +27,7 @@ export function LoginPage({ deniedCode }: { deniedCode?: string }) {
     try {
       if (mode === 'login') {
         await login(email, password)
+        setRemember(remember, email)
         await refresh()
       } else {
         await requestPasswordRecovery(email).catch(() => undefined)
@@ -47,6 +50,7 @@ export function LoginPage({ deniedCode }: { deniedCode?: string }) {
           {mode === 'login' && (
             <PasswordInput label={t('auth.password')} autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.currentTarget.value)} />
           )}
+          {mode === 'login' && <Checkbox label={t('auth.rememberMe')} checked={remember} onChange={(e) => setRememberState(e.currentTarget.checked)} />}
           <Button type="submit" loading={busy} fullWidth>
             {mode === 'login' ? t('auth.login') : t('auth.sendRecovery')}
           </Button>
@@ -63,6 +67,7 @@ export function LoginPage({ deniedCode }: { deniedCode?: string }) {
               data-testid="dev-login"
               disabled={!email}
               onClick={() => {
+                setRemember(remember, email)
                 devLogin(email)
                 void refresh()
               }}

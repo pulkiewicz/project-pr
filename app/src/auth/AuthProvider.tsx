@@ -4,6 +4,7 @@ import type { MeResponse } from '#shared'
 import { hasPermission, type Action, type ModuleKey } from '#shared'
 import { ApiError, api, setUnauthorizedHandler } from '../lib/api'
 import { devLogout, devToken } from './devAuth'
+import { sessionShouldEnd } from './remember'
 
 export type AuthState =
   | { status: 'loading' }
@@ -51,6 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const callback = await handleAuthCallback().catch(() => null)
       if (callback?.type === 'invite' && callback.token) return setState({ status: 'invite', token: callback.token })
       if (callback?.type === 'recovery') return setState({ status: 'recovery' })
+      // „Zapamiętaj mnie” odznaczone, a przeglądarka była zamknięta → wylogowanie.
+      if (sessionShouldEnd()) {
+        devLogout()
+        await identityLogout().catch(() => undefined)
+        return setState({ status: 'anonymous' })
+      }
       await refresh()
     })()
   }, [refresh])

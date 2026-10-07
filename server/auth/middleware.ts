@@ -41,8 +41,8 @@ export const authenticate: MiddlewareHandler<AppEnv> = async (c, next) => {
     if (session && session.sub === claims.sub) {
       verified = true
       if (shouldRefresh(session, now)) {
-        const { token: fresh, maxAge } = await signMfaSession(deps.config.mfaSecret, claims.sub, session.authTime, now)
-        c.header('Set-Cookie', mfaCookieHeader(fresh, maxAge, deps.config.secureCookies), { append: true })
+        const { token: fresh, maxAge } = await signMfaSession(deps.config.mfaSecret, claims.sub, session.authTime, now, session.remember)
+        c.header('Set-Cookie', mfaCookieHeader(fresh, maxAge, deps.config.secureCookies, session.remember), { append: true })
       }
     }
   }

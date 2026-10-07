@@ -35,11 +35,11 @@ async function ensureNotLocked(c: Context<AppEnv>, kind: string) {
   }
 }
 
-async function issueSession(c: Context<AppEnv>) {
+async function issueSession(c: Context<AppEnv>, remember = true) {
   const deps = c.get('deps')
   const nowSec = Math.floor(now(c).getTime() / 1000)
-  const { token, maxAge } = await signMfaSession(deps.config.mfaSecret, c.get('identity').sub, nowSec, nowSec)
-  c.header('Set-Cookie', mfaCookieHeader(token, maxAge, deps.config.secureCookies), { append: true })
+  const { token, maxAge } = await signMfaSession(deps.config.mfaSecret, c.get('identity').sub, nowSec, nowSec, remember)
+  c.header('Set-Cookie', mfaCookieHeader(token, maxAge, deps.config.secureCookies, remember), { append: true })
   await deps.db.update(users).set({ lastLoginAt: sql`now()` }).where(eq(users.id, c.get('user').id))
 }
 
@@ -73,7 +73,7 @@ mfaRouter.openapi(enableRoute, async (c) => {
   if (user.totpEnabled) throw new HttpProblem(409, 'mfa_already_enrolled')
   if (!user.totpPendingEnc) throw new HttpProblem(409, 'mfa_setup_not_started')
   await ensureNotLocked(c, 'mfa')
-  const { code } = c.req.valid('json')
+  const { code, remember } = c.req.valid('json')
   const secret = decryptField(deps.config.keyring, user.totpPendingEnc)
   const valid = await verifyTotp(secret, code, now(c))
   await recordAttempt(deps.db, user.id, 'mfa', valid, requestMeta(c).ip)
@@ -91,7 +91,7 @@ mfaRouter.openapi(enableRoute, async (c) => {
       version: sql`${users.version} + 1`,
     })
     .where(eq(users.id, user.id))
-  await issueSession(c)
+  await issueSession(c, remember !== false)
   return c.json({ recoveryCodes }, 200)
 })
 
@@ -128,7 +128,7 @@ mfaRouter.openapi(verifyRoute, async (c) => {
     changes: { method },
   })
   if (!valid) throw new HttpProblem(422, 'mfa_invalid_code')
-  await issueSession(c)
+  await issueSession(c, input.remember !== false)
   return c.json({ ok: true, recoveryCodesLeft: method === 'recovery' ? undefined : (user.recoveryCodesHash ?? []).length }, 200)
 })
 

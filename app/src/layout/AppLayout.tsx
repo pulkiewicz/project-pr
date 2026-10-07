@@ -1,4 +1,4 @@
-import { AppShell, Badge, Burger, Divider, Group, Image, Indicator, Menu, NavLink, ScrollArea, Text, TextInput, Tooltip, UnstyledButton, ActionIcon, Popover } from '@mantine/core'
+import { AppShell, Badge, Box, Burger, Divider, Group, Image, Indicator, Menu, NavLink, ScrollArea, Text, TextInput, Tooltip, UnstyledButton, ActionIcon, Popover } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import {
   IconBell,
@@ -34,6 +34,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { daysUntil, formatDate } from '../lib/format'
 import { NAV, isInternal } from '../nav'
+import { BuildInfo } from './BuildInfo'
 
 const ICONS: Partial<Record<ModuleKey, typeof IconGauge>> = {
   dashboard: IconGauge,
@@ -66,8 +67,8 @@ function Countdown() {
   const color = days < 0 ? 'red' : 'navy'
   return (
     <Tooltip label={t('app.contractDeadline', { date: formatDate(project.contractEndDate) })}>
-      <span>
-        <Badge size="lg" variant="light" color={color} data-testid="countdown" visibleFrom="sm">
+      <span style={{ flexShrink: 0 }}>
+        <Badge size="lg" variant="light" color={color} data-testid="countdown" visibleFrom="sm" styles={{ label: { overflow: 'visible' } }}>
           {days >= 0 ? t('app.daysToDeadline', { count: days }) : t('app.deadlinePassed', { count: -days })}
         </Badge>
         <Badge size="md" variant="light" color={color} hiddenFrom="sm">
@@ -114,18 +115,18 @@ export function AppLayout() {
         <Group h="100%" px="md" justify="space-between" wrap="nowrap">
           <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-            <Image src="/logo-envcheck.svg" w={32} h={32} alt="Envcheck" />
+            <Image src="/brand/envcheck-mark.svg" w={34} h={34} alt="Envcheck" />
             <Text fw={600} truncate visibleFrom="md" maw={420}>
               {project?.name ?? t('app.name')}
             </Text>
           </Group>
-          <Group gap="sm" wrap="nowrap">
+          <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
             <Countdown />
             <TextInput
               placeholder={t('app.search')}
               leftSection={<IconSearch size={16} />}
-              visibleFrom="lg"
-              w={240}
+              visibleFrom="xl"
+              w={220}
               disabled
               aria-label={t('app.search')}
             />
@@ -147,10 +148,10 @@ export function AppLayout() {
               <Menu.Target>
                 <UnstyledButton aria-label={t('app.profile')}>
                   <Group gap={6} wrap="nowrap">
-                    <Text size="sm" fw={500} visibleFrom="sm">
+                    <Text size="sm" fw={500} visibleFrom="sm" truncate maw={200}>
                       {me.user.name}
                     </Text>
-                    <Badge variant="outline" size="sm">
+                    <Badge variant="outline" size="sm" style={{ flexShrink: 0 }} styles={{ label: { overflow: 'visible' } }}>
                       {t(`roles.${me.user.role}`)}
                     </Badge>
                   </Group>
@@ -158,11 +159,17 @@ export function AppLayout() {
               </Menu.Target>
               <Menu.Dropdown>
                 <Menu.Label>{me.user.email}</Menu.Label>
+                <Box hiddenFrom="lg" px="sm" pb={4}>
+                  <BuildInfo />
+                </Box>
                 <Menu.Item leftSection={<IconLogout size={16} />} onClick={() => void logout()}>
                   {t('app.logout')}
                 </Menu.Item>
               </Menu.Dropdown>
             </Menu>
+            <Box visibleFrom="lg">
+              <BuildInfo />
+            </Box>
           </Group>
         </Group>
       </AppShell.Header>

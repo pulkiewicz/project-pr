@@ -28,7 +28,8 @@
     "previous": "Poprzednia",
     "next": "Następna",
     "pageOf": "Strona {{page}} z {{pages}}",
-    "daysShort": "{{count}} dni"
+    "daysShort": "{{count}} dni",
+    "build": "build {{date}}{{commit}}"
   },
   "auth": {
     "loginTitle": "Logowanie",
@@ -51,7 +52,8 @@
     "invalidCredentials": "Nieprawidłowy e-mail lub hasło",
     "notRegistered": "Twoje konto nie jest zarejestrowane w aplikacji. Skontaktuj się z administratorem.",
     "inactive": "Twoje konto zostało dezaktywowane.",
-    "genericError": "Wystąpił błąd. Spróbuj ponownie."
+    "genericError": "Wystąpił błąd. Spróbuj ponownie.",
+    "rememberMe": "Zapamiętaj mnie"
   },
   "mfa": {
     "setupTitle": "Konfiguracja uwierzytelniania dwuskładnikowego",

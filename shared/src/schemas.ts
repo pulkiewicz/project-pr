@@ -9,13 +9,15 @@ export const actionSchema = z.enum(ACTIONS)
 export const totpCodeSchema = z.string().trim().regex(/^\d{6}$/, 'validation.totpCode')
 export const recoveryCodeSchema = z.string().trim().regex(/^[A-Z0-9]{5}-[A-Z0-9]{5}$/i, 'validation.recoveryCode')
 
+/** `remember: false` → cookie 2FA sesyjne (wygasa po zamknięciu przeglądarki). */
+const rememberField = { remember: z.boolean().optional() }
 export const mfaVerifyInput = z.union([
-  z.object({ code: totpCodeSchema }),
-  z.object({ recoveryCode: recoveryCodeSchema }),
+  z.object({ code: totpCodeSchema, ...rememberField }),
+  z.object({ recoveryCode: recoveryCodeSchema, ...rememberField }),
 ])
 export type MfaVerifyInput = z.infer<typeof mfaVerifyInput>
 
-export const mfaEnableInput = z.object({ code: totpCodeSchema })
+export const mfaEnableInput = z.object({ code: totpCodeSchema, remember: z.boolean().optional() })
 
 export const inviteUserInput = z
   .object({

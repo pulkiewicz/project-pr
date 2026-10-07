@@ -146,6 +146,23 @@ describe('2FA TOTP', () => {
     expect(r2.status).toBe(422)
   })
 
+  it('„Zapamiętaj mnie” odznaczone → cookie 2FA sesyjne (bez Max-Age), także po odświeżeniu', async () => {
+    const u = await createUser(h, 'Arsanit')
+    const res = await req(h, 'POST', '/api/mfa/verify', u.bareHeaders, { code: await totpNow(u.totpSecret, h.clock.now), remember: false })
+    const cookie = res.headers.getSetCookie().find((c) => c.startsWith(`${MFA_COOKIE}=`))!
+    expect(cookie).not.toMatch(/Max-Age/)
+    const remembered = await req(h, 'POST', '/api/mfa/verify', u.bareHeaders, { code: await totpNow(u.totpSecret, new Date(h.clock.now.getTime() + 31_000)) })
+    expect(remembered.headers.getSetCookie().find((c) => c.startsWith(`${MFA_COOKIE}=`))).toMatch(/Max-Age=/)
+
+    // Odświeżenie po 6 min zachowuje tryb sesyjny
+    const token = setCookieValue(res, MFA_COOKIE)!
+    h.clock.now = new Date(h.clock.now.getTime() + 6 * 60_000)
+    const later = await req(h, 'GET', '/api/me', { authorization: u.bareHeaders.authorization!, cookie: `${MFA_COOKIE}=${token}` })
+    const refreshed = later.headers.getSetCookie().find((c) => c.startsWith(`${MFA_COOKIE}=`))!
+    expect(refreshed).toBeTruthy()
+    expect(refreshed).not.toMatch(/Max-Age/)
+  })
+
   it('blokada po 5 nieudanych próbach na 15 min', async () => {
     const u = await createUser(h, 'Client')
     for (let i = 0; i < 5; i++) {
