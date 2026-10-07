@@ -25,14 +25,27 @@ describe('zarządzanie użytkownikami', () => {
     expect(dup.status).toBe(409)
   })
 
-  it('błąd Identity wycofuje utworzenie użytkownika', async () => {
+  it('błąd zaproszenia Identity nie blokuje dodania użytkownika (status w odpowiedzi)', async () => {
     h.identityAdmin.fail = true
     const res = await req(h, 'POST', '/api/admin/users', admin.headers, { email: 'fail@x.test', name: 'F', role: 'Client' })
     h.identityAdmin.fail = false
-    expect(res.status).toBe(502)
-    expect(await res.json()).toMatchObject({ code: 'identity_invite_failed' })
+    expect(res.status).toBe(201)
+    expect(await res.json()).toMatchObject({ inviteStatus: 'failed', inviteError: 'identity down' })
     const rows = await h.db.select().from(schema.users).where(eq(schema.users.email, 'fail@x.test'))
-    expect(rows).toHaveLength(0)
+    expect(rows).toHaveLength(1)
+  })
+
+  it('konto Identity już istnieje → status „exists”; bez zaproszenia → „skipped”; osoba loguje się i konto się wiąże', async () => {
+    h.identityAdmin.failWith = 'Identity invite failed (422): A user with this email address has already been registered'
+    const res = await req(h, 'POST', '/api/admin/users', admin.headers, { email: 'anna@envcheck.test', name: 'Anna', role: 'EnvcheckInternal' })
+    h.identityAdmin.failWith = null
+    expect(await res.json()).toMatchObject({ inviteStatus: 'exists', inviteError: null })
+    const before = h.identityAdmin.invites.length
+    const skip = await req(h, 'POST', '/api/admin/users', admin.headers, { email: 'ewa@envcheck.test', name: 'Ewa', role: 'Arsanit', sendInvite: false })
+    expect(await skip.json()).toMatchObject({ inviteStatus: 'skipped' })
+    expect(h.identityAdmin.invites.length).toBe(before)
+    const login = await req(h, 'GET', '/api/me', { authorization: 'Bearer test:anna-sub:anna@envcheck.test' })
+    expect(login.status).toBe(200)
   })
 
   it('podwykonawca wymaga subcontractorId; party = Subcontractor:{id}', async () => {

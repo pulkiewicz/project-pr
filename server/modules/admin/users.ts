@@ -1,6 +1,6 @@
 import { z } from '@hono/zod-openapi'
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
-import { defaultPartyForRole, inviteUserInput, updateUserInput, type Party, type UserDto } from '#shared'
+import { defaultPartyForRole, inviteUserInput, updateUserInput, type InviteStatus, type Party, type UserCreatedResponse, type UserDto } from '#shared'
 import type { UserRow } from '../../context.ts'
 import { users } from '../../db/schema.ts'
 import { HttpProblem, conflict, notFound } from '../../lib/problem.ts'
@@ -14,13 +14,25 @@ const body = <T extends z.ZodType>(schema: T) => ({ ...json(schema), required: t
 const ok = { 200: { description: 'OK', ...json(z.any()) } }
 const idParam = z.object({ id: z.uuid() })
 
-async function inviteOrFail(identityAdmin: { invite(email: string, name: string): Promise<void> }, email: string, name: string) {
+const ALREADY_REGISTERED = /already (been )?registered|already exists|422/i
+
+/** Zaproszenie Identity: „konto już istnieje” = sukces (osoba loguje się swoim hasłem, wiązanie po e-mailu). */
+async function tryInvite(identityAdmin: { invite(email: string, name: string): Promise<void> }, email: string, name: string): Promise<{ status: InviteStatus; error: string | null }> {
   try {
     await identityAdmin.invite(email, name)
+    return { status: 'sent', error: null }
   } catch (e) {
-    console.error('[pmo] identity invite failed', e)
-    throw new HttpProblem(502, 'identity_invite_failed', e instanceof Error ? e.message : undefined)
+    const message = e instanceof Error ? e.message : String(e)
+    if (ALREADY_REGISTERED.test(message)) return { status: 'exists', error: null }
+    console.error('[pmo] identity invite failed', message)
+    return { status: 'failed', error: message.slice(0, 300) }
   }
+}
+
+async function inviteOrFail(identityAdmin: { invite(email: string, name: string): Promise<void> }, email: string, name: string) {
+  const r = await tryInvite(identityAdmin, email, name)
+  if (r.status === 'failed') throw new HttpProblem(502, 'identity_invite_failed', r.error ?? undefined)
+  return r
 }
 
 export function toUserDto(u: UserRow): UserDto {
@@ -79,11 +91,12 @@ adminUsersRouter.openapi(
         })
         .returning()
       await writeAudit(c, { action: 'user.invite', entity: 'users', entityId: row!.id, changes: { email: input.email, role: input.role } }, tx)
-      // Błąd zaproszenia w Identity wycofuje transakcję — brak „osieroconych” rekordów.
-      await inviteOrFail(deps.identityAdmin, input.email, input.name)
       return row!
     })
-    return c.json(toUserDto(created), 201)
+    // Rekord w aplikacji powstaje niezależnie od wysyłki zaproszenia — konto wiąże się po e-mailu przy pierwszym logowaniu.
+    const invite = input.sendInvite ? await tryInvite(deps.identityAdmin, input.email, input.name) : { status: 'skipped' as const, error: null }
+    await writeAudit(c, { action: 'user.invite_result', entity: 'users', entityId: created.id, changes: invite })
+    return c.json({ ...toUserDto(created), inviteStatus: invite.status, inviteError: invite.error } satisfies UserCreatedResponse, 201)
   },
 )
 
@@ -177,9 +190,9 @@ adminUsersRouter.openapi(
     const [user] = await deps.db.select().from(users).where(and(eq(users.id, id), isNull(users.deletedAt)))
     if (!user) throw notFound()
     if (user.identitySub) throw new HttpProblem(409, 'user_already_linked')
-    await inviteOrFail(deps.identityAdmin, user.email, user.name)
+    const r = await inviteOrFail(deps.identityAdmin, user.email, user.name)
     await deps.db.update(users).set({ invitedAt: sql`now()` }).where(eq(users.id, id))
-    await writeAudit(c, { action: 'user.invite_resent', entity: 'users', entityId: id })
-    return c.json({ ok: true }, 200)
+    await writeAudit(c, { action: 'user.invite_resent', entity: 'users', entityId: id, changes: r })
+    return c.json({ ok: true, inviteStatus: r.status }, 200)
   },
 )

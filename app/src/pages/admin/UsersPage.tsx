@@ -1,11 +1,11 @@
-import { ActionIcon, Badge, Button, Group, Menu, Modal, Select, Stack, Switch, Table, Text, TextInput, Title } from '@mantine/core'
+import { ActionIcon, Badge, Button, Checkbox, Group, Menu, Modal, Select, Stack, Switch, Table, Text, TextInput, Title } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
 import { IconDots, IconUserPlus } from '@tabler/icons-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ROLES, type Role, type UserDto } from '#shared'
+import { ROLES, type Role, type UserCreatedResponse, type UserDto } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { ApiError, api } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
@@ -19,9 +19,10 @@ interface FormState {
   role: Role
   subcontractorId: string
   isActive: boolean
+  sendInvite: boolean
 }
 
-const emptyForm: FormState = { email: '', name: '', role: 'EnvcheckInternal', subcontractorId: '', isActive: true }
+const emptyForm: FormState = { email: '', name: '', role: 'EnvcheckInternal', subcontractorId: '', isActive: true, sendInvite: true }
 
 export function UsersPage() {
   const { t } = useTranslation()
@@ -37,12 +38,22 @@ export function UsersPage() {
             method: 'PATCH',
             json: { name: f.name, role: f.role, subcontractorId: f.subcontractorId || null, isActive: f.isActive, version: f.version },
           })
-        : api<UserDto>('/admin/users', {
+        : api<UserCreatedResponse>('/admin/users', {
             method: 'POST',
-            json: { email: f.email, name: f.name, role: f.role, subcontractorId: f.subcontractorId || null },
+            json: { email: f.email, name: f.name, role: f.role, subcontractorId: f.subcontractorId || null, sendInvite: f.sendInvite },
           }),
-    onSuccess: (_, f) => {
-      notifications.show({ color: 'green', message: f.id ? t('app.saved') : t('users.invited') })
+    onSuccess: (r, f) => {
+      if (f.id) notifications.show({ color: 'green', message: t('app.saved') })
+      else {
+        const created = r as UserCreatedResponse
+        const msg = {
+          sent: t('users.inviteSent'),
+          exists: t('users.inviteExists'),
+          skipped: t('users.inviteSkipped'),
+          failed: t('users.inviteFailed', { error: created.inviteError ?? '' }),
+        }[created.inviteStatus]
+        notifications.show({ color: created.inviteStatus === 'failed' ? 'yellow' : 'green', message: msg, autoClose: created.inviteStatus === 'failed' ? false : 6000 })
+      }
       setForm(null)
       void qc.invalidateQueries({ queryKey: ['admin', 'users'] })
     },
@@ -75,6 +86,7 @@ export function UsersPage() {
     role: u.role,
     subcontractorId: u.subcontractorId ?? '',
     isActive: u.isActive,
+    sendInvite: false,
   })
 
   const confirmReset = (u: UserDto) =>
@@ -172,6 +184,9 @@ export function UsersPage() {
               />
               {form.role === 'Subcontractor' && (
                 <TextInput label={t('users.subcontractorId')} required value={form.subcontractorId} onChange={(e) => setForm({ ...form, subcontractorId: e.currentTarget.value })} />
+              )}
+              {!form.id && (
+                <Checkbox label={t('users.sendInvite')} description={t('users.sendInviteHint')} checked={form.sendInvite} onChange={(e) => setForm({ ...form, sendInvite: e.currentTarget.checked })} />
               )}
               {form.id && <Switch label={t('users.active')} checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.currentTarget.checked })} />}
               <Group justify="flex-end">

@@ -25,6 +25,8 @@ export const inviteUserInput = z
     name: z.string().trim().min(1).max(200),
     role: roleSchema,
     subcontractorId: z.uuid().nullish(),
+    /** false = tylko rejestracja w aplikacji (osoba ma już konto Netlify Identity). */
+    sendInvite: z.boolean().default(true),
   })
   .refine((v) => v.role !== 'Subcontractor' || !!v.subcontractorId, {
     message: 'validation.subcontractorRequired',

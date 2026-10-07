@@ -84,3 +84,10 @@ export interface ProblemDetails {
   code?: string
   [key: string]: unknown
 }
+
+/** Wynik zaproszenia Identity przy dodawaniu użytkownika (rekord w aplikacji powstaje niezależnie). */
+export type InviteStatus = 'sent' | 'exists' | 'skipped' | 'failed'
+export interface UserCreatedResponse extends UserDto {
+  inviteStatus: InviteStatus
+  inviteError: string | null
+}

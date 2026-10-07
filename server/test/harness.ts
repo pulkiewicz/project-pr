@@ -27,8 +27,10 @@ export const fakeIdentity: IdentityVerifier = {
 export class FakeIdentityAdmin implements IdentityAdmin {
   invites: { email: string; name: string }[] = []
   fail = false
+  failWith: string | null = null
   async invite(email: string, name: string) {
     if (this.fail) throw new Error('identity down')
+    if (this.failWith) throw new Error(this.failWith)
     this.invites.push({ email, name })
   }
 }

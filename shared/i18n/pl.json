@@ -167,7 +167,13 @@
     "resetMfaConfirm": "Zresetować 2FA użytkownika {{name}}? Przy następnym logowaniu będzie musiał skonfigurować je ponownie.",
     "resendInvite": "Wyślij zaproszenie ponownie",
     "invited": "Wysłano zaproszenie",
-    "conflict": "Rekord został zmieniony przez kogoś innego. Wczytano aktualną wersję."
+    "conflict": "Rekord został zmieniony przez kogoś innego. Wczytano aktualną wersję.",
+    "sendInvite": "Wyślij zaproszenie e-mail (Netlify Identity)",
+    "sendInviteHint": "Odznacz, jeśli osoba ma już konto i hasło w Netlify — wystarczy, że się zaloguje.",
+    "inviteSent": "Dodano użytkownika i wysłano zaproszenie e-mail",
+    "inviteExists": "Dodano użytkownika. Konto Netlify już istnieje — może się od razu zalogować swoim hasłem.",
+    "inviteSkipped": "Dodano użytkownika bez zaproszenia — może się zalogować, jeśli ma konto Netlify.",
+    "inviteFailed": "Dodano użytkownika, ale zaproszenie nie zostało wysłane ({{error}}). Zaproś go w panelu Netlify (Identity → Invite users) lub użyj „Wyślij zaproszenie ponownie”."
   },
   "permissions": {
     "title": "Macierz uprawnień",
