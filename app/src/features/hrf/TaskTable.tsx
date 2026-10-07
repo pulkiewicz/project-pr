@@ -4,6 +4,7 @@ import { IconDiamond, IconFlame } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable, type MRT_ColumnDef } from 'mantine-react-table'
 import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mjs'
 import { useMemo } from 'react'
+import './table.css'
 import { useTranslation } from 'react-i18next'
 import { HRF_STATUSES, type HrfStatus, type HrfTaskDto } from '#shared'
 import { errorMessage } from '../../lib/errors'
@@ -44,14 +45,16 @@ export function TaskTable({ tasks, showInternal, onOpen }: Props) {
 
   const columns = useMemo<MRT_ColumnDef<TreeTask>[]>(
     () => [
-      { accessorKey: 'code', header: t('hrf.code'), size: 90 },
+      { accessorKey: 'code', header: t('hrf.code'), size: 70 },
       {
         accessorKey: 'name',
         header: t('hrf.name'),
-        size: 420,
+        size: 380,
+        minSize: 260,
         grow: true,
+        mantineTableBodyCellProps: { style: { whiteSpace: 'normal', fontSize: 12, paddingTop: 4, paddingBottom: 4, verticalAlign: 'top' } },
         Cell: ({ row }) => (
-          <Group gap={6} wrap="nowrap">
+          <Group gap={6} wrap="nowrap" align="flex-start">
             {row.original.isCriticalPath && (
               <Tooltip label={t('hrf.critical')}>
                 <IconFlame size={14} color="var(--mantine-color-red-6)" />
@@ -62,25 +65,26 @@ export function TaskTable({ tasks, showInternal, onOpen }: Props) {
                 <IconDiamond size={14} color="var(--mantine-color-violet-6)" />
               </Tooltip>
             )}
-            <Text size="sm" fw={row.original.parentId ? 400 : 600} lineClamp={2}>
+            <Text fz={12} lh={1.35} fw={row.original.parentId ? 400 : 600} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
               {row.original.name}
             </Text>
           </Group>
         ),
       },
-      { accessorKey: 'party', header: t('hrf.party'), size: 150, Cell: ({ cell }) => t(`parties.${cell.getValue<string>()}`) },
-      { accessorKey: 'plannedStart', header: t('hrf.plannedStart'), size: 130, Cell: ({ cell }) => formatDate(cell.getValue<string | null>()) },
-      { accessorKey: 'plannedEnd', header: t('hrf.plannedEnd'), size: 130, Cell: ({ cell }) => formatDate(cell.getValue<string | null>()) },
-      { accessorKey: 'actualStart', header: t('hrf.actualStart'), size: 130, Cell: ({ cell }) => formatDate(cell.getValue<string | null>()) },
-      { accessorKey: 'actualEnd', header: t('hrf.actualEnd'), size: 130, Cell: ({ cell }) => formatDate(cell.getValue<string | null>()) },
+      { accessorKey: 'party', header: t('hrf.party'), size: 120, Cell: ({ cell }) => t(`parties.${cell.getValue<string>()}`) },
+      { accessorKey: 'plannedStart', header: t('hrf.plannedStart'), size: 118, Cell: ({ cell }) => formatDate(cell.getValue<string | null>()) },
+      { accessorKey: 'plannedEnd', header: t('hrf.plannedEnd'), size: 118, Cell: ({ cell }) => formatDate(cell.getValue<string | null>()) },
+      { accessorKey: 'actualStart', header: t('hrf.actualStart'), size: 118, Cell: ({ cell }) => formatDate(cell.getValue<string | null>()) },
+      { accessorKey: 'actualEnd', header: t('hrf.actualEnd'), size: 118, Cell: ({ cell }) => formatDate(cell.getValue<string | null>()) },
       {
         accessorKey: 'percentComplete',
         header: t('hrf.percent'),
-        size: 120,
+        size: 95,
         Cell: ({ row }) =>
           row.original.canEdit && row.original.subRows.length === 0 ? (
             <NumberInput
               size="xs"
+              styles={{ input: { fontSize: 12, height: 26, minHeight: 26 } }}
               min={0}
               max={100}
               suffix=" %"
@@ -99,11 +103,12 @@ export function TaskTable({ tasks, showInternal, onOpen }: Props) {
       {
         accessorKey: 'status',
         header: t('hrf.statusLabel'),
-        size: 170,
+        size: 150,
         Cell: ({ row }) =>
           row.original.canEdit && row.original.subRows.length === 0 ? (
             <Select
               size="xs"
+              styles={{ input: { fontSize: 12, height: 26, minHeight: 26 } }}
               allowDeselect={false}
               value={row.original.status}
               data={HRF_STATUSES.map((s) => ({ value: s, label: t(`hrf.status.${s}`) }))}
@@ -120,7 +125,7 @@ export function TaskTable({ tasks, showInternal, onOpen }: Props) {
             {
               accessorKey: 'contractValue',
               header: t('hrf.contractValue'),
-              size: 140,
+              size: 125,
               Cell: ({ cell }: { cell: { getValue: <T>() => T } }) => {
                 const v = cell.getValue<string | null>()
                 return v ? <Badge variant="outline">{formatPLN(v)}</Badge> : '—'
@@ -148,7 +153,12 @@ export function TaskTable({ tasks, showInternal, onOpen }: Props) {
     enableRowVirtualization: true,
     enableColumnPinning: true,
     enableStickyHeader: true,
-    mantineTableContainerProps: { style: { maxHeight: 'calc(100vh - 300px)' } },
+    mantineTableContainerProps: { className: 'pmo-dense-table', style: { maxHeight: 'calc(100vh - 300px)' } },
+    mantineTableProps: { style: { fontSize: 12 } },
+    mantineTableHeadCellProps: { style: { fontSize: 12 } },
+    mantineTableBodyCellProps: { style: { fontSize: 12, paddingTop: 4, paddingBottom: 4, verticalAlign: 'top' } },
+    // Wiersze o zmiennej wysokości (zawijana nazwa) — pomiar rzeczywistej wysokości przy wirtualizacji.
+    rowVirtualizerOptions: { estimateSize: () => 40, overscan: 10 },
     mantineTableBodyRowProps: ({ row }) => ({
       onClick: () => onOpen(row.original.id),
       style: { cursor: 'pointer' },

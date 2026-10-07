@@ -1,0 +1,18 @@
+/* Nieprzezroczysty nagłówek przy przewijaniu (przypięty nagłówek nie może przepuszczać treści wierszy). */
+.pmo-dense-table thead,
+.pmo-dense-table thead tr,
+.pmo-dense-table thead th {
+  background-color: var(--mantine-color-body) !important;
+}
+.pmo-dense-table thead {
+  z-index: 3;
+}
+/* mantine-react-table nadaje przypiętemu nagłówkowi opacity 0.97 — treść wierszy prześwituje. */
+.pmo-dense-table thead,
+.pmo-dense-table thead tr,
+.pmo-dense-table thead th {
+  opacity: 1 !important;
+}
+.pmo-dense-table td[data-column-pinned] {
+  opacity: 1 !important;
+}
