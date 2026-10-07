@@ -1,5 +1,5 @@
 import { AppShell, Badge, Box, Burger, Divider, Group, Image, Indicator, Menu, NavLink, ScrollArea, Text, TextInput, Tooltip, UnstyledButton, ActionIcon, Popover } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
+import { useDisclosure, useLocalStorage, useMediaQuery } from '@mantine/hooks'
 import {
   IconBell,
   IconBuildingFactory2,
@@ -27,6 +27,8 @@ import {
   IconReplace,
   IconCoin,
   IconKey,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
 } from '@tabler/icons-react'
 import type { ModuleKey } from '#shared'
 import { NavLink as RouterLink, Outlet, useLocation } from 'react-router-dom'
@@ -85,6 +87,10 @@ export function AppLayout() {
   const me = useMe()
   const location = useLocation()
   const [opened, { toggle, close }] = useDisclosure()
+  // Zwinięte menu (pasek ikon) — tylko na komputerze; stan zapamiętany w przeglądarce.
+  const [collapsedPref, setCollapsed] = useLocalStorage({ key: 'pmo_nav_collapsed', defaultValue: false })
+  const desktop = useMediaQuery('(min-width: 48em)')
+  const collapsed = collapsedPref && !!desktop
   const project = me.projects[0]
 
   // W menu tylko moduły już wdrożone (kolejne etapy pojawią się wraz z implementacją).
@@ -93,28 +99,48 @@ export function AppLayout() {
   const internal = visible.filter((n) => isInternal(n.module) && n.module !== 'auditLog')
   const isActive = (path: string) => (path === '/' ? location.pathname === '/' : location.pathname.startsWith(path))
 
-  const link = (n: (typeof NAV)[number]) => {
-    const Icon = ICONS[n.module] ?? IconFileText
-    return (
+  const item = (key: string, to: string, label: string, Icon: typeof IconGauge, internalMark = false) => {
+    const nav = (
       <NavLink
-        key={n.module}
+        key={key}
         component={RouterLink}
-        to={n.path}
-        label={t(`nav.${n.module}`)}
-        leftSection={<Icon size={18} stroke={1.6} />}
-        rightSection={isInternal(n.module) ? <IconLock size={14} /> : undefined}
-        active={isActive(n.path)}
+        to={to}
+        label={collapsed ? undefined : label}
+        aria-label={label}
+        leftSection={<Icon size={collapsed ? 20 : 18} stroke={1.6} />}
+        rightSection={!collapsed && internalMark ? <IconLock size={14} /> : undefined}
+        active={isActive(to)}
         onClick={close}
+        styles={collapsed ? { root: { justifyContent: 'center', paddingInline: 0 }, section: { marginInlineEnd: 0 }, body: { display: 'none' } } : undefined}
       />
     )
+    return collapsed ? (
+      <Tooltip key={key} label={label} position="right" withArrow>
+        {nav}
+      </Tooltip>
+    ) : (
+      nav
+    )
   }
+  const link = (n: (typeof NAV)[number]) => item(n.module, n.path, t(`nav.${n.module}`), ICONS[n.module] ?? IconFileText, isInternal(n.module))
+  const section = (label: React.ReactNode) => (collapsed ? <Divider my="xs" /> : <Divider my="xs" label={label} labelPosition="left" />)
 
   return (
-    <AppShell header={{ height: 60 }} navbar={{ width: 260, breakpoint: 'sm', collapsed: { mobile: !opened } }} padding="md">
+    <AppShell
+      header={{ height: 60 }}
+      navbar={{ width: collapsed ? 64 : 260, breakpoint: 'sm', collapsed: { mobile: !opened } }}
+      padding="md"
+      transitionDuration={150}
+    >
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between" wrap="nowrap">
           <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+            <Tooltip label={t(collapsedPref ? 'app.expandMenu' : 'app.collapseMenu')}>
+              <ActionIcon variant="subtle" size="lg" visibleFrom="sm" onClick={() => setCollapsed(!collapsedPref)} aria-label={t(collapsedPref ? 'app.expandMenu' : 'app.collapseMenu')} data-testid="nav-toggle">
+                {collapsedPref ? <IconLayoutSidebarLeftExpand size={20} /> : <IconLayoutSidebarLeftCollapse size={20} />}
+              </ActionIcon>
+            </Tooltip>
             <Image src="/brand/envcheck-mark.svg" w={34} h={34} alt="Envcheck" />
             <Text fw={600} truncate visibleFrom="md" maw={420}>
               {project?.name ?? t('app.name')}
@@ -174,26 +200,26 @@ export function AppLayout() {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p="xs">
+      <AppShell.Navbar p={collapsed ? 6 : 'xs'}>
         <AppShell.Section grow component={ScrollArea}>
           {shared.map(link)}
           {internal.length > 0 && (
             <>
-              <Divider my="xs" label={<Group gap={4}><IconLock size={12} />{t('app.internalSection')}</Group>} labelPosition="left" />
+              {section(<Group gap={4}><IconLock size={12} />{t('app.internalSection')}</Group>)}
               {internal.map(link)}
             </>
           )}
           {can('admin', 'view') && (
             <>
-              <Divider my="xs" label={t('nav.admin')} labelPosition="left" />
-              <NavLink component={RouterLink} to="/admin/users" label={t('nav.adminUsers')} leftSection={<IconUsers size={18} />} active={isActive('/admin/users')} onClick={close} />
-              <NavLink component={RouterLink} to="/admin/permissions" label={t('nav.adminPermissions')} leftSection={<IconKey size={18} />} active={isActive('/admin/permissions')} onClick={close} />
-              <NavLink component={RouterLink} to="/admin/repozytorium" label={t('nav.adminDocuments')} leftSection={<IconFolder size={18} />} active={isActive('/admin/repozytorium')} onClick={close} />
-              <NavLink component={RouterLink} to="/admin/settings" label={t('nav.adminSettings')} leftSection={<IconSettings size={18} />} active={isActive('/admin/settings')} onClick={close} />
+              {section(t('nav.admin'))}
+              {item('admin-users', '/admin/users', t('nav.adminUsers'), IconUsers)}
+              {item('admin-permissions', '/admin/permissions', t('nav.adminPermissions'), IconKey)}
+              {item('admin-docs', '/admin/repozytorium', t('nav.adminDocuments'), IconFolder)}
+              {item('admin-settings', '/admin/settings', t('nav.adminSettings'), IconSettings)}
             </>
           )}
           {can('auditLog', 'view') && (
-            <NavLink component={RouterLink} to="/admin/audit" label={t('nav.auditLog')} leftSection={<IconHistory size={18} />} active={isActive('/admin/audit')} onClick={close} />
+            item('audit', '/admin/audit', t('nav.auditLog'), IconHistory)
           )}
         </AppShell.Section>
       </AppShell.Navbar>

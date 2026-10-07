@@ -29,7 +29,9 @@
     "next": "Następna",
     "pageOf": "Strona {{page}} z {{pages}}",
     "daysShort": "{{count}} dni",
-    "build": "build {{date}}{{commit}}"
+    "build": "build {{date}}{{commit}}",
+    "collapseMenu": "Zwiń menu",
+    "expandMenu": "Rozwiń menu"
   },
   "auth": {
     "loginTitle": "Logowanie",
