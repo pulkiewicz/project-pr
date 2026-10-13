@@ -9,6 +9,12 @@ export const actionSchema = z.enum(ACTIONS)
 export const totpCodeSchema = z.string().trim().regex(/^\d{6}$/, 'validation.totpCode')
 export const recoveryCodeSchema = z.string().trim().regex(/^[A-Z0-9]{5}-[A-Z0-9]{5}$/i, 'validation.recoveryCode')
 
+export const PASSWORD_MIN_LENGTH = 12
+export const passwordSchema = z.string().min(PASSWORD_MIN_LENGTH, 'validation.passwordTooShort').max(128)
+
+export const USER_ACCESS_MODES = ['password', 'invite', 'none'] as const
+export type UserAccessMode = (typeof USER_ACCESS_MODES)[number]
+
 /** `remember: false` → cookie 2FA sesyjne (wygasa po zamknięciu przeglądarki). */
 const rememberField = { remember: z.boolean().optional() }
 export const mfaVerifyInput = z.union([
@@ -25,14 +31,23 @@ export const inviteUserInput = z
     name: z.string().trim().min(1).max(200),
     role: roleSchema,
     subcontractorId: z.uuid().nullish(),
-    /** false = tylko rejestracja w aplikacji (osoba ma już konto Netlify Identity). */
-    sendInvite: z.boolean().default(true),
+    /**
+     * password = konto Identity zakładane od razu (potwierdzone, bez e-maila) z hasłem tymczasowym;
+     * invite = zaproszenie e-mail Netlify; none = tylko rejestracja w aplikacji (osoba ma już konto Identity).
+     */
+    access: z.enum(USER_ACCESS_MODES).default('password'),
+    /** Puste = hasło generowane przez serwer i zwracane jednorazowo w odpowiedzi. */
+    initialPassword: passwordSchema.optional(),
   })
   .refine((v) => v.role !== 'Subcontractor' || !!v.subcontractorId, {
     message: 'validation.subcontractorRequired',
     path: ['subcontractorId'],
   })
 export type InviteUserInput = z.infer<typeof inviteUserInput>
+
+export const tempPasswordInput = z.object({ password: passwordSchema.optional() })
+
+export const changePasswordInput = z.object({ newPassword: passwordSchema })
 
 export const updateUserInput = z.object({
   name: z.string().trim().min(1).max(200).optional(),

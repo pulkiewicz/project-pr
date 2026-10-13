@@ -1,8 +1,20 @@
 import { z } from '@hono/zod-openapi'
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
-import { defaultPartyForRole, inviteUserInput, updateUserInput, type InviteStatus, type Party, type UserCreatedResponse, type UserDto } from '#shared'
+import {
+  defaultPartyForRole,
+  inviteUserInput,
+  tempPasswordInput,
+  updateUserInput,
+  type InviteStatus,
+  type Party,
+  type TempPasswordResponse,
+  type UserCreatedResponse,
+  type UserDto,
+} from '#shared'
+import type { IdentityAdmin } from '../../auth/identity.ts'
 import type { UserRow } from '../../context.ts'
 import { users } from '../../db/schema.ts'
+import { generateTempPassword } from '../../lib/passwords.ts'
 import { HttpProblem, conflict, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
 import { diffFields, writeAudit } from '../audit/service.ts'
@@ -29,6 +41,17 @@ async function tryInvite(identityAdmin: { invite(email: string, name: string): P
   }
 }
 
+/** Konto Identity z hasłem tymczasowym (bez e-maila); błąd → status `failed`, rekord w aplikacji zostaje. */
+async function trySetPassword(identityAdmin: IdentityAdmin, email: string, name: string, password: string) {
+  try {
+    return { status: 'password_set' as const, error: null, sub: await identityAdmin.upsertWithPassword(email, name, password) }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    console.error('[pmo] identity create user failed', message)
+    return { status: 'failed' as const, error: message.slice(0, 300), sub: null }
+  }
+}
+
 async function inviteOrFail(identityAdmin: { invite(email: string, name: string): Promise<void> }, email: string, name: string) {
   const r = await tryInvite(identityAdmin, email, name)
   if (r.status === 'failed') throw new HttpProblem(502, 'identity_invite_failed', r.error ?? undefined)
@@ -48,6 +71,7 @@ export function toUserDto(u: UserRow): UserDto {
     invitedAt: u.invitedAt,
     lastLoginAt: u.lastLoginAt,
     identityLinked: !!u.identitySub,
+    mustChangePassword: u.mustChangePassword,
     version: u.version,
   }
 }
@@ -93,10 +117,26 @@ adminUsersRouter.openapi(
       await writeAudit(c, { action: 'user.invite', entity: 'users', entityId: row!.id, changes: { email: input.email, role: input.role } }, tx)
       return row!
     })
-    // Rekord w aplikacji powstaje niezależnie od wysyłki zaproszenia — konto wiąże się po e-mailu przy pierwszym logowaniu.
-    const invite = input.sendInvite ? await tryInvite(deps.identityAdmin, input.email, input.name) : { status: 'skipped' as const, error: null }
-    await writeAudit(c, { action: 'user.invite_result', entity: 'users', entityId: created.id, changes: invite })
-    return c.json({ ...toUserDto(created), inviteStatus: invite.status, inviteError: invite.error } satisfies UserCreatedResponse, 201)
+    // Rekord w aplikacji powstaje niezależnie od Identity — konto wiąże się po e-mailu przy pierwszym logowaniu.
+    let result: UserRow = created
+    let invite: { status: InviteStatus; error: string | null }
+    let initialPassword: string | null = null
+    if (input.access === 'password') {
+      const password = input.initialPassword ?? generateTempPassword()
+      const r = await trySetPassword(deps.identityAdmin, input.email, input.name, password)
+      invite = { status: r.status, error: r.error }
+      if (r.sub) {
+        initialPassword = password
+        const [row] = await deps.db.update(users).set({ identitySub: r.sub, mustChangePassword: true }).where(eq(users.id, created.id)).returning()
+        result = row!
+      }
+    } else if (input.access === 'invite') {
+      invite = await tryInvite(deps.identityAdmin, input.email, input.name)
+    } else {
+      invite = { status: 'skipped', error: null }
+    }
+    await writeAudit(c, { action: 'user.invite_result', entity: 'users', entityId: created.id, changes: { access: input.access, ...invite } })
+    return c.json({ ...toUserDto(result), inviteStatus: invite.status, inviteError: invite.error, initialPassword } satisfies UserCreatedResponse, 201)
   },
 )
 
@@ -194,5 +234,40 @@ adminUsersRouter.openapi(
     await deps.db.update(users).set({ invitedAt: sql`now()` }).where(eq(users.id, id))
     await writeAudit(c, { action: 'user.invite_resent', entity: 'users', entityId: id, changes: r })
     return c.json({ ok: true, inviteStatus: r.status }, 200)
+  },
+)
+
+adminUsersRouter.openapi(
+  secureRoute(
+    '/admin',
+    { method: 'post', path: '/users/{id}/temp-password', request: { params: idParam, body: body(tempPasswordInput) }, responses: ok },
+    { permission: { module: 'admin', action: 'edit' } },
+  ),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const input = c.req.valid('json')
+    const deps = c.get('deps')
+    const [user] = await deps.db.select().from(users).where(and(eq(users.id, id), isNull(users.deletedAt)))
+    if (!user) throw notFound()
+    if (!user.isActive) throw new HttpProblem(422, 'target_user_inactive')
+    const password = input.password ?? generateTempPassword()
+    let sub: string
+    try {
+      sub = await deps.identityAdmin.upsertWithPassword(user.email, user.name, password)
+    } catch (e) {
+      throw new HttpProblem(502, 'identity_password_failed', e instanceof Error ? e.message.slice(0, 300) : undefined)
+    }
+    if (user.identitySub && user.identitySub !== sub) throw new HttpProblem(409, 'identity_mismatch')
+    const updated = await deps.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(users)
+        .set({ identitySub: sub, mustChangePassword: true, version: sql`${users.version} + 1`, updatedAt: sql`now()`, updatedBy: c.get('user').id })
+        .where(eq(users.id, id))
+        .returning()
+      // Hasło nigdy nie trafia do audytu ani bazy.
+      await writeAudit(c, { action: 'user.temp_password_set', entity: 'users', entityId: id }, tx)
+      return row!
+    })
+    return c.json({ user: toUserDto(updated), password } satisfies TempPasswordResponse, 200)
   },
 )

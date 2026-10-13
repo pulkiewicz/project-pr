@@ -12,6 +12,7 @@ export type AuthState =
   | { status: 'invite'; token: string }
   | { status: 'recovery' }
   | { status: 'denied'; code: string }
+  | { status: 'password-change'; me: MeResponse }
   | { status: 'mfa-setup'; me: MeResponse }
   | { status: 'mfa-verify'; me: MeResponse }
   | { status: 'ready'; me: MeResponse }
@@ -30,6 +31,8 @@ async function loadMe(): Promise<AuthState> {
   if (!identityUser) return { status: 'anonymous' }
   try {
     const me = await api<MeResponse>('/me')
+    // Kolejność: hasło tymczasowe → 2FA.
+    if (me.user.mustChangePassword) return { status: 'password-change', me }
     if (me.mfa.required && !me.mfa.verified) return { status: me.mfa.enrolled ? 'mfa-verify' : 'mfa-setup', me }
     return { status: 'ready', me }
   } catch (e) {

@@ -51,8 +51,9 @@ export const authenticate: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next()
 }
 
-/** Warstwa 2: ważna sesja 2FA (dla ról, które jej wymagają). */
+/** Warstwa 2: hasło tymczasowe zmienione i ważna sesja 2FA (dla ról, które jej wymagają). */
 export const requireMfa: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (c.get('user').mustChangePassword) throw forbidden('password_change_required')
   const mfa = c.get('mfa')
   if (mfa.required && !mfa.verified) {
     throw new HttpProblem(401, c.get('user').totpEnabled ? 'mfa_required' : 'mfa_enrollment_required')

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { UserDto } from '#shared'
+import type { MeResponse, TempPasswordResponse, UserCreatedResponse, UserDto } from '#shared'
 import { createUser, eq, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
 
 let h: Harness
@@ -16,6 +16,7 @@ describe('zarządzanie użytkownikami', () => {
       email: 'kamil@envcheck.test',
       name: 'Kamil Jankowski',
       role: 'EnvcheckInternal',
+      access: 'invite',
     })
     expect(res.status).toBe(201)
     const dto = (await res.json()) as UserDto
@@ -37,15 +38,63 @@ describe('zarządzanie użytkownikami', () => {
 
   it('konto Identity już istnieje → status „exists”; bez zaproszenia → „skipped”; osoba loguje się i konto się wiąże', async () => {
     h.identityAdmin.failWith = 'Identity invite failed (422): A user with this email address has already been registered'
-    const res = await req(h, 'POST', '/api/admin/users', admin.headers, { email: 'anna@envcheck.test', name: 'Anna', role: 'EnvcheckInternal' })
+    const res = await req(h, 'POST', '/api/admin/users', admin.headers, { email: 'anna@envcheck.test', name: 'Anna', role: 'EnvcheckInternal', access: 'invite' })
     h.identityAdmin.failWith = null
     expect(await res.json()).toMatchObject({ inviteStatus: 'exists', inviteError: null })
     const before = h.identityAdmin.invites.length
-    const skip = await req(h, 'POST', '/api/admin/users', admin.headers, { email: 'ewa@envcheck.test', name: 'Ewa', role: 'Arsanit', sendInvite: false })
+    const skip = await req(h, 'POST', '/api/admin/users', admin.headers, { email: 'ewa@envcheck.test', name: 'Ewa', role: 'Arsanit', access: 'none' })
     expect(await skip.json()).toMatchObject({ inviteStatus: 'skipped' })
     expect(h.identityAdmin.invites.length).toBe(before)
     const login = await req(h, 'GET', '/api/me', { authorization: 'Bearer test:anna-sub:anna@envcheck.test' })
     expect(login.status).toBe(200)
+  })
+
+  it('domyślnie: konto Identity z hasłem tymczasowym, bez e-maila; dostęp zablokowany do zmiany hasła', async () => {
+    const invitesBefore = h.identityAdmin.invites.length
+    const res = await req(h, 'POST', '/api/admin/users', admin.headers, { email: 'Tomasz@envcheck.test', name: 'Tomasz', role: 'EnvcheckInternal' })
+    expect(res.status).toBe(201)
+    const created = (await res.json()) as UserCreatedResponse
+    expect(created).toMatchObject({ inviteStatus: 'password_set', identityLinked: true, mustChangePassword: true })
+    expect(created.initialPassword).toMatch(/^[A-Za-z2-9]{4}(-[A-Za-z2-9]{4}){3}$/)
+    expect(h.identityAdmin.accounts.get('tomasz@envcheck.test')?.password).toBe(created.initialPassword)
+    expect(h.identityAdmin.invites.length).toBe(invitesBefore)
+    const audit = await h.db.select().from(schema.auditLog).where(eq(schema.auditLog.entityId, created.id))
+    expect(JSON.stringify(audit)).not.toContain(created.initialPassword!)
+
+    const tomasz = { authorization: 'Bearer test:sub-tomasz@envcheck.test:tomasz@envcheck.test' }
+    const me = (await (await req(h, 'GET', '/api/me', tomasz)).json()) as MeResponse
+    expect(me.user.mustChangePassword).toBe(true)
+    expect(me.projects).toEqual([])
+    const blocked = await req(h, 'GET', '/api/admin/users', tomasz)
+    expect(blocked.status).toBe(403)
+    expect(await blocked.json()).toMatchObject({ code: 'password_change_required' })
+
+    const short = await req(h, 'POST', '/api/me/password', tomasz, { newPassword: 'krotkie' })
+    expect(short.status).toBe(422)
+    const changed = await req(h, 'POST', '/api/me/password', tomasz, { newPassword: 'nowe-haslo-123456' })
+    expect(changed.status).toBe(200)
+    expect(h.identityAdmin.passwordChanges.at(-1)).toMatchObject({ token: 'test:sub-tomasz@envcheck.test:tomasz@envcheck.test', password: 'nowe-haslo-123456' })
+    const after = (await (await req(h, 'GET', '/api/me', tomasz)).json()) as MeResponse
+    expect(after.user.mustChangePassword).toBe(false)
+  })
+
+  it('hasło tymczasowe podane przez Admina; ponowne nadanie przez /temp-password', async () => {
+    const res = await req(h, 'POST', '/api/admin/users', admin.headers, {
+      email: 'jan@envcheck.test',
+      name: 'Jan',
+      role: 'Client',
+      initialPassword: 'Start-haslo-2026',
+    })
+    const created = (await res.json()) as UserCreatedResponse
+    expect(created.initialPassword).toBe('Start-haslo-2026')
+    const reset = await req(h, 'POST', `/api/admin/users/${created.id}/temp-password`, admin.headers, {})
+    expect(reset.status).toBe(200)
+    const body = (await reset.json()) as TempPasswordResponse
+    expect(body.password).not.toBe('Start-haslo-2026')
+    expect(h.identityAdmin.accounts.get('jan@envcheck.test')?.password).toBe(body.password)
+    expect(body.user).toMatchObject({ mustChangePassword: true, version: created.version + 1 })
+    const tooShort = await req(h, 'POST', '/api/admin/users', admin.headers, { email: 'k@x.test', name: 'K', role: 'Client', initialPassword: 'abc' })
+    expect(tooShort.status).toBe(422)
   })
 
   it('podwykonawca wymaga subcontractorId; party = Subcontractor:{id}', async () => {

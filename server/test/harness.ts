@@ -6,7 +6,7 @@ import { generate } from 'otplib'
 import { defaultPartyForRole, type Role } from '#shared'
 import { createApp } from '../app.ts'
 import { signMfaSession, MFA_COOKIE } from '../auth/mfa-session.ts'
-import type { IdentityAdmin, IdentityVerifier } from '../auth/identity.ts'
+import { IdentityError, type IdentityAdmin, type IdentityVerifier } from '../auth/identity.ts'
 import type { AppDeps } from '../context.ts'
 import type { Database } from '../db/client.ts'
 import * as schema from '../db/schema.ts'
@@ -26,12 +26,26 @@ export const fakeIdentity: IdentityVerifier = {
 
 export class FakeIdentityAdmin implements IdentityAdmin {
   invites: { email: string; name: string }[] = []
+  /** e-mail → { sub, password } — konta „Identity” z hasłem. */
+  accounts = new Map<string, { sub: string; password: string }>()
+  passwordChanges: { token: string; password: string }[] = []
   fail = false
   failWith: string | null = null
   async invite(email: string, name: string) {
     if (this.fail) throw new Error('identity down')
     if (this.failWith) throw new Error(this.failWith)
     this.invites.push({ email, name })
+  }
+  async upsertWithPassword(email: string, _name: string, password: string) {
+    if (this.fail) throw new Error('identity down')
+    const key = email.toLowerCase()
+    const sub = this.accounts.get(key)?.sub ?? `sub-${key}`
+    this.accounts.set(key, { sub, password })
+    return sub
+  }
+  async changeOwnPassword(token: string, password: string) {
+    if (this.fail) throw new IdentityError(422, 'Identity password change failed (422): weak')
+    this.passwordChanges.push({ token, password })
   }
 }
 

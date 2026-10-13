@@ -1,5 +1,13 @@
 # Changelog
 
+## Użytkownicy z hasłem tymczasowym (13.10.2026)
+
+- **Dodawanie użytkownika bez e-maila z Netlify** (domyślny tryb): Admin zakłada konto w aplikacji, a serwer od razu tworzy potwierdzone konto Netlify Identity (GoTrue admin API, `confirm: true`). Hasło tymczasowe podaje Admin albo generuje serwer (16 znaków bez mylących liter i cyfr). Hasło jest pokazywane tylko raz, z przyciskiem kopiowania, i nie trafia do bazy ani audit logu. Jeśli konto Identity o tym e-mailu już istnieje, dostaje nowe hasło.
+- **Wymuszona zmiana hasła przy pierwszym logowaniu:** flaga `must_change_password` blokuje całe API (403 `password_change_required`) poza `/me` i `/me/password`. Ekran zmiany hasła pojawia się przed konfiguracją 2FA. Zmianę wykonuje serwer w GoTrue tokenem użytkownika, a flaga znika dopiero po udanej zmianie.
+- **„Ustaw hasło tymczasowe”** w menu użytkownika: nowe hasło jednorazowe i ponowny obowiązek zmiany, np. gdy ktoś zapomniał hasła.
+- Tryby zaproszenia e-mail Netlify i „ma już konto Netlify” zostały jako opcje.
+- Migracja `20261013141914_must_change_password`.
+
 ## E2 — Repozytorium dokumentów (Google Shared Drive) + zadania cykliczne (05.10.2026)
 
 - **Struktura folderów** zatwierdzona przez Admina: 00_Szablony … 99_Backup, z podfolderami modułów. Podfoldery Etapu 1 i punktów odbioru powstają z HRF. Inicjalizacja jest idempotentna: istniejące foldery i ACL zmienione przez Admina zostają.

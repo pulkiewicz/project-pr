@@ -69,7 +69,7 @@ Po deployu sprawdź `https://<projekt>.netlify.app/api/health` → `{"ok":true}`
 1. Identity → **Invite users** → adres z `BOOTSTRAP_ADMIN_EMAIL`.
 2. Link z e-maila → ustawienie hasła (min. 12 znaków) → logowanie.
 3. Aplikacja tworzy konto Administratora (tylko gdy w bazie nie ma jeszcze żadnego Admina) i wymusza konfigurację 2FA: zeskanuj kod QR, **zapisz 10 kodów zapasowych**.
-4. Kolejnych użytkowników zapraszasz z aplikacji: **Administracja → Użytkownicy → Zaproś** (rola i strona nadawane w aplikacji).
+4. Kolejnych użytkowników dodajesz w aplikacji: **Administracja → Użytkownicy → Dodaj użytkownika**. Rolę i stronę nadajesz w aplikacji. Domyślny tryb to **hasło tymczasowe**: konto Netlify powstaje od razu, bez e-maila. Hasło przekazujesz sam, a użytkownik musi je zmienić przy pierwszym logowaniu i potem skonfigurować 2FA. Gdy ktoś zapomni hasła, użyj **Ustaw hasło tymczasowe**.
 
 ## 6. Załadowanie HRF
 

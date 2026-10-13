@@ -18,6 +18,8 @@ export interface MeResponse {
     name: string
     role: Role
     party: Party
+    /** Hasło tymczasowe — przed dalszą pracą użytkownik musi ustawić własne. */
+    mustChangePassword: boolean
   }
   mfa: {
     required: boolean
@@ -51,6 +53,7 @@ export interface UserDto {
   invitedAt: string | null
   lastLoginAt: string | null
   identityLinked: boolean
+  mustChangePassword: boolean
   version: number
 }
 
@@ -86,8 +89,15 @@ export interface ProblemDetails {
 }
 
 /** Wynik zaproszenia Identity przy dodawaniu użytkownika (rekord w aplikacji powstaje niezależnie). */
-export type InviteStatus = 'sent' | 'exists' | 'skipped' | 'failed'
+export type InviteStatus = 'password_set' | 'sent' | 'exists' | 'skipped' | 'failed'
 export interface UserCreatedResponse extends UserDto {
   inviteStatus: InviteStatus
   inviteError: string | null
+  /** Hasło tymczasowe — zwracane tylko raz (nie jest nigdzie zapisywane). */
+  initialPassword: string | null
+}
+
+export interface TempPasswordResponse {
+  user: UserDto
+  password: string
 }

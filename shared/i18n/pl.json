@@ -55,7 +55,11 @@
     "notRegistered": "Twoje konto nie jest zarejestrowane w aplikacji. Skontaktuj się z administratorem.",
     "inactive": "Twoje konto zostało dezaktywowane.",
     "genericError": "Wystąpił błąd. Spróbuj ponownie.",
-    "rememberMe": "Zapamiętaj mnie"
+    "rememberMe": "Zapamiętaj mnie",
+    "changePasswordTitle": "Zmień hasło tymczasowe",
+    "changePasswordHint": "Logujesz się hasłem tymczasowym od administratora. Ustaw własne hasło (min. 12 znaków), aby przejść dalej.",
+    "changePassword": "Zmień hasło",
+    "passwordChanged": "Hasło zmienione"
   },
   "mfa": {
     "setupTitle": "Konfiguracja uwierzytelniania dwuskładnikowego",
@@ -150,7 +154,7 @@
   },
   "users": {
     "title": "Użytkownicy",
-    "invite": "Zaproś użytkownika",
+    "invite": "Dodaj użytkownika",
     "name": "Imię i nazwisko",
     "email": "E-mail",
     "role": "Rola",
@@ -159,7 +163,7 @@
     "status": "Status",
     "active": "Aktywny",
     "inactive": "Nieaktywny",
-    "pending": "Zaproszony",
+    "pending": "Oczekuje",
     "mfa": "2FA",
     "lastLogin": "Ostatnie logowanie",
     "edit": "Edytuj",
@@ -168,12 +172,28 @@
     "resendInvite": "Wyślij zaproszenie ponownie",
     "invited": "Wysłano zaproszenie",
     "conflict": "Rekord został zmieniony przez kogoś innego. Wczytano aktualną wersję.",
-    "sendInvite": "Wyślij zaproszenie e-mail (Netlify Identity)",
-    "sendInviteHint": "Odznacz, jeśli osoba ma już konto i hasło w Netlify — wystarczy, że się zaloguje.",
     "inviteSent": "Dodano użytkownika i wysłano zaproszenie e-mail",
     "inviteExists": "Dodano użytkownika. Konto Netlify już istnieje — może się od razu zalogować swoim hasłem.",
     "inviteSkipped": "Dodano użytkownika bez zaproszenia — może się zalogować, jeśli ma konto Netlify.",
-    "inviteFailed": "Dodano użytkownika, ale zaproszenie nie zostało wysłane ({{error}}). Zaproś go w panelu Netlify (Identity → Invite users) lub użyj „Wyślij zaproszenie ponownie”."
+    "inviteFailed": "Dodano użytkownika w aplikacji, ale Netlify Identity odrzuciło operację ({{error}}). Spróbuj „Ustaw hasło tymczasowe” lub „Wyślij zaproszenie ponownie”.",
+    "tempPasswordBadge": "Hasło tymczasowe",
+    "access": "Dostęp",
+    "accessPassword": "Hasło tymczasowe (bez e-maila)",
+    "accessInvite": "Zaproszenie e-mail Netlify",
+    "accessNone": "Ma już konto Netlify",
+    "accessPasswordHint": "Konto zostanie od razu utworzone i potwierdzone. Przekaż hasło użytkownikowi — przy pierwszym logowaniu musi je zmienić.",
+    "accessInviteHint": "Netlify wyśle e-mail z linkiem do ustawienia hasła.",
+    "accessNoneHint": "Osoba ma już konto i hasło w Netlify — wystarczy, że się zaloguje.",
+    "initialPassword": "Hasło tymczasowe",
+    "initialPasswordHint": "Zostaw puste, aby wygenerować bezpieczne hasło.",
+    "passwordSet": "Dodano użytkownika z hasłem tymczasowym",
+    "setTempPassword": "Ustaw hasło tymczasowe",
+    "setTempPasswordConfirm": "Ustawić nowe hasło tymczasowe dla {{name}}? Dotychczasowe hasło przestanie działać, a przy logowaniu trzeba będzie je zmienić.",
+    "credentialsTitle": "Dane do logowania",
+    "credentialsHint": "Hasło jest pokazywane tylko teraz — nie jest nigdzie zapisywane. Przekaż je użytkownikowi bezpiecznym kanałem (np. osobno od adresu e-mail).",
+    "loginUrl": "Adres aplikacji",
+    "copyAll": "Kopiuj wszystko",
+    "done": "Gotowe"
   },
   "permissions": {
     "title": "Macierz uprawnień",
@@ -266,7 +286,12 @@
     "user_already_linked": "Użytkownik już aktywował konto",
     "user_inactive": "Konto zostało dezaktywowane",
     "user_not_registered": "Konto nie jest zarejestrowane w aplikacji",
-    "unknown": "Wystąpił błąd ({{status}} {{code}}). Spróbuj ponownie lub zgłoś administratorowi."
+    "unknown": "Wystąpił błąd ({{status}} {{code}}). Spróbuj ponownie lub zgłoś administratorowi.",
+    "password_change_required": "Najpierw zmień hasło tymczasowe.",
+    "password_rejected": "Netlify Identity odrzuciło hasło. Wybierz inne (dłuższe, mniej oczywiste).",
+    "identity_password_failed": "Nie udało się ustawić hasła w Netlify Identity. Sprawdź, czy Identity jest włączone, i spróbuj ponownie.",
+    "identity_mismatch": "Konto Netlify Identity o tym e-mailu jest powiązane z innym użytkownikiem aplikacji.",
+    "target_user_inactive": "Użytkownik jest nieaktywny — najpierw go aktywuj."
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -277,7 +302,8 @@
     "dateRange": "Data końcowa przed początkową",
     "fileName": "Nazwa nie może zawierać / ani \\",
     "date": "Niepoprawna data",
-    "subcontractor": "Wybierz podwykonawcę"
+    "subcontractor": "Wybierz podwykonawcę",
+    "passwordTooShort": "Hasło musi mieć co najmniej 12 znaków"
   },
   "parties": {
     "Envcheck": "Envcheck",

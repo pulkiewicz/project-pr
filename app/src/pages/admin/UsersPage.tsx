@@ -1,11 +1,29 @@
-import { ActionIcon, Badge, Button, Checkbox, Group, Menu, Modal, Select, Stack, Switch, Table, Text, TextInput, Title } from '@mantine/core'
+import {
+  ActionIcon,
+  Alert,
+  Badge,
+  Button,
+  Code,
+  CopyButton,
+  Group,
+  Menu,
+  Modal,
+  Radio,
+  Select,
+  Stack,
+  Switch,
+  Table,
+  Text,
+  TextInput,
+  Title,
+} from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
 import { IconDots, IconUserPlus } from '@tabler/icons-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ROLES, type Role, type UserCreatedResponse, type UserDto } from '#shared'
+import { ROLES, USER_ACCESS_MODES, type Role, type TempPasswordResponse, type UserAccessMode, type UserCreatedResponse, type UserDto } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { ApiError, api } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
@@ -19,10 +37,68 @@ interface FormState {
   role: Role
   subcontractorId: string
   isActive: boolean
-  sendInvite: boolean
+  access: UserAccessMode
+  initialPassword: string
 }
 
-const emptyForm: FormState = { email: '', name: '', role: 'EnvcheckInternal', subcontractorId: '', isActive: true, sendInvite: true }
+interface Credentials {
+  name: string
+  email: string
+  password: string
+}
+
+const emptyForm: FormState = { email: '', name: '', role: 'EnvcheckInternal', subcontractorId: '', isActive: true, access: 'password', initialPassword: '' }
+
+const ACCESS_LABEL = { password: 'users.accessPassword', invite: 'users.accessInvite', none: 'users.accessNone' } as const
+const ACCESS_HINT = { password: 'users.accessPasswordHint', invite: 'users.accessInviteHint', none: 'users.accessNoneHint' } as const
+
+/** Jednorazowy podgląd hasła tymczasowego do przekazania użytkownikowi. */
+function CredentialsModal({ credentials, onClose }: { credentials: Credentials | null; onClose: () => void }) {
+  const { t } = useTranslation()
+  const url = window.location.origin
+  const all = credentials ? `${t('users.loginUrl')}: ${url}\n${t('users.email')}: ${credentials.email}\n${t('users.initialPassword')}: ${credentials.password}` : ''
+  return (
+    <Modal opened={!!credentials} onClose={onClose} title={t('users.credentialsTitle')} closeOnClickOutside={false}>
+      {credentials && (
+        <Stack>
+          <Text size="sm" fw={500}>
+            {credentials.name}
+          </Text>
+          <Alert color="yellow">{t('users.credentialsHint')}</Alert>
+          <Text size="sm">
+            {t('users.loginUrl')}: <Code>{url}</Code>
+          </Text>
+          <Text size="sm">
+            {t('users.email')}: <Code>{credentials.email}</Code>
+          </Text>
+          <Group gap="xs">
+            <Text size="sm">{t('users.initialPassword')}:</Text>
+            <Code fz="md" data-testid="temp-password">
+              {credentials.password}
+            </Code>
+            <CopyButton value={credentials.password}>
+              {({ copied, copy }) => (
+                <Button size="compact-xs" variant="light" onClick={copy}>
+                  {copied ? t('mfa.copied') : t('mfa.copy')}
+                </Button>
+              )}
+            </CopyButton>
+          </Group>
+          <Group justify="flex-end">
+            <CopyButton value={all}>
+              {({ copied, copy }) => (
+                <Button variant="default" onClick={copy}>
+                  {copied ? t('mfa.copied') : t('users.copyAll')}
+                </Button>
+              )}
+            </CopyButton>
+            <Button onClick={onClose}>{t('users.done')}</Button>
+          </Group>
+        </Stack>
+      )}
+    </Modal>
+  )
+}
 
 export function UsersPage() {
   const { t } = useTranslation()
@@ -30,6 +106,7 @@ export function UsersPage() {
   const qc = useQueryClient()
   const users = useQuery({ queryKey: ['admin', 'users'], queryFn: () => api<UserDto[]>('/admin/users') })
   const [form, setForm] = useState<FormState | null>(null)
+  const [credentials, setCredentials] = useState<Credentials | null>(null)
 
   const save = useMutation({
     mutationFn: (f: FormState) =>
@@ -40,19 +117,28 @@ export function UsersPage() {
           })
         : api<UserCreatedResponse>('/admin/users', {
             method: 'POST',
-            json: { email: f.email, name: f.name, role: f.role, subcontractorId: f.subcontractorId || null, sendInvite: f.sendInvite },
+            json: {
+              email: f.email,
+              name: f.name,
+              role: f.role,
+              subcontractorId: f.subcontractorId || null,
+              access: f.access,
+              initialPassword: f.access === 'password' && f.initialPassword ? f.initialPassword : undefined,
+            },
           }),
     onSuccess: (r, f) => {
       if (f.id) notifications.show({ color: 'green', message: t('app.saved') })
       else {
         const created = r as UserCreatedResponse
         const msg = {
+          password_set: t('users.passwordSet'),
           sent: t('users.inviteSent'),
           exists: t('users.inviteExists'),
           skipped: t('users.inviteSkipped'),
           failed: t('users.inviteFailed', { error: created.inviteError ?? '' }),
         }[created.inviteStatus]
         notifications.show({ color: created.inviteStatus === 'failed' ? 'yellow' : 'green', message: msg, autoClose: created.inviteStatus === 'failed' ? false : 6000 })
+        if (created.initialPassword) setCredentials({ name: created.name, email: created.email, password: created.initialPassword })
       }
       setForm(null)
       void qc.invalidateQueries({ queryKey: ['admin', 'users'] })
@@ -78,6 +164,23 @@ export function UsersPage() {
     onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
   })
 
+  const tempPassword = useMutation({
+    mutationFn: (u: UserDto) => api<TempPasswordResponse>(`/admin/users/${u.id}/temp-password`, { method: 'POST', json: {} }),
+    onSuccess: (r) => {
+      setCredentials({ name: r.user.name, email: r.user.email, password: r.password })
+      void qc.invalidateQueries({ queryKey: ['admin', 'users'] })
+    },
+    onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+  })
+
+  const confirmTempPassword = (u: UserDto) =>
+    modals.openConfirmModal({
+      title: t('users.setTempPassword'),
+      children: <Text size="sm">{t('users.setTempPasswordConfirm', { name: u.name })}</Text>,
+      labels: { confirm: t('app.yes'), cancel: t('app.cancel') },
+      onConfirm: () => tempPassword.mutate(u),
+    })
+
   const toForm = (u: UserDto): FormState => ({
     id: u.id,
     version: u.version,
@@ -86,7 +189,8 @@ export function UsersPage() {
     role: u.role,
     subcontractorId: u.subcontractorId ?? '',
     isActive: u.isActive,
-    sendInvite: false,
+    access: 'none',
+    initialPassword: '',
   })
 
   const confirmReset = (u: UserDto) =>
@@ -132,6 +236,8 @@ export function UsersPage() {
                 <Table.Td>
                   {!u.isActive ? (
                     <Badge color="gray">{t('users.inactive')}</Badge>
+                  ) : u.mustChangePassword ? (
+                    <Badge color="yellow">{t('users.tempPasswordBadge')}</Badge>
                   ) : u.identityLinked ? (
                     <Badge color="green">{t('users.active')}</Badge>
                   ) : (
@@ -152,6 +258,11 @@ export function UsersPage() {
                       <Menu.Item disabled={!u.totpEnabled} onClick={() => confirmReset(u)}>
                         {t('users.resetMfa')}
                       </Menu.Item>
+                      {can('admin', 'edit') && (
+                        <Menu.Item disabled={!u.isActive} onClick={() => confirmTempPassword(u)}>
+                          {t('users.setTempPassword')}
+                        </Menu.Item>
+                      )}
                       <Menu.Item disabled={u.identityLinked} onClick={() => action.mutate({ id: u.id, kind: 'resend-invite' })}>
                         {t('users.resendInvite')}
                       </Menu.Item>
@@ -186,7 +297,23 @@ export function UsersPage() {
                 <TextInput label={t('users.subcontractorId')} required value={form.subcontractorId} onChange={(e) => setForm({ ...form, subcontractorId: e.currentTarget.value })} />
               )}
               {!form.id && (
-                <Checkbox label={t('users.sendInvite')} description={t('users.sendInviteHint')} checked={form.sendInvite} onChange={(e) => setForm({ ...form, sendInvite: e.currentTarget.checked })} />
+                <Radio.Group label={t('users.access')} value={form.access} onChange={(v) => setForm({ ...form, access: v as UserAccessMode })}>
+                  <Stack gap="xs" mt="xs">
+                    {USER_ACCESS_MODES.map((m) => (
+                      <Radio key={m} value={m} label={t(ACCESS_LABEL[m])} description={t(ACCESS_HINT[m])} />
+                    ))}
+                  </Stack>
+                </Radio.Group>
+              )}
+              {!form.id && form.access === 'password' && (
+                <TextInput
+                  label={t('users.initialPassword')}
+                  description={t('users.initialPasswordHint')}
+                  autoComplete="off"
+                  minLength={12}
+                  value={form.initialPassword}
+                  onChange={(e) => setForm({ ...form, initialPassword: e.currentTarget.value })}
+                />
               )}
               {form.id && <Switch label={t('users.active')} checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.currentTarget.checked })} />}
               <Group justify="flex-end">
@@ -201,6 +328,7 @@ export function UsersPage() {
           </form>
         )}
       </Modal>
+      <CredentialsModal credentials={credentials} onClose={() => setCredentials(null)} />
     </Stack>
   )
 }

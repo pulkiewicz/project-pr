@@ -66,6 +66,8 @@ export const users = pgTable(
     recoveryCodesHash: jsonb('recovery_codes_hash').$type<string[]>(),
     invitedAt: ts('invited_at'),
     lastLoginAt: ts('last_login_at'),
+    /** Hasło tymczasowe nadane przez Admina — do zmiany przy pierwszym logowaniu. */
+    mustChangePassword: boolean('must_change_password').notNull().default(false),
     version: integer('version').notNull().default(1),
     ...auditColumns,
   },

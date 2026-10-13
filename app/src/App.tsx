@@ -5,7 +5,7 @@ import { Suspense, lazy, type ReactNode } from 'react'
 import { useAuth } from './auth/AuthProvider'
 import { LoginPage } from './auth/LoginPage'
 import { MfaSetupPage, MfaVerifyPage } from './auth/MfaPages'
-import { SetPasswordPage } from './auth/SetPasswordPage'
+import { ChangePasswordPage, SetPasswordPage } from './auth/SetPasswordPage'
 import { AppLayout } from './layout/AppLayout'
 import { NAV } from './nav'
 import { DashboardPage } from './pages/DashboardPage'
@@ -47,6 +47,8 @@ export function App() {
       return <SetPasswordPage inviteToken={state.token} />
     case 'recovery':
       return <SetPasswordPage />
+    case 'password-change':
+      return <ChangePasswordPage />
     case 'mfa-setup':
       return <MfaSetupPage />
     case 'mfa-verify':
