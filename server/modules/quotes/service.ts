@@ -176,7 +176,7 @@ export async function assertEditable(db: Database, perms: Perms, quoteId: string
 }
 
 /** Każda zmiana w drzewie podbija wersję wyceny (kontrola współbieżności w PATCH nagłówka). */
-export async function touch(tx: Database, quoteId: string, userId: string) {
+export async function touch(tx: Database, quoteId: string, userId: string | null) {
   await tx.update(quotes).set({ version: sql`${quotes.version} + 1`, updatedAt: sql`now()`, updatedBy: userId }).where(eq(quotes.id, quoteId))
 }
 

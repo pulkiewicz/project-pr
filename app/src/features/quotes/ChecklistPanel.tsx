@@ -1,8 +1,9 @@
 import { ActionIcon, Badge, Button, Card, Group, Loader, NumberInput, SegmentedControl, Select, Stack, Table, Text, TextInput, Textarea, Tooltip } from '@mantine/core'
-import { IconCheck, IconMessage, IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconCheck, IconMessage, IconPlus, IconQuote, IconTrash } from '@tabler/icons-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ChecklistItemDto, ChecklistStatus, QuoteDto, SpecValue } from '#shared'
+import { AiJobButton } from './AiPanels'
 import { useChecklist, useChecklistMutation } from './api'
 
 const STATUS_COLOR: Record<ChecklistStatus, string> = { pending: 'gray', confirmed: 'green', missing: 'orange', na: 'gray' }
@@ -78,7 +79,19 @@ function Row({ q, item }: { q: QuoteDto; item: ChecklistItemDto }) {
   return (
     <Table.Tr data-testid={`checklist-${item.key}`}>
       <Table.Td w="30%" style={{ borderLeft: `3px solid var(--mantine-color-${STATUS_COLOR[item.status]}-${item.status === 'pending' ? 3 : 6})` }}>
-        <Text size="sm">{item.label}</Text>
+        <Group gap={4} wrap="nowrap">
+          <Text size="sm">{item.label}</Text>
+          {item.sourceRef && (
+            <Tooltip label={item.sourceRef} multiline w={360}>
+              <IconQuote size={14} color="var(--mantine-color-grape-6)" aria-label={t('ai.sourceRef')} style={{ flexShrink: 0 }} />
+            </Tooltip>
+          )}
+        </Group>
+        {item.note && item.note.startsWith('AI') && (
+          <Text size="xs" c="grape">
+            {item.note}
+          </Text>
+        )}
         {item.help && (
           <Text size="xs" c="dimmed">
             {item.help}
@@ -163,6 +176,7 @@ export function ChecklistPanel({ q }: { q: QuoteDto }) {
         </Group>
         <SegmentedControl size="xs" data={(['all', 'pending', 'missing', 'confirmed'] as const).map((f) => ({ value: f, label: t(`checklist.filter.${f}`) }))} value={filter} onChange={(v) => setFilter(v as Filter)} />
       </Group>
+      <AiJobButton q={q} kind="extract_checklist" label={t('ai.extract')} />
       <Text size="sm" c="dimmed">
         {t('checklist.hint')}
       </Text>

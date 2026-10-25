@@ -180,6 +180,8 @@ export interface OpportunityDto {
   lossReason: string | null
   projectId: string | null
   projectCode: string | null
+  /** Folder szansy na Shared Drive (materiały, oferty). */
+  driveFolderId: string | null
   stageChangedAt: string | null
   lastActivityAt: string | null
   /** Złożona oferta bez aktywności od {@link NO_RESPONSE_DAYS} dni. */

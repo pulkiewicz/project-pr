@@ -26,6 +26,7 @@ import { todayWarsaw } from '../../lib/dates.ts'
 import { HttpProblem, conflict, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
 import { diffFields, writeAudit } from '../audit/service.ts'
+import { ensureOpportunityFolder } from '../ai/routes.ts'
 import { lookupNip } from './nip.ts'
 import { getOpportunity, listActivities, listCompanies, listContacts, listOpportunities, nextOpportunityCode, toContactDto } from './service.ts'
 
@@ -294,6 +295,12 @@ crmRouter.openapi(route({ method: 'post', path: '/crm/opportunities', request: {
     await writeAudit(c, { action: 'crm.opportunity_create', entity: 'opportunities', entityId: r!.id, changes: { code, ...input } }, tx)
     return r!.id
   })
+  // Folder szansy na Drive (C4) — od razu, jeśli Drive jest skonfigurowany; błąd nie blokuje założenia szansy.
+  if (deps.drive) {
+    await ensureOpportunityFolder(deps.db, deps.drive, id).catch((e: unknown) => {
+      if (!(e instanceof HttpProblem && e.code === 'drive_not_configured')) console.warn('[pmo] drive folder for opportunity failed', e instanceof Error ? e.message : e)
+    })
+  }
   return c.json(await detail(c, id), 201)
 })
 

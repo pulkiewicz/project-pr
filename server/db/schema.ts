@@ -18,7 +18,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { ACTIVITY_KINDS, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type QuoteInfo, type QuoteParams, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
+import { ACTIVITY_KINDS, AI_JOB_KINDS, AI_JOB_STATUSES, INPUT_KINDS, QUESTION_AUDIENCES, QUESTION_STATUSES, SUGGESTION_STATUSES, type SuggestionPayload, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type QuoteInfo, type QuoteParams, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -607,6 +607,8 @@ export const opportunities = pgTable(
     notes: text('notes'),
     lossReason: text('loss_reason'),
     projectId: uuid('project_id').references(() => projects.id),
+    /** Folder szansy na Shared Drive (decyzja C4) — materiały wejściowe i oferty. */
+    driveFolderId: text('drive_folder_id'),
     /** Wejście w bieżący etap; null = nieznane (import) — liczone jak dawno. */
     stageChangedAt: ts('stage_changed_at'),
     version: integer('version').notNull().default(1),
@@ -795,4 +797,114 @@ export const components = pgTable(
     ...auditColumns,
   },
   (t) => [index('components_category_idx').on(t.category)],
+)
+
+// ---------------- R4: materiały wejściowe, AI (zadania, log, sugestie), pytania ----------------
+export const inputKindEnum = pgEnum('quote_input_kind', INPUT_KINDS)
+export const aiJobKindEnum = pgEnum('ai_job_kind', AI_JOB_KINDS)
+export const aiJobStatusEnum = pgEnum('ai_job_status', AI_JOB_STATUSES)
+export const suggestionStatusEnum = pgEnum('ai_suggestion_status', SUGGESTION_STATUSES)
+export const questionAudienceEnum = pgEnum('question_audience', QUESTION_AUDIENCES)
+export const questionStatusEnum = pgEnum('question_status', QUESTION_STATUSES)
+
+/** Materiał wejściowy wyceny (krok 2): plik na Drive (folder szansy) albo wklejony tekst (np. mail). */
+export const quoteInputs = pgTable(
+  'quote_inputs',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    quoteId: uuid('quote_id').notNull().references(() => quotes.id, { onDelete: 'cascade' }),
+    kind: inputKindEnum('kind').notNull(),
+    name: text('name').notNull(),
+    mimeType: text('mime_type'),
+    size: integer('size'),
+    driveFileId: text('drive_file_id'),
+    /** Sesja resumable (hash URL) — do potwierdzenia zakończenia uploadu. */
+    uploadSessionHash: text('upload_session_hash'),
+    text: text('text'),
+    ...auditColumns,
+  },
+  (t) => [index('quote_inputs_quote_idx').on(t.quoteId)],
+)
+
+export const aiJobs = pgTable(
+  'ai_jobs',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    quoteId: uuid('quote_id').notNull().references(() => quotes.id, { onDelete: 'cascade' }),
+    kind: aiJobKindEnum('kind').notNull(),
+    status: aiJobStatusEnum('status').notNull().default('queued'),
+    params: jsonb('params').$type<Record<string, unknown>>().notNull().default({}),
+    /** SHA-256 jednorazowego tokenu, którym funkcja w tle potwierdza zlecenie. */
+    tokenHash: text('token_hash').notNull(),
+    summary: text('summary'),
+    error: text('error'),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    startedAt: ts('started_at'),
+    finishedAt: ts('finished_at'),
+  },
+  (t) => [index('ai_jobs_quote_idx').on(t.quoteId, t.createdAt)],
+)
+
+/** Każde wywołanie modelu: koszt i tokeny (licznik kosztów G6). Treści dokumentów nie są zapisywane. */
+export const aiCalls = pgTable(
+  'ai_calls',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    jobId: uuid('job_id').references(() => aiJobs.id, { onDelete: 'set null' }),
+    quoteId: uuid('quote_id').references(() => quotes.id, { onDelete: 'set null' }),
+    purpose: text('purpose').notNull(),
+    model: text('model').notNull(),
+    inputTokens: integer('input_tokens').notNull().default(0),
+    outputTokens: integer('output_tokens').notNull().default(0),
+    cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
+    cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
+    costUsd: numeric('cost_usd', { precision: 12, scale: 4, mode: 'number' }),
+    durationMs: integer('duration_ms'),
+    stopReason: text('stop_reason'),
+    error: text('error'),
+    userId: uuid('user_id').references(() => users.id),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('ai_calls_created_idx').on(t.createdAt), index('ai_calls_quote_idx').on(t.quoteId)],
+)
+
+/** Propozycja AI zmiany/dodania pozycji — do akceptacji przez człowieka (nie trafia do sumy sama). */
+export const aiSuggestions = pgTable(
+  'ai_suggestions',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    quoteId: uuid('quote_id').notNull().references(() => quotes.id, { onDelete: 'cascade' }),
+    jobId: uuid('job_id').references(() => aiJobs.id, { onDelete: 'set null' }),
+    sectionId: uuid('section_id').notNull().references(() => quoteSections.id, { onDelete: 'cascade' }),
+    lineId: uuid('line_id').references(() => quoteLines.id, { onDelete: 'cascade' }),
+    payload: jsonb('payload').$type<SuggestionPayload>().notNull(),
+    status: suggestionStatusEnum('status').notNull().default('pending'),
+    decidedBy: uuid('decided_by').references(() => users.id),
+    decidedAt: ts('decided_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('ai_suggestions_quote_idx').on(t.quoteId, t.status)],
+)
+
+/** Pytania doprecyzowujące (krok 6): do Kamila (wewnętrzne) albo do klienta. */
+export const quoteQuestions = pgTable(
+  'quote_questions',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    quoteId: uuid('quote_id').notNull().references(() => quotes.id, { onDelete: 'cascade' }),
+    audience: questionAudienceEnum('audience').notNull(),
+    text: text('text').notNull(),
+    context: text('context'),
+    checklistKey: text('checklist_key'),
+    status: questionStatusEnum('status').notNull().default('open'),
+    answer: text('answer'),
+    assigneeId: uuid('assignee_id').references(() => users.id),
+    answeredBy: uuid('answered_by').references(() => users.id),
+    answeredAt: ts('answered_at'),
+    source: text('source').notNull().default('manual'),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('quote_questions_quote_idx').on(t.quoteId), index('quote_questions_assignee_idx').on(t.assigneeId, t.status)],
 )

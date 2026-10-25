@@ -2,6 +2,12 @@ import { devIdentityVerifier } from './auth/dev-identity.ts'
 import { netlifyIdentityAdmin, netlifyIdentityVerifier, type IdentityVerifier } from './auth/identity.ts'
 import type { AppDeps } from './context.ts'
 import { getDb } from './db/client.ts'
+import { ClaudeClient } from './integrations/ai/claude.ts'
+import { FakeAiClient } from './integrations/ai/fake.ts'
+import type { AiClient } from './integrations/ai/types.ts'
+import { FakeDrive } from './integrations/drive/fake.ts'
+import { GoogleDriveClient } from './integrations/drive/google.ts'
+import type { DriveClient } from './integrations/drive/types.ts'
 import { requireEnv, env } from './lib/env.ts'
 import { parseKeyring } from './lib/field-crypto.ts'
 
@@ -14,6 +20,37 @@ function identityVerifier(): IdentityVerifier {
     return devIdentityVerifier
   }
   return netlifyIdentityVerifier
+}
+
+const localDev = () => env('NETLIFY_DEV') === 'true'
+
+/** Konto serwisowe Google: e-mail + klucz prywatny PEM (bez całego JSON — limit 4 KB na zmienne środowiskowe). */
+function driveClient(): DriveClient | null {
+  // Lokalnie atrapa na jawne żądanie ma pierwszeństwo (netlify dev wstrzykuje też zmienne z Netlify).
+  // Jedna instancja na proces — API i funkcja w tle widzą te same pliki.
+  if (localDev() && env('DEV_FAKE_DRIVE') === '1') return ((globalThis as { __pmoFakeDrive?: FakeDrive }).__pmoFakeDrive ??= new FakeDrive())
+  const email = env('GOOGLE_SA_EMAIL')
+  const key = env('GOOGLE_SA_PRIVATE_KEY')
+  if (email && key) return new GoogleDriveClient(email, key.replace(/\\n/g, '\n'))
+  return null
+}
+
+function aiClient(): AiClient | null {
+  // Lokalnie atrapa (deterministyczne odpowiedzi, bez kosztów) na jawne żądanie ma pierwszeństwo przed kluczem.
+  if (localDev() && env('DEV_FAKE_AI') === '1') return new FakeAiClient()
+  const key = env('ANTHROPIC_API_KEY')
+  if (key) return new ClaudeClient(key)
+  return null
+}
+
+/** Zadanie AI wykonuje funkcja w tle (do 15 min) — tutaj tylko zlecenie z jednorazowym tokenem. */
+async function dispatchJob(jobId: string, token: string, origin: string) {
+  const res = await fetch(`${origin}/.netlify/functions/ai-job-background`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jobId, token }),
+  })
+  if (res.status >= 400) throw new Error(`Nie udało się zlecić zadania AI (${res.status})`)
 }
 
 /** Zależności produkcyjne (sekrety z env Netlify oznaczonych jako secret). */
@@ -29,6 +66,9 @@ export function runtimeDeps(): AppDeps {
       bootstrapAdminEmail: env('BOOTSTRAP_ADMIN_EMAIL'),
       secureCookies: env('NETLIFY_DEV') !== 'true',
     },
+    drive: driveClient(),
+    ai: aiClient(),
+    dispatchJob,
   }
   return deps
 }

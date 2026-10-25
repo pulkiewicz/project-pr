@@ -5,6 +5,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { NoResponseBadge } from '../features/crm/stage'
 import { useOpportunities } from '../features/crm/api'
+import { useMyQuestions } from '../features/quotes/ai-api'
 import { daysUntil, formatDate, todayWarsaw } from '../lib/format'
 import { SALES_NAV, projectHomePath } from '../nav'
 
@@ -51,6 +52,32 @@ function CrmReminders() {
           {t('home.remindersMore', { count: items.length - 10 })}
         </Anchor>
       )}
+    </Card>
+  )
+}
+
+/** Otwarte pytania techniczne przypisane do mnie (krok 6 wyceny). */
+function MyQuestions() {
+  const { t } = useTranslation()
+  const q = useMyQuestions(true)
+  if (!q.data?.length) return null
+  return (
+    <Card withBorder data-testid="my-questions">
+      <Text fw={600} mb="xs">
+        {t('home.questionsMine')} ({q.data.length})
+      </Text>
+      <Stack gap={4}>
+        {q.data.slice(0, 10).map((x) => (
+          <Group key={x.id} gap="xs" wrap="nowrap">
+            <Anchor component={Link} to={`/wyceny/${x.quoteId}`} size="sm" fw={600} style={{ flexShrink: 0 }}>
+              {x.quoteLabel}
+            </Anchor>
+            <Text size="sm" truncate>
+              {x.text}
+            </Text>
+          </Group>
+        ))}
+      </Stack>
     </Card>
   )
 }
@@ -103,6 +130,7 @@ export function HomePage() {
           <Title order={4} mt="md">
             {t('nav.sales')}
           </Title>
+          {can('quotes', 'view') && <MyQuestions />}
           {can('crm', 'view') && <CrmReminders />}
           <SimpleGrid cols={{ base: 1, md: 3 }}>
             {sales.map((n) => (

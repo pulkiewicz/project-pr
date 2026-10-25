@@ -13,6 +13,7 @@ import { QuoteEditor } from './QuoteEditor'
 import { StandaloneCalc } from './CalcPanel'
 import { CatalogTab } from './CatalogTab'
 import { SpecListTab } from './SpecListTab'
+import { AiSettingsCard, DriveSettingsCard } from './AiSettingsCards'
 
 const pct = (v: number) => Math.round(v * 10000) / 100
 
@@ -139,7 +140,11 @@ function Profiles() {
           <StandaloneCalc />
         </Tabs.Panel>
         <Tabs.Panel value="settings" pt="sm">
-          <SettingsCard />
+          <Stack>
+            <SettingsCard />
+            <AiSettingsCard />
+            <DriveSettingsCard />
+          </Stack>
         </Tabs.Panel>
       </Tabs>
     </Stack>

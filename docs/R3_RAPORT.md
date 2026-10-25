@@ -1,6 +1,6 @@
 # Raport z etapu R3 — Checklista specyfikacyjna, kalkulator mocy, katalog komponentów
 
-Stan: R3 gotowy na gałęzi `claude/project-files-547b06`, do akceptacji przed R4 (AI). Zakres: [PLAN_ERP_CRM_WYCENY.md](PLAN_ERP_CRM_WYCENY.md) §5–§7. Szczegóły: [CHANGELOG.md](CHANGELOG.md).
+Stan: R3 **zaakceptowany** przez Admina 25.10.2026 i wdrożony na produkcję. Zakres: [PLAN_ERP_CRM_WYCENY.md](PLAN_ERP_CRM_WYCENY.md) §5–§7. Szczegóły: [CHANGELOG.md](CHANGELOG.md).
 
 ## Co działa
 

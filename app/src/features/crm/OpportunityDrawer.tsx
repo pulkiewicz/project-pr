@@ -40,6 +40,8 @@ import { errorMessage } from '../../lib/errors'
 import { formatDateTime, formatPLNWhole } from '../../lib/format'
 import { projectPath } from '../../lib/project'
 import { useQuotes } from '../quotes/api'
+import { FolderLink } from '../quotes/AiPanels'
+import { useCreateFolder, useDriveStatus } from '../quotes/ai-api'
 import { useAddActivity, useCompanies, useCompany, useCreateProject, useOpportunity, useOwners, useSaveOpportunity } from './api'
 import { NoResponseBadge, StageBadge, useStageChange } from './stage'
 
@@ -124,14 +126,26 @@ function CreateProjectModal({ opened, onClose, opportunityId, code, defaults }: 
 }
 
 /** Wyceny (rewizje) szansy z przejściem do edytora; nowa wycena otwiera okno z tą szansą. */
-function OpportunityQuotes({ opportunityId }: { opportunityId: string }) {
+function OpportunityQuotes({ opportunityId, folderId }: { opportunityId: string; folderId: string | null }) {
   const { t } = useTranslation()
   const { can } = useAuth()
   const q = useQuotes('quote', opportunityId)
+  const drive = useDriveStatus()
+  const folder = useCreateFolder()
   if (!can('quotes', 'view')) return null
   return (
     <>
       <Divider label={t('quotes.forOpportunity')} labelPosition="left" />
+      {folderId ? (
+        <FolderLink folderId={folderId} />
+      ) : (
+        drive.data?.configured &&
+        can('crm', 'edit') && (
+          <Button size="xs" variant="subtle" w="fit-content" loading={folder.isPending} onClick={() => folder.mutate(opportunityId)}>
+            {t('drive.createFolder')}
+          </Button>
+        )
+      )}
       {q.data?.length ? (
         <Stack gap={4}>
           {q.data.map((x) => (
@@ -328,7 +342,7 @@ export function OpportunityDrawer({ id, opened, onClose, onCreated }: { id: stri
             )}
           </Group>
 
-          {o && <OpportunityQuotes opportunityId={o.id} />}
+          {o && <OpportunityQuotes opportunityId={o.id} folderId={o.driveFolderId} />}
           {o && (
             <>
               <Divider label={t('crm.activities')} labelPosition="left" />

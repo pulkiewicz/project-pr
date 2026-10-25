@@ -68,6 +68,7 @@ export function toOpportunityDto(r: OpportunityRow, now: Date): OpportunityDto {
     lossReason: o.lossReason,
     projectId: o.projectId,
     projectCode: r.projectCode,
+    driveFolderId: o.driveFolderId,
     stageChangedAt: o.stageChangedAt,
     lastActivityAt,
     noResponse,

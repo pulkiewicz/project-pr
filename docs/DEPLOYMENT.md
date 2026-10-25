@@ -76,6 +76,8 @@ ID dysku współdzielonego nie jest sekretem — wpisuje się je w aplikacji (Ba
 3. ID dysku to końcówka adresu `https://drive.google.com/drive/folders/<ID>` po otwarciu dysku — wpisz je w aplikacji.
 4. Szablon oferty (np. dokument „OF022 ENVIBRA”) skopiuj na ten dysk albo udostępnij go kontu serwisowemu.
 
+Zadania AI wykonuje funkcja w tle `ai-job-background` (wdrażana razem z aplikacją, bez dodatkowej konfiguracji). Lokalnie `DEV_FAKE_AI=1` / `DEV_FAKE_DRIVE=1` w `.env` włączają atrapy — mają pierwszeństwo przed kluczami, które `netlify dev` wstrzykuje z ustawień projektu.
+
 Lokalnie te same zmienne wpisz do `.env` (`ANTHROPIC_API_KEY=…`, `GOOGLE_SA_EMAIL=…`, `GOOGLE_SA_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n…"` w cudzysłowie, z `\n`).
 
 ## 3. Netlify Identity

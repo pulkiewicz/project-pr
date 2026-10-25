@@ -9,6 +9,7 @@ import { crmRouter } from './modules/crm/routes.ts'
 import { quotesRouter } from './modules/quotes/routes.ts'
 import { specRouter } from './modules/quotes/spec-routes.ts'
 import { catalogRouter } from './modules/catalog/routes.ts'
+import { aiRouter } from './modules/ai/routes.ts'
 import { dashboardRouter } from './modules/dashboard/routes.ts'
 import { hrfInternalRouter } from './modules/hrf/internal.ts'
 import { hrfRouter } from './modules/hrf/routes.ts'
@@ -57,6 +58,7 @@ export function createApp(deps: AppDeps) {
   app.route('/', quotesRouter)
   app.route('/', specRouter)
   app.route('/', catalogRouter)
+  app.route('/', aiRouter)
 
   // Dokumentacja OpenAPI — tylko Admin.
   app.use('/openapi.json', requireMfa, requirePermission('admin', 'view'))

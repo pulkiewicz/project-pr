@@ -47,6 +47,7 @@
     "#server/*": "./server/*"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.134.0",
     "@hono/zod-openapi": "^1.6.3",
     "@hookform/resolvers": "^5.9.1",
     "@mantine/core": "^7.17.8",

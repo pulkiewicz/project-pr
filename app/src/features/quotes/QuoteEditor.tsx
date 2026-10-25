@@ -49,6 +49,9 @@ import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 import { formatDateTime, formatNumber, formatPLN } from '../../lib/format'
 import { quoteOps, useComponents, useDeleteQuote, useQuote, useQuoteAction, useQuoteMutation, useQuoteSettings, useSaveComponent } from './api'
+import { FolderLink, InputsPanel, QuestionsPanel, SuggestionsPanel } from './AiPanels'
+import { useOpportunity } from '../crm/api'
+import { useStartAiJob } from './ai-api'
 import { CalcPanel } from './CalcPanel'
 import { ChecklistPanel } from './ChecklistPanel'
 
@@ -71,6 +74,8 @@ function LineModal({ q, line, sectionId, onClose }: { q: QuoteDto; line: QuoteLi
   const components = useComponents()
   const saveComponent = useSaveComponent()
   const { can } = useAuth()
+  const startAi = useStartAiJob(q.id)
+  const [aiComment, setAiComment] = useState('')
   const [f, setF] = useState<LineInput & { sectionId?: string }>(EMPTY_LINE)
   useEffect(() => {
     if (!sectionId) return
@@ -165,6 +170,25 @@ function LineModal({ q, line, sectionId, onClose }: { q: QuoteDto; line: QuoteLi
           {line && <Select label={t('quotes.moveToSection')} allowDeselect={false} disabled={!editable} data={sections} value={f.sectionId ?? sectionId} onChange={(v) => v && set('sectionId', v)} />}
         </SimpleGrid>
         <Checkbox label={t('quotes.approved')} disabled={!editable} checked={!!f.approved} onChange={(e) => set('approved', e.currentTarget.checked)} />
+        {line && editable && q.kind === 'quote' && q.canEditCosts && (
+          <Group align="flex-end" wrap="nowrap">
+            <TextInput label={t('ai.reestimate')} placeholder={t('ai.reestimateComment')} style={{ flex: 1 }} value={aiComment} onChange={(e) => setAiComment(e.currentTarget.value)} />
+            <Button
+              variant="light"
+              color="grape"
+              disabled={!aiComment.trim()}
+              loading={startAi.isPending}
+              onClick={() =>
+                startAi.mutate(
+                  { kind: 'reestimate_line', lineId: line.id, comment: aiComment.trim() },
+                  { onSuccess: () => notifications.show({ color: 'grape', message: t('ai.running') }) },
+                )
+              }
+            >
+              {t('ai.reestimate')}
+            </Button>
+          </Group>
+        )}
         <Group justify="space-between">
           <Group gap="xs">
             {line && editable && (
@@ -574,8 +598,13 @@ function InfoPanel({ q }: { q: QuoteDto }) {
   )
 }
 
+function OpportunityFolder({ opportunityId }: { opportunityId: string | null }) {
+  const opp = useOpportunity(opportunityId)
+  return <FolderLink folderId={opp.data?.driveFolderId ?? null} />
+}
+
 /** Kroki przepływu wyceny (plan §3); kroki z kolejnych etapów oznaczone etapem wdrożenia. */
-const STEP_STAGE: Record<number, string | null> = { 1: null, 2: 'R4', 3: null, 4: null, 5: null, 6: 'R4', 7: null, 8: 'R5' }
+const STEP_STAGE: Record<number, string | null> = { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null, 8: 'R5' }
 
 export function QuoteEditor({ id }: { id: string }) {
   const { t } = useTranslation()
@@ -622,6 +651,7 @@ export function QuoteEditor({ id }: { id: string }) {
               {t('quotes.basedOn')}: {q.basedOnLabel}
             </Text>
           )}
+          {!isProfile && <OpportunityFolder opportunityId={q.opportunityId} />}
           {q.approvedAt && (
             <Text size="xs" c="dimmed">
               {t('quotes.approvedBy', { name: q.approvedByName ?? '', date: formatDateTime(q.approvedAt) })}
@@ -697,7 +727,7 @@ export function QuoteEditor({ id }: { id: string }) {
         <Group gap={6} wrap="wrap" data-testid="quote-steps">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => {
             const later = STEP_STAGE[n]
-            const target = n === 3 ? 'checklist' : n === 5 ? 'items' : n === 7 ? 'summary' : null
+            const target = ({ 2: 'inputs', 3: 'checklist', 5: 'items', 6: 'questions', 7: 'summary' } as Record<number, string>)[n] ?? null
             const current = target !== null && tab === target
             const done = n === 1 || n === 4 || (n === 3 && !!q.checklistProgress && q.checklistProgress.total > 0 && q.checklistProgress.confirmed === q.checklistProgress.total)
             return (
@@ -725,9 +755,11 @@ export function QuoteEditor({ id }: { id: string }) {
 
       <Tabs value={tab} onChange={setTab} keepMounted={false}>
         <Tabs.List>
+          {!isProfile && <Tabs.Tab value="inputs">{t('quotes.tabs.inputs')}</Tabs.Tab>}
           {!isProfile && <Tabs.Tab value="checklist">{t('quotes.tabs.checklist')}</Tabs.Tab>}
           <Tabs.Tab value="items">{t('quotes.tabs.items')}</Tabs.Tab>
           {!isProfile && <Tabs.Tab value="calc">{t('quotes.tabs.calc')}</Tabs.Tab>}
+          {!isProfile && <Tabs.Tab value="questions">{t('quotes.tabs.questions')}</Tabs.Tab>}
           <Tabs.Tab value="summary">
             {t('quotes.tabs.summary')}
             {(q.summary || q.costSummary) && (
@@ -741,11 +773,22 @@ export function QuoteEditor({ id }: { id: string }) {
         </Tabs.List>
         <Tabs.Panel value="items" pt="sm">
           <Stack>
+            {!isProfile && q.canEdit && <SuggestionsPanel q={q} />}
             {q.devices.map((d) => (
               <DeviceCard key={d.id} q={q} device={d} onLine={(line, sectionId) => setLineEdit({ line, sectionId })} />
             ))}
           </Stack>
         </Tabs.Panel>
+        {!isProfile && (
+          <Tabs.Panel value="inputs" pt="sm">
+            <InputsPanel q={q} />
+          </Tabs.Panel>
+        )}
+        {!isProfile && (
+          <Tabs.Panel value="questions" pt="sm">
+            <QuestionsPanel q={q} />
+          </Tabs.Panel>
+        )}
         {!isProfile && (
           <Tabs.Panel value="checklist" pt="sm">
             <ChecklistPanel q={q} />

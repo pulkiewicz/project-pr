@@ -1,5 +1,19 @@
 # Changelog
 
+## R4 — AI w wycenach (Claude) i materiały na Google Drive (25.10.2026)
+
+- **Dysk współdzielony i folder szansy (C4, G3):** przywrócona integracja Google Drive (konto serwisowe). Administrator wpisuje ID dysku w Bazie wiedzy → Ustawienia; aplikacja sprawdza dostęp. Każda nowa szansa dostaje folder „OF038 — nazwa”; dla istniejących jest przycisk „Utwórz folder na Drive” w karcie szansy.
+- **Krok 2 — Materiały:** pliki (SIWZ, OPZ, rysunki; do 4 MB przez serwer, większe do 30 MB bezpośrednio do Google w porcjach 8 MiB ze wznawianiem) i wklejona treść maili. Pliki trafiają do folderu szansy. AI czyta PDF, obrazy i tekst; inne formaty (np. DOCX) są zapisywane z oznaczeniem „AI nie czyta”.
+- **Krok 3 — „Wypełnij z materiałów (AI)”:** Claude przypisuje wymagania do listy specyfikacyjnej. Każda wartość ma cytat ze źródła i pewność i czeka na potwierdzenie „OK”. Parametry nieopisane w materiałach dostają status „brak”, a wymagania spoza listy trafiają do „Wymagań dodatkowych”. Pozycji potwierdzonych i „nie dotyczy” AI nie zmienia.
+- **Krok 5 — „Zaproponuj wycenę (AI)”:** propozycje zmian i nowych pozycji z kosztem, uzasadnieniem „jak policzono” i pewnością, oparte na checkliście, kalkulacjach mocy, katalogu, poprzednich wycenach i odpowiedziach na pytania. Propozycje są **sugestiami do akceptacji** (pojedynczo lub wszystkie) i nie wchodzą do sumy, dopóki ich nie zaakceptujesz; zaakceptowana pozycja ma źródło „AI” i status niezatwierdzona. W oknie pozycji jest **„Przelicz z AI”** z komentarzem.
+- **Krok 6 — Pytania:** „Wygeneruj pytania (AI)” tworzy pytania do Kamila (adresat w ustawieniach) i do klienta, z braków checklisty i niepewnych propozycji, bez duplikatów. Kamil odpowiada w aplikacji; pytania do klienta można skopiować do maila. Na pulpicie jest kafel „Pytania do mnie”.
+- **Claude:** model `claude-opus-5-5` przez oficjalne SDK, adaptacyjne myślenie, odpowiedzi w JSON Schema (structured outputs) walidowane po stronie serwera. Serwerowy fallback przy odmowie (`fallbacks: "default"`), cache materiałów między operacjami.
+- **Zadania w tle:** operacje AI działają w funkcji background Netlify (do 15 min) z jednorazowym tokenem zadania. Interfejs pokazuje postęp i wynik.
+- **Koszty AI (G6):** każde wywołanie zapisane w `ai_calls` (tokeny, koszt w USD wg cennika, czas, błąd); koszt widać przy zadaniu. W Bazie wiedzy → Ustawienia jest suma miesięczna i próg ostrzeżenia (bez blokady).
+- **Lokalnie:** `DEV_FAKE_AI=1` i `DEV_FAKE_DRIVE=1` włączają atrapy (bez kosztów i bez Google) i mają pierwszeństwo przed kluczami wstrzykiwanymi przez `netlify dev`.
+- Migracja `20261025194949_ai_inputs_questions`: tabele `quote_inputs`, `ai_jobs`, `ai_calls`, `ai_suggestions`, `quote_questions`, kolumna `opportunities.drive_folder_id`. Nowa funkcja `netlify/functions/ai-job-background.mts`. Zależność `@anthropic-ai/sdk`.
+- **Testy:** 1139 (Vitest), w tym 14 nowych dla R4 na atrapach Drive i AI: konfiguracja dysku, folder szansy, materiały (serwer i resumable), checklista z cytatami, odmowa modelu, token zadania, sugestie, przeliczenie pozycji, pytania, koszty.
+
 ## R3 — Checklista specyfikacyjna, kalkulator mocy, katalog komponentów (25.10.2026)
 
 - **Checklista specyfikacyjna (krok 3 wyceny)**: zakładka „Checklista” z parametrami standardowej listy (v1: 80 parametrów w 12 grupach, z planu §5). Wartość zależy od typu: liczba z jednostką, zakres, wymiary, wybór, tak/nie, tekst. Każdy parametr ma status **OK** (potwierdzony), **Brak** (brak w materiałach — w R4 trafi do pytań) albo **N/D**, z notatką i filtrami. Można dopisywać wymagania spoza listy. Postęp „potwierdzone x/y” widać na pasku kroków.
