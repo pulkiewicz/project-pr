@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import ExcelJS from 'exceljs'
 import { DEFAULT_PARAMS, computeSummary, nextRevision, reservePct, type OpportunityDto, type QuoteDto, type QuoteListItemDto } from '#shared'
-import { createUser, req, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
+import { and, inArray } from 'drizzle-orm'
+import { createUser, eq, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
 
 let h: Harness
 let admin: TestUser
@@ -96,16 +97,32 @@ describe('nowa wycena', () => {
     expect(firstLine(quote)).toMatchObject({ source: 'profile', approved: false })
   })
 
-  it('Envcheck wewnętrzny nie widzi kosztów i nie zmienia cen (B1), ale edytuje treść', async () => {
-    expect(quote.summary).toBeNull()
-    expect(firstLine(quote)).toMatchObject({ unitCost: null, cost: null })
+  it('Envcheck wewnętrzny widzi i edytuje koszty, ale nie marżę, rezerwę ani cenę (uprawnienia rozdzielone)', async () => {
+    expect(quote).toMatchObject({ canSeeCosts: true, canEditCosts: true, canSeePricing: false, summary: null })
+    expect(quote.costSummary!.cost).toBe(1192900)
+    expect(quote.params).toMatchObject({ marginMultiplier: null, reservePctOverride: null, riskPct: null, vatPct: null, complexity: 'high', warrantyMonths: 12 })
+    expect(firstLine(quote).unitCost).toBe(158000)
     const line = firstLine(quote)
-    expect((await req(h, 'PATCH', `/api/quotes/${quote.id}/lines/${line.id}`, staff.headers, { unitCost: 1 })).status).toBe(403)
-    const ok = await req(h, 'PATCH', `/api/quotes/${quote.id}/lines/${line.id}`, staff.headers, { justification: 'Wg rysunku', approved: true })
+    const ok = await req(h, 'PATCH', `/api/quotes/${quote.id}/lines/${line.id}`, staff.headers, { justification: 'Wg rysunku', approved: true, unitCost: 158000 })
     expect(ok.status).toBe(200)
     expect(firstLine((await ok.json()) as QuoteDto)).toMatchObject({ justification: 'Wg rysunku', approved: true, source: 'profile', quantity: 1 })
+    const list = (await (await req(h, 'GET', '/api/quotes', staff.headers)).json()) as QuoteListItemDto[]
+    expect(list.find((x) => x.id === quote.id)).toMatchObject({ cost: 1192900, net: null })
     expect((await req(h, 'PATCH', `/api/quotes/${quote.id}`, staff.headers, { params: { marginMultiplier: 3 }, version: (await get(staff, quote.id)).version })).status).toBe(403)
+    const warranty = await req(h, 'PATCH', `/api/quotes/${quote.id}`, staff.headers, { params: { warrantyMonths: 24 }, version: (await get(staff, quote.id)).version })
+    expect(warranty.status).toBe(200)
+    expect(((await warranty.json()) as QuoteDto).params.warrantyMonths).toBe(24)
+    await req(h, 'PATCH', `/api/quotes/${quote.id}`, staff.headers, { params: { warrantyMonths: 12 }, version: (await get(staff, quote.id)).version })
     expect((await req(h, 'GET', `/api/quotes/${quote.id}/export.xlsx`, staff.headers)).status).toBe(403)
+  })
+
+  it('bez uprawnienia do kosztów pola kosztowe są ukryte, a ich zmiana odrzucona', async () => {
+    await h.db.update(schema.permissions).set({ allowed: false }).where(and(eq(schema.permissions.role, 'EnvcheckInternal'), eq(schema.permissions.module, 'quotesCost')))
+    const q = await get(staff, quote.id)
+    expect(q).toMatchObject({ canSeeCosts: false, costSummary: null })
+    expect(firstLine(q)).toMatchObject({ unitCost: null, cost: null })
+    expect((await req(h, 'PATCH', `/api/quotes/${quote.id}/lines/${firstLine(q).id}`, staff.headers, { unitCost: 1 })).status).toBe(403)
+    await h.db.update(schema.permissions).set({ allowed: true }).where(and(eq(schema.permissions.role, 'EnvcheckInternal'), eq(schema.permissions.module, 'quotesCost'), inArray(schema.permissions.action, ['view', 'create', 'edit', 'export'])))
   })
 
   it('Admin: koszt z profilu, zmiana ceny pozycji i parametrów przelicza podsumowanie', async () => {

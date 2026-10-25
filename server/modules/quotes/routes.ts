@@ -58,11 +58,11 @@ const route = <R extends RouteConfig>(r: R, module: 'quotes' | 'quotesPricing', 
 
 const perms = (c: Context<AppEnv>) => c.get('permissions')
 const canPricing = (c: Context<AppEnv>, a: Action) => perms(c).has(`quotesPricing:${a}`)
-const PRICE_FIELDS = ['unitCost', 'laborRate'] as const
+const COST_FIELDS = ['unitCost', 'laborRate'] as const
 
-/** Pola cenowe pozycji wymagają `quotesPricing:edit` (decyzja B1). */
-function assertLinePricing(c: Context<AppEnv>, input: Record<string, unknown>) {
-  if (PRICE_FIELDS.some((f) => input[f] !== undefined && input[f] !== null) && !canPricing(c, 'edit')) throw forbidden('pricing_forbidden')
+/** Koszty pozycji wymagają `quotesCost:edit`; marża, rezerwa i cena — `quotesPricing:edit`. */
+function assertLineCosts(c: Context<AppEnv>, input: Record<string, unknown>) {
+  if (COST_FIELDS.some((f) => input[f] !== undefined && input[f] !== null) && !perms(c).has('quotesCost:edit')) throw forbidden('cost_forbidden')
 }
 
 async function respond<S extends 200 | 201 = 200>(c: Context<AppEnv>, id: string, status: S = 200 as S) {
@@ -358,7 +358,7 @@ quotesRouter.openapi(
   async (c) => {
     const { id, sectionId } = c.req.valid('param')
     const input = c.req.valid('json')
-    assertLinePricing(c, input)
+    assertLineCosts(c, input)
     return mutate(c, id, 'quote.line_create', async (tx) => {
       await sectionOf(tx, id, sectionId)
       const [{ n }] = (await tx.select({ n: sql<number>`coalesce(max(sort_order), -1)::int` }).from(quoteLines).where(eq(quoteLines.sectionId, sectionId))) as [{ n: number }]
@@ -373,7 +373,7 @@ quotesRouter.openapi(
   async (c) => {
     const { id, lineId } = c.req.valid('param')
     const patch = c.req.valid('json')
-    assertLinePricing(c, patch)
+    assertLineCosts(c, patch)
     return mutate(c, id, 'quote.line_update', async (tx) => {
       const l = await lineOf(tx, id, lineId)
       if (patch.sectionId) await sectionOf(tx, id, patch.sectionId)

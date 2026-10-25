@@ -14,6 +14,9 @@ export const MODULES = {
   // Sprzedaż i wyceny (Envcheck Hub)
   crm: { internal: true, staffOnly: true, scope: 'global' },
   quotes: { internal: true, staffOnly: true, scope: 'global' },
+  /** Koszty pozycji (ceny jednostkowe, robocizna, sumy kosztów). */
+  quotesCost: { internal: true, staffOnly: true, scope: 'global' },
+  /** Marża, rezerwa, ryzyko, cena netto/brutto, ustawienia wycen. */
   quotesPricing: { internal: true, staffOnly: true, scope: 'global' },
   quoteKnowledge: { internal: true, staffOnly: true, scope: 'global' },
   dashboardInternal: { internal: true },
@@ -74,9 +77,10 @@ const row = (Admin: Level, EnvcheckInternal: Level, Arsanit: Level, Client: Leve
 /** Domyślna macierz z sekcji 4.3 (seed). */
 export const DEFAULT_LEVELS: Record<ModuleKey, Row> = {
   dashboard: row('P', 'O', 'O', 'O', '-'),
-  // Marża, rezerwa i koszty wycen — domyślnie tylko Admin (decyzja B1 planu ERP/CRM).
+  // Koszty: Admin i Envcheck wewnętrzny (Kamil); marża, rezerwa i cena: tylko Admin (decyzja Admina 25.10.2026).
   crm: row('P', 'E', '-', '-', '-'),
   quotes: row('P', 'E', '-', '-', '-'),
+  quotesCost: row('P', 'E', '-', '-', '-'),
   quotesPricing: row('P', '-', '-', '-', '-'),
   quoteKnowledge: row('P', 'E', '-', '-', '-'),
   dashboardInternal: row('P', 'O', '-', '-', '-'),

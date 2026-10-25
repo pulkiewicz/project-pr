@@ -14,7 +14,7 @@ Sprawdzone w przeglądarce na kopii lokalnej bazy: lista wycen, OF036 z sumami z
 
 ## Do potwierdzenia
 
-1. **Kamil (Envcheck wewnętrzny) nie widzi kosztów** — zgodnie z decyzją B1 koszty, marżę i rezerwę widzi tylko Admin. Kamil może budować strukturę, ilości i uzasadnienia, ale nie widzi kwot ani ich nie wpisze. Czy nadać mu uprawnienie „Wyceny — marża i koszty” (podgląd i edycja kosztów), a marżę zostawić tylko Tobie? Dziś to jedno uprawnienie; jeśli koszty i marża mają być rozdzielone, rozdzielę je w R3.
+1. ~~Kamil a koszty~~ — **decyzja Admina: uprawnienia rozdzielone.** „Wyceny — koszty” mają Admin i Envcheck wewnętrzny (Kamil widzi i edytuje koszty), a „Wyceny — marża i cena” (marża, rezerwa, ryzyko, VAT, netto/brutto, eksport, ustawienia) tylko Admin.
 2. **Profile startowe zbudowałem z OF036 i OF033** — do przejrzenia przez Kamila:
    - „Mała / standard” i „Komora grzewcza”: blok „Komora 1” z OF036; koszty inne jak w OF036, czyli dla dwóch komór.
    - „Mała / kaskada”: stopień 1 i stopień 2 (R23/etan) z OF036.

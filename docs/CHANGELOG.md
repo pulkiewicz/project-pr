@@ -1,5 +1,12 @@
 # Changelog
 
+## Wyceny — rozdzielone uprawnienia: koszty vs. marża i cena (25.10.2026)
+
+- **Nowy moduł uprawnień `quotesCost` („Wyceny — koszty”)**: ceny jednostkowe, robocizna, koszty pozycji, sekcji i urządzeń oraz zestawienie kosztów. Domyślnie Admin i Envcheck wewnętrzny, w tym Kamil (decyzja Admina).
+- **`quotesPricing` („Wyceny — marża i cena”)**: marża, rezerwa gwarancyjna, ryzyko, VAT, netto/brutto, ceny opcji, ustawienia wycen, eksport XLSX. Tylko Admin.
+- Bez `quotesPricing` API zwraca parametry cenowe jako puste (`marginMultiplier`, `reservePctOverride`, `riskPct`, `vatPct`), a podsumowanie ceny nie jest wysyłane. Na liście wycen widać koszt, ale nie kwotę netto. Złożoność i okres gwarancji edytuje każdy, kto edytuje wycenę.
+- Moduły sprzedaży, w tym nowy, są zablokowane dla ról zewnętrznych. Migracja `20261025171111_quotes_cost_permission`.
+
 ## R2 — Wyceny: rdzeń bez AI (25.10.2026)
 
 - **Wyceny** (`/wyceny`): każda wycena należy do szansy z CRM i ma rewizję (A, B…). Nowa wycena powstaje pusta (jedno urządzenie z 6 domyślnymi sekcjami), z **profilu wyceny** albo z **poprzedniej wyceny**. Pozycje kopiowane z bazy dostają źródło „profil” lub „poprz. wycena” i status „niezatwierdzona”. Karta szansy w CRM pokazuje jej wyceny i ma przycisk „Nowa wycena”.

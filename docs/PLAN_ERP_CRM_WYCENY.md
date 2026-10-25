@@ -188,7 +188,7 @@ Szacunek (orientacyjnie, w sesjach pracy z Claude Code): R0 ≈ 1–2, R1 ≈ 2,
 | A3 | Nowa nazwa: **Envcheck Hub**. |
 | A4 | Kolejność: R0–R2 przed etapami PIT-RADWAR E4–E8, potem naprzemiennie. |
 | A5 | Niezacommitowana praca w głównym katalogu (usunięcie modułu „Dokumenty”, migracja `hrf_task_link`) zostanie domknięta i zacommitowana przed R0. Integracja z Drive (`server/integrations/drive`) zostaje: potrzebna do folderów szans i ofert. |
-| B1 | Istniejące role (Admin, Envcheck wewnętrzny). Marża, rezerwa i koszty ([W]) domyślnie tylko Admin. |
+| B1 | Istniejące role (Admin, Envcheck wewnętrzny). Koszty wyceny (`quotesCost`): Admin i Envcheck wewnętrzny; marża, rezerwa i cena końcowa (`quotesPricing`): tylko Admin (zmiana decyzji 25.10.2026). |
 | B2 | Kamil Jankowski: konto Envcheck wewnętrzny, pytania w aplikacji + mail. |
 | B3 | Użytkownicy zewnętrzni przypisani per projekt (`project_members`), bez dostępu do CRM i wycen. |
 | C1 | Lejek 6 etapów: Nowe, W wycenie, Złożona oferta, Wygrane, Przegrane, Zawieszone. „Nie składaliśmy” → Zawieszone. „Brak odpowiedzi” po 14 dniach. |

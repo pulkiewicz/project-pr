@@ -112,11 +112,12 @@
     "hrfInternal": "HRF — zadania wewnętrzne",
     "crm": "CRM",
     "quotes": "Wyceny",
-    "quotesPricing": "Wyceny — marża i koszty",
+    "quotesPricing": "Wyceny — marża i cena",
     "quoteKnowledge": "Baza wiedzy wycen",
     "projects": "Projekty",
     "sales": "Sprzedaż",
-    "quoteProfile": "Profil wyceny"
+    "quoteProfile": "Profil wyceny",
+    "quotesCost": "Wyceny — koszty"
   },
   "roles": {
     "Admin": "Administrator",
@@ -312,11 +313,12 @@
     "opportunity_has_project": "Szansa ma już projekt",
     "project_code_exists": "Projekt o kodzie {{detail}} już istnieje",
     "quote_locked": "Wycena zatwierdzona, wysłana lub historyczna — tylko do odczytu",
-    "pricing_forbidden": "Brak uprawnień do kosztów i marży",
+    "pricing_forbidden": "Brak uprawnień do marży, rezerwy i ceny",
     "quote_status_not_allowed": "Niedozwolona zmiana statusu wyceny",
     "not_a_quote": "To nie jest wycena",
     "last_device": "Wycena musi mieć co najmniej jedno urządzenie",
-    "opportunity_not_found": "Nie znaleziono szansy"
+    "opportunity_not_found": "Nie znaleziono szansy",
+    "cost_forbidden": "Brak uprawnień do kosztów wyceny"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -963,7 +965,7 @@
       "medium": "średnia",
       "high": "wysoka"
     },
-    "pricingHidden": "Koszty, marża i rezerwa widoczne tylko z uprawnieniem „Wyceny — marża i koszty”.",
+    "pricingHidden": "Marża, rezerwa i cena końcowa są widoczne tylko z uprawnieniem „Wyceny — marża i cena”.",
     "params": "Parametry ceny",
     "marginMultiplier": "Marża (mnożnik kosztu)",
     "complexity": "Złożoność projektu",
@@ -1012,7 +1014,8 @@
     "emptyProfiles": "Brak profili",
     "openOpportunity": "Karta szansy",
     "forOpportunity": "Wyceny tej szansy",
-    "none": "Brak wycen dla tej szansy"
+    "none": "Brak wycen dla tej szansy",
+    "costsHidden": "Koszty są widoczne tylko z uprawnieniem „Wyceny — koszty”."
   },
   "knowledge": {
     "title": "Baza wiedzy wycen",

@@ -40,7 +40,7 @@ import {
   type QuoteDto,
   type QuoteInfo,
   type QuoteLineDto,
-  type QuoteParams,
+  type QuoteParamsView,
   type QuoteSectionDto,
 } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
@@ -71,21 +71,21 @@ function LineModal({ q, line, sectionId, onClose }: { q: QuoteDto; line: QuoteLi
     if (!sectionId) return
     if (line) {
       const { name, group, quantity, unit, unitCost, laborHours, laborRate, justification, source, confidence, approved } = line
-      setF({ name, group, quantity, unit, unitCost: q.canSeePricing ? unitCost : undefined, laborHours, laborRate: q.canSeePricing ? laborRate : undefined, justification, source, confidence, approved, sectionId })
-    } else setF({ ...EMPTY_LINE, laborRate: q.canEditPricing ? (settings.data?.laborRate ?? null) : undefined })
+      setF({ name, group, quantity, unit, unitCost: q.canSeeCosts ? unitCost : undefined, laborHours, laborRate: q.canSeeCosts ? laborRate : undefined, justification, source, confidence, approved, sectionId })
+    } else setF({ ...EMPTY_LINE, laborRate: q.canEditCosts ? (settings.data?.laborRate ?? null) : undefined })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sectionId, line?.id])
 
   const sections = q.devices.flatMap((d) => d.sections.map((s) => ({ value: s.id, label: q.devices.length > 1 ? `${d.name} · ${s.name}` : s.name })))
   const editable = q.canEdit
-  const price = editable && q.canEditPricing
+  const price = editable && q.canEditCosts
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((prev) => ({ ...prev, [k]: v }))
   const cost = (f.quantity ?? 1) * (f.unitCost ?? 0) + (f.laborHours ?? 0) * (f.laborRate ?? 0)
 
   const save = () => {
     const { sectionId: target, ...data } = f
-    // Bez uprawnienia do cen nie wysyłamy pól cenowych (API odrzuciłoby zmianę).
-    const payload = q.canEditPricing ? data : { ...data, unitCost: undefined, laborRate: undefined }
+    // Bez uprawnienia do kosztów nie wysyłamy pól kosztowych (API odrzuciłoby zmianę).
+    const payload = q.canEditCosts ? data : { ...data, unitCost: undefined, laborRate: undefined }
     mutation.mutate(line ? quoteOps.patchLine(line.id, { ...payload, ...(target && target !== sectionId ? { sectionId: target } : {}) }) : quoteOps.addLine(sectionId!, payload), {
       onSuccess: onClose,
     })
@@ -107,7 +107,7 @@ function LineModal({ q, line, sectionId, onClose }: { q: QuoteDto; line: QuoteLi
             thousandSeparator=" "
             decimalSeparator=","
             disabled={!price}
-            placeholder={q.canSeePricing ? undefined : '•••'}
+            placeholder={q.canSeeCosts ? undefined : '•••'}
             value={f.unitCost ?? ''}
             onChange={(v) => set('unitCost', v === '' ? null : Number(v))}
           />
@@ -117,11 +117,11 @@ function LineModal({ q, line, sectionId, onClose }: { q: QuoteDto; line: QuoteLi
             min={0}
             decimalSeparator=","
             disabled={!price}
-            placeholder={q.canSeePricing ? undefined : '•••'}
+            placeholder={q.canSeeCosts ? undefined : '•••'}
             value={f.laborRate ?? ''}
             onChange={(v) => set('laborRate', v === '' ? null : Number(v))}
           />
-          {q.canSeePricing && (
+          {q.canSeeCosts && (
             <Stack gap={2} justify="flex-end">
               <Text size="sm" c="dimmed">
                 {t('quotes.lineCost')}
@@ -193,7 +193,7 @@ function SectionTable({ q, device, section, index, count, onLine }: { q: QuoteDt
           )}
         </Group>
         <Group gap={4} wrap="nowrap">
-          {q.canSeePricing && <Text fw={600}>{money(section.cost)}</Text>}
+          {q.canSeeCosts && <Text fw={600}>{money(section.cost)}</Text>}
           {q.canEdit && (
             <Menu position="bottom-end" withinPortal>
               <Menu.Target>
@@ -242,7 +242,7 @@ function SectionTable({ q, device, section, index, count, onLine }: { q: QuoteDt
                 <Table.Th w={90} ta="right">
                   {t('quotes.quantity')}
                 </Table.Th>
-                {q.canSeePricing && (
+                {q.canSeeCosts && (
                   <Table.Th w={120} ta="right">
                     {t('quotes.lineCost')}
                   </Table.Th>
@@ -266,7 +266,7 @@ function SectionTable({ q, device, section, index, count, onLine }: { q: QuoteDt
                   <Table.Td ta="right">
                     {formatNumber(l.quantity).replace(/,00$/, '')} {l.unit ?? ''}
                   </Table.Td>
-                  {q.canSeePricing && <Table.Td ta="right">{money(l.cost)}</Table.Td>}
+                  {q.canSeeCosts && <Table.Td ta="right">{money(l.cost)}</Table.Td>}
                   <Table.Td>
                     <Text size="xs" c="dimmed" lineClamp={1}>
                       {l.justification ?? ''}
@@ -306,7 +306,7 @@ function DeviceCard({ q, device, onLine }: { q: QuoteDto; device: QuoteDeviceDto
           {!device.included && <Badge color="gray" variant="light">{t('quotes.notIncluded')}</Badge>}
         </Group>
         <Group gap="xs" wrap="nowrap">
-          {q.canSeePricing && <Text fw={700}>{money(device.cost)}</Text>}
+          {q.canSeeCosts && <Text fw={700}>{money(device.cost)}</Text>}
           {q.canEdit && (
             <Menu position="bottom-end" withinPortal>
               <Menu.Target>
@@ -349,7 +349,7 @@ function DeviceCard({ q, device, onLine }: { q: QuoteDto; device: QuoteDeviceDto
 function SummaryPanel({ q }: { q: QuoteDto }) {
   const { t } = useTranslation()
   const mutation = useQuoteMutation(q.id)
-  const [p, setP] = useState<QuoteParams>(q.params)
+  const [p, setP] = useState<QuoteParamsView>(q.params)
   useEffect(() => setP(q.params), [q.version]) // eslint-disable-line react-hooks/exhaustive-deps
   const s = q.summary
   const editable = q.canEdit
@@ -368,7 +368,9 @@ function SummaryPanel({ q }: { q: QuoteDto }) {
           {t('quotes.params')}
         </Title>
         <SimpleGrid cols={2}>
-          <NumberInput label={t('quotes.marginMultiplier')} min={1} step={0.1} decimalScale={2} decimalSeparator="," disabled={!price} value={p.marginMultiplier} onChange={(v) => setP({ ...p, marginMultiplier: Number(v) || 1 })} />
+          {q.canSeePricing && (
+            <NumberInput label={t('quotes.marginMultiplier')} min={1} step={0.1} decimalScale={2} decimalSeparator="," disabled={!price} value={p.marginMultiplier ?? ''} onChange={(v) => setP({ ...p, marginMultiplier: Number(v) || 1 })} />
+          )}
           <Select
             label={t('quotes.complexity')}
             allowDeselect={false}
@@ -378,78 +380,105 @@ function SummaryPanel({ q }: { q: QuoteDto }) {
             onChange={(v) => v && setP({ ...p, complexity: v as Complexity })}
           />
           <NumberInput label={t('quotes.warrantyMonths')} min={0} max={240} disabled={!editable} value={p.warrantyMonths} onChange={(v) => setP({ ...p, warrantyMonths: Number(v) || 0 })} />
-          <NumberInput
-            label={t('quotes.reserveOverride')}
-            description={t('quotes.reserveOverrideHint')}
-            min={0}
-            decimalSeparator=","
-            suffix=" %"
-            disabled={!price}
-            value={pct(p.reservePctOverride)}
-            onChange={(v) => setP({ ...p, reservePctOverride: fromPct(v) })}
-          />
-          <NumberInput label={t('quotes.riskPct')} min={0} decimalSeparator="," suffix=" %" disabled={!price} value={pct(p.riskPct)} onChange={(v) => setP({ ...p, riskPct: fromPct(v) ?? 0 })} />
-          <NumberInput label={t('quotes.vatPct')} min={0} max={100} suffix=" %" disabled={!price} value={pct(p.vatPct)} onChange={(v) => setP({ ...p, vatPct: fromPct(v) ?? 0 })} />
+          {/* Marża, rezerwa, ryzyko i VAT — tylko z uprawnieniem „Wyceny — marża i cena” (API zwraca je jako null). */}
+          {q.canSeePricing && (
+            <>
+              <NumberInput
+                label={t('quotes.reserveOverride')}
+                description={t('quotes.reserveOverrideHint')}
+                min={0}
+                decimalSeparator=","
+                suffix=" %"
+                disabled={!price}
+                value={pct(p.reservePctOverride)}
+                onChange={(v) => setP({ ...p, reservePctOverride: fromPct(v) })}
+              />
+              <NumberInput label={t('quotes.riskPct')} min={0} decimalSeparator="," suffix=" %" disabled={!price} value={pct(p.riskPct)} onChange={(v) => setP({ ...p, riskPct: fromPct(v) ?? 0 })} />
+              <NumberInput label={t('quotes.vatPct')} min={0} max={100} suffix=" %" disabled={!price} value={pct(p.vatPct)} onChange={(v) => setP({ ...p, vatPct: fromPct(v) ?? 0 })} />
+            </>
+          )}
         </SimpleGrid>
         {editable && (
           <Group justify="flex-end" mt="sm">
-            <Button disabled={!changed} loading={mutation.isPending} onClick={() => mutation.mutate(quoteOps.patch({ params: p, version: q.version }))}>
+            <Button
+              disabled={!changed}
+              loading={mutation.isPending}
+              onClick={() => {
+                const { marginMultiplier, reservePctOverride, riskPct, vatPct, ...rest } = p
+                // Bez uprawnienia do ceny wysyłamy tylko złożoność i gwarancję.
+                const params = q.canEditPricing ? { ...rest, marginMultiplier: marginMultiplier ?? undefined, reservePctOverride, riskPct: riskPct ?? undefined, vatPct: vatPct ?? undefined } : rest
+                mutation.mutate(quoteOps.patch({ params, version: q.version }))
+              }}
+            >
               {t('app.save')}
             </Button>
           </Group>
         )}
       </Card>
-      {!s ? (
-        <Alert variant="light">{t('quotes.pricingHidden')}</Alert>
+      {!q.costSummary ? (
+        <Alert variant="light">{t('quotes.costsHidden')}</Alert>
       ) : (
         <Card withBorder>
           <Title order={5}>{t('quotes.costBreakdown')}</Title>
           <Table>
             <Table.Tbody>
-              {s.sections.map((x) => row(x.name, formatPLN(x.cost)))}
-              {row(t('quotes.sum'), formatPLN(s.cost), true)}
+              {q.costSummary.sections.map((x) => row(x.name, formatPLN(x.cost)))}
+              {row(t('quotes.sum'), formatPLN(q.costSummary.cost), true)}
             </Table.Tbody>
           </Table>
-          <Title order={5} mt="md">
-            {t('quotes.priceCalc')}
-          </Title>
-          <Table data-testid="quote-summary">
-            <Table.Tbody>
-              {row(t('quotes.cost'), formatPLN(s.cost))}
-              {row(`${t('quotes.marginValue')} (× ${formatNumber(q.params.marginMultiplier).replace(/,00$/, '')})`, formatPLN(s.marginValue))}
-              {row(`${t('quotes.reserveValue')} (${pct(s.reservePct)} %)`, formatPLN(s.reserveValue))}
-              {s.riskValue > 0 && row(`${t('quotes.riskValue')} (${pct(q.params.riskPct)} %)`, formatPLN(s.riskValue))}
-              {row(t('quotes.netTotal'), formatPLN(s.net), true)}
-              {row(t('quotes.grossTotal'), formatPLN(s.gross), true)}
-              {q.info.budget != null && row(t('quotes.budgetDiff'), formatPLN(q.info.budget - s.gross))}
-            </Table.Tbody>
-          </Table>
-          {s.devices.length > 1 && (
+          {q.costSummary.devices.length > 1 && !s && (
+            <Table mt="sm">
+              <Table.Tbody>{q.costSummary.devices.map((d) => row(`${d.name}${d.isOption || !d.included ? ` (${t('quotes.option')})` : ''}`, formatPLN(d.cost)))}</Table.Tbody>
+            </Table>
+          )}
+          {!s ? (
+            <Alert variant="light" color="gray" mt="md">
+              {t('quotes.pricingHidden')}
+            </Alert>
+          ) : (
             <>
               <Title order={5} mt="md">
-                {t('quotes.devicesPrices')}
+                {t('quotes.priceCalc')}
               </Title>
-              <Table>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>{t('quotes.device')}</Table.Th>
-                    <Table.Th ta="right">{t('quotes.net')}</Table.Th>
-                    <Table.Th ta="right">{t('quotes.gross')}</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
+              <Table data-testid="quote-summary">
                 <Table.Tbody>
-                  {s.devices.map((d) => (
-                    <Table.Tr key={d.id}>
-                      <Table.Td>
-                        {d.name}
-                        {d.quantity > 1 ? ` × ${d.quantity}` : ''} {(d.isOption || !d.included) && <Badge size="xs" color="orange" variant="light">{t('quotes.option')}</Badge>}
-                      </Table.Td>
-                      <Table.Td ta="right">{formatPLN(d.price.net)}</Table.Td>
-                      <Table.Td ta="right">{formatPLN(d.price.gross)}</Table.Td>
-                    </Table.Tr>
-                  ))}
+                  {row(t('quotes.cost'), formatPLN(s.cost))}
+                  {row(`${t('quotes.marginValue')} (× ${formatNumber(q.params.marginMultiplier ?? 0).replace(/,00$/, '')})`, formatPLN(s.marginValue))}
+                  {row(`${t('quotes.reserveValue')} (${pct(s.reservePct)} %)`, formatPLN(s.reserveValue))}
+                  {s.riskValue > 0 && row(`${t('quotes.riskValue')} (${pct(q.params.riskPct)} %)`, formatPLN(s.riskValue))}
+                  {row(t('quotes.netTotal'), formatPLN(s.net), true)}
+                  {row(t('quotes.grossTotal'), formatPLN(s.gross), true)}
+                  {q.info.budget != null && row(t('quotes.budgetDiff'), formatPLN(q.info.budget - s.gross))}
                 </Table.Tbody>
               </Table>
+              {s.devices.length > 1 && (
+                <>
+                  <Title order={5} mt="md">
+                    {t('quotes.devicesPrices')}
+                  </Title>
+                  <Table>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>{t('quotes.device')}</Table.Th>
+                        <Table.Th ta="right">{t('quotes.net')}</Table.Th>
+                        <Table.Th ta="right">{t('quotes.gross')}</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {s.devices.map((d) => (
+                        <Table.Tr key={d.id}>
+                          <Table.Td>
+                            {d.name}
+                            {d.quantity > 1 ? ` × ${d.quantity}` : ''} {(d.isOption || !d.included) && <Badge size="xs" color="orange" variant="light">{t('quotes.option')}</Badge>}
+                          </Table.Td>
+                          <Table.Td ta="right">{formatPLN(d.price.net)}</Table.Td>
+                          <Table.Td ta="right">{formatPLN(d.price.gross)}</Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </>
+              )}
             </>
           )}
         </Card>
@@ -645,17 +674,17 @@ export function QuoteEditor({ id }: { id: string }) {
       )}
 
       {!q.canEdit && q.status !== 'draft' && <Alert variant="light">{t('quotes.locked', { status: t(`quotes.status.${q.status}`).toLowerCase() })}</Alert>}
-      {!q.canSeePricing && <Alert variant="light" color="gray">{t('quotes.pricingHidden')}</Alert>}
+      {!q.canSeeCosts && <Alert variant="light" color="gray">{t('quotes.costsHidden')}</Alert>}
 
       <Tabs value={tab} onChange={setTab} keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="items">{t('quotes.tabs.items')}</Tabs.Tab>
           <Tabs.Tab value="summary">
             {t('quotes.tabs.summary')}
-            {q.summary && (
+            {(q.summary || q.costSummary) && (
               <Text span c="dimmed" size="sm">
                 {' '}
-                · {formatPLN(q.summary.net)}
+                · {q.summary ? `${formatPLN(q.summary.net)} ${t('quotes.net').toLowerCase()}` : `${formatPLN(q.costSummary!.cost)} ${t('quotes.cost').toLowerCase()}`}
               </Text>
             )}
           </Tabs.Tab>

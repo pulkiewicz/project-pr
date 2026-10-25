@@ -88,6 +88,16 @@ export interface QuoteSummary extends PriceBreakdown {
   devices: { id: string; name: string; quantity: number; isOption: boolean; included: boolean; price: PriceBreakdown }[]
 }
 
+export interface QuoteCostSummary {
+  cost: number
+  sections: { name: string; cost: number }[]
+  devices: { id: string; name: string; quantity: number; isOption: boolean; included: boolean; cost: number }[]
+}
+
+export function toCostSummary(s: QuoteSummary): QuoteCostSummary {
+  return { cost: s.cost, sections: s.sections, devices: s.devices.map(({ price, ...d }) => ({ ...d, cost: price.cost })) }
+}
+
 /** Podsumowanie: urządzenia włączone do ceny (× ilość) + osobne ceny opcji/wariantów (D6). */
 export function computeSummary(devices: QuoteDeviceDto[], params: QuoteParams, s: ReserveSettings = DEFAULT_RESERVE): QuoteSummary {
   const sectionTotals = new Map<string, number>()
@@ -221,7 +231,7 @@ export const quoteSettingsInput = z.object({
 
 // ---------------- DTO ----------------
 
-/** Pola cenowe są null bez uprawnienia `quotesPricing:view` (decyzja B1). */
+/** Pola kosztowe są null bez uprawnienia `quotesCost:view`. */
 export interface QuoteLineDto {
   id: string
   name: string
@@ -270,20 +280,29 @@ export interface QuoteListItemDto {
   revision: string | null
   status: QuoteStatus
   basedOnLabel: string | null
-  /** Null bez `quotesPricing:view`. */
+  /** Null bez `quotesCost:view`. */
   cost: number | null
+  /** Null bez `quotesPricing:view`. */
   net: number | null
   updatedAt: string
   updatedByName: string | null
 }
 
+/** Parametry w DTO: pola cenowe (marża, rezerwa, ryzyko, VAT) są null bez `quotesPricing:view`. */
+export type QuoteParamsView = Omit<QuoteParams, 'marginMultiplier' | 'riskPct' | 'vatPct'> & { marginMultiplier: number | null; riskPct: number | null; vatPct: number | null }
+
 export interface QuoteDto extends QuoteListItemDto {
-  params: QuoteParams
+  params: QuoteParamsView
   info: QuoteInfo
   notes: string | null
   devices: QuoteDeviceDto[]
+  /** Koszty (zestawienie per sekcja i urządzenie) — z `quotesCost:view`. */
+  costSummary: QuoteCostSummary | null
+  /** Marża, rezerwa, ryzyko, netto/brutto — tylko z `quotesPricing:view`. */
   summary: QuoteSummary | null
   canEdit: boolean
+  canSeeCosts: boolean
+  canEditCosts: boolean
   canSeePricing: boolean
   canEditPricing: boolean
   approvedAt: string | null

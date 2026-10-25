@@ -5,6 +5,7 @@ import {
   DEFAULT_SECTIONS,
   QUOTE_EDITABLE,
   computeSummary,
+  toCostSummary,
   lineCost,
   type Action,
   type ModuleKey,
@@ -24,7 +25,7 @@ export const QUOTE_SETTINGS_KEY = 'quotes.settings'
 type Perms = Set<`${ModuleKey}:${Action}`>
 const has = (perms: Perms, m: ModuleKey, a: Action) => perms.has(`${m}:${a}`)
 
-/** Wyceny — moduł `quotes`, profile — `quoteKnowledge`; ceny — `quotesPricing` (decyzja B1). */
+/** Wyceny — moduł `quotes`, profile — `quoteKnowledge`; koszty — `quotesCost`; marża i cena — `quotesPricing`. */
 export const moduleFor = (kind: QuoteKind): ModuleKey => (kind === 'profile' ? 'quoteKnowledge' : 'quotes')
 
 export function assertKind(perms: Perms, kind: QuoteKind, action: Action) {
@@ -99,7 +100,7 @@ function maskDevices(devices: QuoteDeviceDto[]): QuoteDeviceDto[] {
   }))
 }
 
-function listItem(r: BaseRow, canSeePricing: boolean, devices: QuoteDeviceDto[], settings: QuoteSettings): QuoteListItemDto {
+function listItem(r: BaseRow, perms: Perms, devices: QuoteDeviceDto[], settings: QuoteSettings): QuoteListItemDto {
   const summary = computeSummary(devices, { ...DEFAULT_PARAMS, ...r.q.params }, settings.reserve)
   return {
     id: r.q.id,
@@ -113,8 +114,8 @@ function listItem(r: BaseRow, canSeePricing: boolean, devices: QuoteDeviceDto[],
     revision: r.q.revision,
     status: r.q.status,
     basedOnLabel: r.q.basedOnLabel,
-    cost: canSeePricing ? summary.cost : null,
-    net: canSeePricing ? summary.net : null,
+    cost: has(perms, 'quotesCost', 'view') ? summary.cost : null,
+    net: has(perms, 'quotesPricing', 'view') ? summary.net : null,
     updatedAt: r.q.updatedAt,
     updatedByName: r.updatedByName,
   }
@@ -124,8 +125,7 @@ export async function listQuotes(db: Database, perms: Perms, kind: QuoteKind, wh
   const rows = await baseRows(db, and(eq(quotes.kind, kind), where))
   const trees = await loadTrees(db, rows.map((r) => r.q.id))
   const settings = await loadSettings(db)
-  const canSee = has(perms, 'quotesPricing', 'view')
-  return rows.map((r) => listItem(r, canSee, trees.get(r.q.id) ?? [], settings))
+  return rows.map((r) => listItem(r, perms, trees.get(r.q.id) ?? [], settings))
 }
 
 export async function getQuoteRow(db: Database, id: string) {
@@ -141,15 +141,20 @@ export async function getQuote(db: Database, perms: Perms, id: string): Promise<
   const devices = (await loadTrees(db, [id])).get(id) ?? []
   const settings = await loadSettings(db)
   const params = { ...DEFAULT_PARAMS, ...r.q.params }
+  const canSeeCosts = has(perms, 'quotesCost', 'view')
   const canSeePricing = has(perms, 'quotesPricing', 'view')
+  const summary = computeSummary(devices, params, settings.reserve)
   return {
-    ...listItem(r, canSeePricing, devices, settings),
-    params,
+    ...listItem(r, perms, devices, settings),
+    params: canSeePricing ? params : { ...params, marginMultiplier: null, reservePctOverride: null, riskPct: null, vatPct: null },
     info: r.q.info ?? {},
     notes: r.q.notes,
-    devices: canSeePricing ? devices : maskDevices(devices),
-    summary: canSeePricing ? computeSummary(devices, params, settings.reserve) : null,
+    devices: canSeeCosts ? devices : maskDevices(devices),
+    costSummary: canSeeCosts ? toCostSummary(summary) : null,
+    summary: canSeePricing ? summary : null,
     canEdit: QUOTE_EDITABLE.includes(r.q.status) && has(perms, moduleFor(r.q.kind), 'edit'),
+    canSeeCosts,
+    canEditCosts: has(perms, 'quotesCost', 'edit'),
     canSeePricing,
     canEditPricing: has(perms, 'quotesPricing', 'edit'),
     approvedAt: r.q.approvedAt,
