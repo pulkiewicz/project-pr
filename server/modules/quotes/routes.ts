@@ -43,6 +43,8 @@ import {
   sectionOf,
   touch,
 } from './service.ts'
+import { copyChecklist } from './checklist.ts'
+import { copyCalcs } from './spec-routes.ts'
 
 export const quotesRouter = newRouter()
 
@@ -242,6 +244,8 @@ quotesRouter.openapi(route({ method: 'post', path: '/quotes/{id}/revision', requ
   const newId = await db.transaction(async (tx) => {
     const nid = await createQuote(c, tx, { kind: 'quote', opportunityId: base.opportunityId, name: base.name, description: base.description, basedOnId: id })
     await tx.update(quotes).set({ notes: base.notes, params: base.params }).where(eq(quotes.id, nid))
+    await copyChecklist(tx, id, nid)
+    await copyCalcs(tx, id, nid)
     return nid
   })
   return respond(c, newId, 201)

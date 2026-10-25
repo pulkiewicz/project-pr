@@ -1,5 +1,19 @@
 # Changelog
 
+## R3 — Checklista specyfikacyjna, kalkulator mocy, katalog komponentów (25.10.2026)
+
+- **Checklista specyfikacyjna (krok 3 wyceny)**: zakładka „Checklista” z parametrami standardowej listy (v1: 80 parametrów w 12 grupach, z planu §5). Wartość zależy od typu: liczba z jednostką, zakres, wymiary, wybór, tak/nie, tekst. Każdy parametr ma status **OK** (potwierdzony), **Brak** (brak w materiałach — w R4 trafi do pytań) albo **N/D**, z notatką i filtrami. Można dopisywać wymagania spoza listy. Postęp „potwierdzone x/y” widać na pasku kroków.
+- **Wersjonowana lista specyfikacyjna** (Baza wiedzy → Lista specyfikacyjna): edycja parametrów (grupa, nazwa, typ, jednostka, opcje, kolejność) i zapis jako nowa wersja. Wycena z rozpoczętą checklistą zostaje przy swojej wersji, a nowa rewizja przejmuje checklistę i kalkulacje.
+- **Kalkulator mocy chłodniczej / grzewczej** (zakładka „Kalkulator mocy” w wycenie i bez zapisu w Bazie wiedzy) według arkusza OF022:
+  - masa termiczna c × m × tempo / 60 (słownik ciepła właściwego, własne c, tempo per wiersz),
+  - obciążenia stałe i przenikanie U × A × ΔT z wymiarów (z możliwością nadpisania),
+  - współczynnik zapasu i wynik w W i kW.
+  Przykład OF022 daje 12 870 W jak arkusz. **„Uzupełnij z checklisty”** wstawia wymiary, masę obudowy wewnętrznej (blacha 1,5 mm), ΔT względem 20 °C, masę próbki i tempo.
+- **Katalog komponentów** (Baza wiedzy): kategoria, producent, nr katalogowy, dostawca, cena z datą (oznaczenie „cena nieaktualna” po N miesiącach, ustawienie domyślne 12), wydajność i temperatura odparowania, czynnik. Ceny widzi i zmienia uprawnienie „Wyceny — koszty”.
+- **Katalog w wycenie**: w pozycji „Z katalogu” wypełnia nazwę, cenę i źródło „katalog”, a „Dodaj do katalogu” zapisuje pozycję wyceny jako komponent. Z kalkulatora **„Dobierz sprężarkę z katalogu”** podpowiada sprężarki o wydajności ≥ wymaganej i wstawia pozycję do „Układu chłodzenia” z uzasadnieniem doboru.
+- API: `/spec-list`, `/quotes/{id}/checklist…`, `/quotes/{id}/calcs…`, `/components…`. Migracja `20261025171840_spec_calc_catalog` (tabele `spec_list_versions`, `quote_checklist_items`, `quote_calcs`, `components`; lista v1).
+- **Testy:** 1004 (Vitest), w tym 11 nowych dla R3: OF022 = 12 870 W, przenikanie, typy i statusy checklisty, wymagania dodatkowe, wersje listy, kopiowanie do rewizji, katalog z maskowaniem cen, pozycja z katalogu.
+
 ## Wyceny — rozdzielone uprawnienia: koszty vs. marża i cena (25.10.2026)
 
 - **Nowy moduł uprawnień `quotesCost` („Wyceny — koszty”)**: ceny jednostkowe, robocizna, koszty pozycji, sekcji i urządzeń oraz zestawienie kosztów. Domyślnie Admin i Envcheck wewnętrzny, w tym Kamil (decyzja Admina).

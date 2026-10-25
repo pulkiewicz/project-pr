@@ -18,7 +18,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { ACTIVITY_KINDS, AVIZATION_STATUSES, CONFIDENCES, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type QuoteInfo, type QuoteParams, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
+import { ACTIVITY_KINDS, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type QuoteInfo, type QuoteParams, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -663,6 +663,8 @@ export const quotes = pgTable(
     params: jsonb('params').$type<QuoteParams>().notNull(),
     info: jsonb('info').$type<QuoteInfo>().notNull().default({}),
     notes: text('notes'),
+    /** Wersja listy specyfikacyjnej, wg której wypełniono checklistę (ustalana przy pierwszym zapisie). */
+    specListVersionId: uuid('spec_list_version_id'),
     approvedAt: ts('approved_at'),
     approvedBy: uuid('approved_by').references(() => users.id),
     version: integer('version').notNull().default(1),
@@ -717,7 +719,80 @@ export const quoteLines = pgTable(
     source: quoteLineSourceEnum('source').notNull().default('manual'),
     confidence: confidenceEnum('confidence'),
     approved: boolean('approved').notNull().default(false),
+    componentId: uuid('component_id').references(() => components.id),
     sortOrder: integer('sort_order').notNull().default(0),
   },
   (t) => [index('quote_lines_section_idx').on(t.sectionId)],
+)
+
+// ---------------- R3: lista specyfikacyjna, checklista, kalkulator mocy, katalog ----------------
+export const checklistStatusEnum = pgEnum('checklist_status', CHECKLIST_STATUSES)
+export const componentCategoryEnum = pgEnum('component_category', COMPONENT_CATEGORIES)
+
+/** Wersje standardowej listy specyfikacyjnej — edycja w Bazie wiedzy tworzy nową wersję. */
+export const specListVersions = pgTable('spec_list_versions', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  version: integer('version').notNull().unique(),
+  items: jsonb('items').$type<SpecItemDef[]>().notNull(),
+  notes: text('notes'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  createdBy: uuid('created_by').references(() => users.id),
+})
+
+/** Pozycja checklisty wyceny: klucz z listy albo `custom:<uuid>` (wymaganie spoza listy). */
+export const quoteChecklistItems = pgTable(
+  'quote_checklist_items',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    quoteId: uuid('quote_id').notNull().references(() => quotes.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    /** Tylko dla wymagań dodatkowych. */
+    label: text('label'),
+    group: text('group'),
+    value: jsonb('value').$type<SpecValue>(),
+    status: checklistStatusEnum('status').notNull().default('pending'),
+    note: text('note'),
+    sourceRef: text('source_ref'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+    updatedBy: uuid('updated_by').references(() => users.id),
+  },
+  (t) => [uniqueIndex('quote_checklist_items_uq').on(t.quoteId, t.key)],
+)
+
+/** Kalkulacja mocy chłodniczej/grzewczej w wycenie (opcjonalnie dla urządzenia). */
+export const quoteCalcs = pgTable(
+  'quote_calcs',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    quoteId: uuid('quote_id').notNull().references(() => quotes.id, { onDelete: 'cascade' }),
+    deviceId: uuid('device_id').references(() => quoteDevices.id, { onDelete: 'set null' }),
+    name: text('name').notNull(),
+    input: jsonb('input').$type<CalcInput>().notNull(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+    updatedBy: uuid('updated_by').references(() => users.id),
+  },
+  (t) => [index('quote_calcs_quote_idx').on(t.quoteId)],
+)
+
+export const components = pgTable(
+  'components',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    category: componentCategoryEnum('category').notNull(),
+    name: text('name').notNull(),
+    manufacturer: text('manufacturer'),
+    partNo: text('part_no'),
+    supplier: text('supplier'),
+    unit: text('unit'),
+    price: numeric('price', { precision: 14, scale: 2, mode: 'number' }),
+    priceDate: date('price_date', { mode: 'string' }),
+    capacityW: numeric('capacity_w', { precision: 12, scale: 1, mode: 'number' }),
+    evapTempC: numeric('evap_temp_c', { precision: 6, scale: 1, mode: 'number' }),
+    refrigerant: text('refrigerant'),
+    notes: text('notes'),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [index('components_category_idx').on(t.category)],
 )

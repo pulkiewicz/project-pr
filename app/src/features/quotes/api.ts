@@ -1,6 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
-import type { LineInput, LinePatch, QuoteCreateInput, QuoteDto, QuoteKind, QuoteListItemDto, QuotePatch, QuoteSettings } from '#shared'
+import type {
+  ChecklistDto,
+  ComponentDto,
+  ComponentInput,
+  LineInput,
+  LinePatch,
+  QuoteCalcDto,
+  QuoteCreateInput,
+  QuoteDto,
+  QuoteKind,
+  QuoteListItemDto,
+  QuotePatch,
+  QuoteSettings,
+  SpecItemDef,
+  SpecListDto,
+} from '#shared'
 import { api } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 
@@ -80,4 +95,59 @@ export function useQuoteAction() {
 export function useDeleteQuote() {
   const qc = useQueryClient()
   return useMutation({ mutationFn: (id: string) => api(`/quotes/${id}`, { method: 'DELETE' }), onSettled: () => void qc.invalidateQueries({ queryKey: ['quotes'] }) })
+}
+
+// ---------------- R3: checklista, kalkulacje, katalog, lista specyfikacyjna ----------------
+
+export const useChecklist = (quoteId: string, enabled = true) =>
+  useQuery({ queryKey: ['checklist', quoteId], queryFn: () => api<ChecklistDto>(`/quotes/${quoteId}/checklist`), enabled })
+
+export function useChecklistMutation(quoteId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { method: 'PUT' | 'POST' | 'DELETE'; key?: string; json?: unknown }) =>
+      api<ChecklistDto>(`/quotes/${quoteId}/checklist${v.key ? `/${encodeURIComponent(v.key)}` : '/custom'}`, { method: v.method, json: v.json }),
+    onSuccess: (c) => {
+      qc.setQueryData(['checklist', quoteId], c)
+      void qc.invalidateQueries({ queryKey: ['quote', quoteId] })
+    },
+    onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+  })
+}
+
+export const useCalcs = (quoteId: string, enabled = true) => useQuery({ queryKey: ['calcs', quoteId], queryFn: () => api<QuoteCalcDto[]>(`/quotes/${quoteId}/calcs`), enabled })
+
+export function useCalcMutation(quoteId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { method: 'POST' | 'PUT' | 'DELETE'; calcId?: string; json?: unknown }) => api<QuoteCalcDto[]>(`/quotes/${quoteId}/calcs${v.calcId ? `/${v.calcId}` : ''}`, { method: v.method, json: v.json }),
+    onSuccess: (c) => qc.setQueryData(['calcs', quoteId], c),
+    onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+  })
+}
+
+export const useComponents = () => useQuery({ queryKey: ['components'], queryFn: () => api<ComponentDto[]>('/components') })
+
+export function useSaveComponent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { id?: string; version?: number; data: Partial<ComponentInput> }) =>
+      v.id ? api<ComponentDto>(`/components/${v.id}`, { method: 'PATCH', json: { ...v.data, version: v.version } }) : api<ComponentDto>('/components', { method: 'POST', json: v.data }),
+    onSettled: () => void qc.invalidateQueries({ queryKey: ['components'] }),
+  })
+}
+
+export function useDeleteComponent() {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: (id: string) => api(`/components/${id}`, { method: 'DELETE' }), onSettled: () => void qc.invalidateQueries({ queryKey: ['components'] }) })
+}
+
+export const useSpecLists = () => useQuery({ queryKey: ['spec-list'], queryFn: () => api<SpecListDto[]>('/spec-list') })
+
+export function useSaveSpecList() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { items: SpecItemDef[]; notes?: string | null }) => api<SpecListDto>('/spec-list', { method: 'POST', json: v }),
+    onSettled: () => void qc.invalidateQueries({ queryKey: ['spec-list'] }),
+  })
 }

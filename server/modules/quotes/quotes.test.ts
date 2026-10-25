@@ -32,7 +32,7 @@ describe('wyliczenia', () => {
   })
 
   it('opcje poza ceną łączną, ilość urządzeń mnoży koszt, ryzyko jako % kosztu', () => {
-    const line = (cost: number) => ({ id: 'l', name: 'x', group: null, quantity: 1, unit: null, unitCost: cost, laborHours: 2, laborRate: 50, cost: null, justification: null, source: 'manual' as const, confidence: null, approved: true, sortOrder: 0 })
+    const line = (cost: number) => ({ id: 'l', name: 'x', group: null, quantity: 1, unit: null, unitCost: cost, laborHours: 2, laborRate: 50, cost: null, justification: null, source: 'manual' as const, confidence: null, approved: true, componentId: null, sortOrder: 0 })
     const dev = (id: string, cost: number, quantity: number, isOption = false) => ({ id, name: id, quantity, isOption, included: true, sortOrder: 0, cost: null, sections: [{ id: 's', name: 'Obudowa', sortOrder: 0, cost: null, lines: [line(cost)] }] })
     const s = computeSummary([dev('a', 900, 2), dev('opt', 400, 1, true)], { ...DEFAULT_PARAMS, riskPct: 0.1 })
     expect(s.cost).toBe(2000)

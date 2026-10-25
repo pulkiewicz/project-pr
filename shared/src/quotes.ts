@@ -13,7 +13,7 @@ export const COMPLEXITIES = ['low', 'medium', 'high'] as const
 export type Complexity = (typeof COMPLEXITIES)[number]
 
 /** Skąd pochodzi pozycja (uzasadnienie i ocena wiarygodności w R4 — AI). */
-export const LINE_SOURCES = ['manual', 'profile', 'previous', 'calculator', 'ai', 'import'] as const
+export const LINE_SOURCES = ['manual', 'profile', 'previous', 'calculator', 'ai', 'import', 'catalog'] as const
 export type LineSource = (typeof LINE_SOURCES)[number]
 export const CONFIDENCES = ['low', 'medium', 'high'] as const
 export type Confidence = (typeof CONFIDENCES)[number]
@@ -34,6 +34,8 @@ export interface QuoteSettings {
   reserve: ReserveSettings
   /** Domyślna stawka robocizny (PLN/h) podpowiadana w pozycjach; null = nieustawiona. */
   laborRate: number | null
+  /** Cena w katalogu starsza niż tyle miesięcy jest oznaczana jako nieaktualna. */
+  priceMaxAgeMonths: number
 }
 
 export interface QuoteParams {
@@ -213,6 +215,8 @@ const lineFields = z.object({
   source: z.enum(LINE_SOURCES),
   confidence: z.enum(CONFIDENCES).nullable().optional(),
   approved: z.boolean(),
+  /** Komponent z katalogu, z którego wzięto cenę. */
+  componentId: z.uuid().nullable().optional(),
 })
 export const lineInput = lineFields.extend({
   quantity: lineFields.shape.quantity.default(1),
@@ -227,6 +231,7 @@ export type LinePatch = z.input<typeof linePatch>
 export const quoteSettingsInput = z.object({
   reserve: z.object({ low: z.number().min(0).max(10), medium: z.number().min(0).max(10), high: z.number().min(0).max(10), perExtraYear: z.number().min(0).max(10) }),
   laborRate: money.nullable(),
+  priceMaxAgeMonths: z.number().int().min(1).max(120).default(12),
 })
 
 // ---------------- DTO ----------------
@@ -246,6 +251,7 @@ export interface QuoteLineDto {
   source: LineSource
   confidence: Confidence | null
   approved: boolean
+  componentId: string | null
   sortOrder: number
 }
 
@@ -305,6 +311,8 @@ export interface QuoteDto extends QuoteListItemDto {
   canEditCosts: boolean
   canSeePricing: boolean
   canEditPricing: boolean
+  /** Postęp checklisty (krok 3); null dla profili. */
+  checklistProgress: { confirmed: number; total: number } | null
   approvedAt: string | null
   approvedByName: string | null
   version: number

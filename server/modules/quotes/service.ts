@@ -1,6 +1,7 @@
 import { aliasedTable, and, asc, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm'
 import {
   DEFAULT_PARAMS,
+  DEFAULT_PRICE_MAX_AGE_MONTHS,
   DEFAULT_RESERVE,
   DEFAULT_SECTIONS,
   QUOTE_EDITABLE,
@@ -19,6 +20,7 @@ import {
 import type { Database } from '../../db/client.ts'
 import { appSettings, companies, opportunities, quoteDevices, quoteLines, quoteSections, quotes, users } from '../../db/schema.ts'
 import { HttpProblem, forbidden, notFound } from '../../lib/problem.ts'
+import { getChecklist } from './checklist.ts'
 
 export const QUOTE_SETTINGS_KEY = 'quotes.settings'
 
@@ -35,7 +37,7 @@ export function assertKind(perms: Perms, kind: QuoteKind, action: Action) {
 export async function loadSettings(db: Database): Promise<QuoteSettings> {
   const [row] = await db.select().from(appSettings).where(eq(appSettings.key, QUOTE_SETTINGS_KEY))
   const v = (row?.value ?? {}) as Partial<QuoteSettings>
-  return { reserve: { ...DEFAULT_RESERVE, ...(v.reserve ?? {}) }, laborRate: v.laborRate ?? null }
+  return { reserve: { ...DEFAULT_RESERVE, ...(v.reserve ?? {}) }, laborRate: v.laborRate ?? null, priceMaxAgeMonths: v.priceMaxAgeMonths ?? DEFAULT_PRICE_MAX_AGE_MONTHS }
 }
 
 const updaters = aliasedTable(users, 'updater')
@@ -82,6 +84,7 @@ async function loadTrees(db: Database, quoteIds: string[]) {
             source: l.source,
             confidence: l.confidence,
             approved: l.approved,
+            componentId: l.componentId,
             sortOrder: l.sortOrder,
           }))
         return { id: s.id, name: s.name, sortOrder: s.sortOrder, cost: ls.reduce((a, l) => a + (l.cost ?? 0), 0), lines: ls }
@@ -157,6 +160,7 @@ export async function getQuote(db: Database, perms: Perms, id: string): Promise<
     canEditCosts: has(perms, 'quotesCost', 'edit'),
     canSeePricing,
     canEditPricing: has(perms, 'quotesPricing', 'edit'),
+    checklistProgress: r.q.kind === 'quote' ? (({ confirmed, total }) => ({ confirmed, total }))((await getChecklist(db, r.q)).progress) : null,
     approvedAt: r.q.approvedAt,
     approvedByName: r.approvedByName,
     version: r.q.version,

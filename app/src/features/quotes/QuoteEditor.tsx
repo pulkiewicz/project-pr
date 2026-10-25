@@ -48,10 +48,12 @@ import i18n from '../../i18n'
 import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 import { formatDateTime, formatNumber, formatPLN } from '../../lib/format'
-import { quoteOps, useDeleteQuote, useQuote, useQuoteAction, useQuoteMutation, useQuoteSettings } from './api'
+import { quoteOps, useComponents, useDeleteQuote, useQuote, useQuoteAction, useQuoteMutation, useQuoteSettings, useSaveComponent } from './api'
+import { CalcPanel } from './CalcPanel'
+import { ChecklistPanel } from './ChecklistPanel'
 
 const STATUS_COLOR = { draft: 'gray', approved: 'green', sent: 'blue', imported: 'violet' } as const
-const SOURCE_COLOR: Record<LineSource, string> = { manual: 'gray', profile: 'blue', previous: 'cyan', calculator: 'teal', ai: 'grape', import: 'violet' }
+const SOURCE_COLOR: Record<LineSource, string> = { manual: 'gray', profile: 'blue', previous: 'cyan', calculator: 'teal', ai: 'grape', import: 'violet', catalog: 'orange' }
 const pct = (v: number | null | undefined) => (v == null ? '' : Math.round(v * 10000) / 100)
 const fromPct = (v: string | number) => (v === '' ? null : Number(v) / 100)
 const money = (v: number | null | undefined) => (v == null ? '—' : formatPLN(v))
@@ -66,12 +68,15 @@ function LineModal({ q, line, sectionId, onClose }: { q: QuoteDto; line: QuoteLi
   const { t } = useTranslation()
   const settings = useQuoteSettings()
   const mutation = useQuoteMutation(q.id)
+  const components = useComponents()
+  const saveComponent = useSaveComponent()
+  const { can } = useAuth()
   const [f, setF] = useState<LineInput & { sectionId?: string }>(EMPTY_LINE)
   useEffect(() => {
     if (!sectionId) return
     if (line) {
-      const { name, group, quantity, unit, unitCost, laborHours, laborRate, justification, source, confidence, approved } = line
-      setF({ name, group, quantity, unit, unitCost: q.canSeeCosts ? unitCost : undefined, laborHours, laborRate: q.canSeeCosts ? laborRate : undefined, justification, source, confidence, approved, sectionId })
+      const { name, group, quantity, unit, unitCost, laborHours, laborRate, justification, source, confidence, approved, componentId } = line
+      setF({ name, group, quantity, unit, unitCost: q.canSeeCosts ? unitCost : undefined, laborHours, laborRate: q.canSeeCosts ? laborRate : undefined, justification, source, confidence, approved, componentId, sectionId })
     } else setF({ ...EMPTY_LINE, laborRate: q.canEditCosts ? (settings.data?.laborRate ?? null) : undefined })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sectionId, line?.id])
@@ -94,6 +99,29 @@ function LineModal({ q, line, sectionId, onClose }: { q: QuoteDto; line: QuoteLi
   return (
     <Modal opened={!!sectionId} onClose={onClose} title={t('quotes.editLine')} size="lg">
       <Stack gap="sm">
+        {editable && (
+          <Select
+            label={t('catalog.pick')}
+            placeholder={t('catalog.pickPlaceholder')}
+            searchable
+            clearable
+            data={(components.data ?? []).map((c) => ({ value: c.id, label: `${c.name}${c.manufacturer ? ` · ${c.manufacturer}` : ''}${c.price != null ? ` · ${formatPLN(c.price)}` : ''}` }))}
+            value={f.componentId ?? null}
+            onChange={(id) => {
+              const c = components.data?.find((x) => x.id === id)
+              if (!c) return set('componentId', null)
+              setF((prev) => ({
+                ...prev,
+                componentId: c.id,
+                name: c.name,
+                unit: c.unit ?? prev.unit,
+                unitCost: q.canEditCosts && c.price != null ? c.price : prev.unitCost,
+                source: 'catalog',
+                justification: prev.justification || [c.manufacturer, c.partNo, c.priceDate ? `cena z ${c.priceDate}` : null].filter(Boolean).join(', ') || null,
+              }))
+            }}
+          />
+        )}
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <TextInput label={t('quotes.lineName')} required disabled={!editable} value={f.name} onChange={(e) => set('name', e.currentTarget.value)} data-autofocus />
           <TextInput label={t('quotes.group')} disabled={!editable} value={f.group ?? ''} onChange={(e) => set('group', e.currentTarget.value || null)} />
@@ -138,13 +166,30 @@ function LineModal({ q, line, sectionId, onClose }: { q: QuoteDto; line: QuoteLi
         </SimpleGrid>
         <Checkbox label={t('quotes.approved')} disabled={!editable} checked={!!f.approved} onChange={(e) => set('approved', e.currentTarget.checked)} />
         <Group justify="space-between">
-          {line && editable ? (
-            <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} onClick={() => mutation.mutate(quoteOps.deleteLine(line.id), { onSuccess: onClose })}>
-              {t('quotes.deleteLine')}
-            </Button>
-          ) : (
-            <span />
-          )}
+          <Group gap="xs">
+            {line && editable && (
+              <Button variant="subtle" color="red" leftSection={<IconTrash size={16} />} onClick={() => mutation.mutate(quoteOps.deleteLine(line.id), { onSuccess: onClose })}>
+                {t('quotes.deleteLine')}
+              </Button>
+            )}
+            {line && can('quoteKnowledge', 'create') && !line.componentId && (
+              <Button
+                variant="subtle"
+                loading={saveComponent.isPending}
+                onClick={() =>
+                  saveComponent.mutate(
+                    { data: { category: 'other', name: line.name, unit: line.unit, ...(q.canEditCosts && line.unitCost != null ? { price: line.unitCost, priceDate: new Date().toISOString().slice(0, 10) } : {}), notes: `${quoteLabel(q)}: ${line.justification ?? ''}`.trim() } },
+                    {
+                      onSuccess: (c) => notifications.show({ color: 'green', message: t('catalog.addedFromLine', { name: c.name }) }),
+                      onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+                    },
+                  )
+                }
+              >
+                {t('catalog.addFromLine')}
+              </Button>
+            )}
+          </Group>
           <Group gap="xs">
             <Button variant="default" onClick={onClose}>
               {t('app.cancel')}
@@ -530,7 +575,7 @@ function InfoPanel({ q }: { q: QuoteDto }) {
 }
 
 /** Kroki przepływu wyceny (plan §3); kroki z kolejnych etapów oznaczone etapem wdrożenia. */
-const STEP_STAGE: Record<number, string | null> = { 1: null, 2: 'R4', 3: 'R3', 4: null, 5: null, 6: 'R4', 7: null, 8: 'R5' }
+const STEP_STAGE: Record<number, string | null> = { 1: null, 2: 'R4', 3: null, 4: null, 5: null, 6: 'R4', 7: null, 8: 'R5' }
 
 export function QuoteEditor({ id }: { id: string }) {
   const { t } = useTranslation()
@@ -652,20 +697,22 @@ export function QuoteEditor({ id }: { id: string }) {
         <Group gap={6} wrap="wrap" data-testid="quote-steps">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => {
             const later = STEP_STAGE[n]
-            const current = (n === 5 && tab === 'items') || (n === 7 && tab === 'summary')
-            const target = n === 5 ? 'items' : n === 7 ? 'summary' : null
+            const target = n === 3 ? 'checklist' : n === 5 ? 'items' : n === 7 ? 'summary' : null
+            const current = target !== null && tab === target
+            const done = n === 1 || n === 4 || (n === 3 && !!q.checklistProgress && q.checklistProgress.total > 0 && q.checklistProgress.confirmed === q.checklistProgress.total)
             return (
               <Tooltip key={n} label={t('quotes.stepLater', { stage: later })} disabled={!later}>
                 <Badge
                   size="lg"
                   radius="sm"
                   variant={current ? 'filled' : later ? 'outline' : 'light'}
-                  color={later ? 'gray' : n === 1 || n === 4 ? 'green' : 'navy'}
-                  leftSection={n === 1 || n === 4 ? <IconCheck size={12} /> : `${n}.`}
+                  color={later ? 'gray' : done ? 'green' : 'navy'}
+                  leftSection={done ? <IconCheck size={12} /> : `${n}.`}
                   style={{ cursor: target ? 'pointer' : 'default', opacity: later ? 0.6 : 1, textTransform: 'none' }}
                   onClick={() => target && setTab(target)}
                 >
                   {t(`quotes.steps.${n}`)}
+                  {n === 3 && q.checklistProgress ? ` ${q.checklistProgress.confirmed}/${q.checklistProgress.total}` : ''}
                 </Badge>
               </Tooltip>
             )
@@ -678,7 +725,9 @@ export function QuoteEditor({ id }: { id: string }) {
 
       <Tabs value={tab} onChange={setTab} keepMounted={false}>
         <Tabs.List>
+          {!isProfile && <Tabs.Tab value="checklist">{t('quotes.tabs.checklist')}</Tabs.Tab>}
           <Tabs.Tab value="items">{t('quotes.tabs.items')}</Tabs.Tab>
+          {!isProfile && <Tabs.Tab value="calc">{t('quotes.tabs.calc')}</Tabs.Tab>}
           <Tabs.Tab value="summary">
             {t('quotes.tabs.summary')}
             {(q.summary || q.costSummary) && (
@@ -697,6 +746,16 @@ export function QuoteEditor({ id }: { id: string }) {
             ))}
           </Stack>
         </Tabs.Panel>
+        {!isProfile && (
+          <Tabs.Panel value="checklist" pt="sm">
+            <ChecklistPanel q={q} />
+          </Tabs.Panel>
+        )}
+        {!isProfile && (
+          <Tabs.Panel value="calc" pt="sm">
+            <CalcPanel q={q} />
+          </Tabs.Panel>
+        )}
         <Tabs.Panel value="summary" pt="sm">
           <SummaryPanel q={q} />
         </Tabs.Panel>
