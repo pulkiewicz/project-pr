@@ -31,12 +31,12 @@ describe('dostęp do projektów', () => {
   it('pracownik Envcheck widzi wszystkie projekty z kodem', async () => {
     for (const u of [admin, staff]) {
       const codes = (await me(u)).projects.map((p) => p.code).sort()
-      expect(codes).toEqual(['OF038', 'PIT-RADWAR'])
+      expect(codes).toEqual(['OF038', 'OF14'])
     }
   })
 
   it('rola zewnętrzna widzi tylko przypisane projekty', async () => {
-    expect((await me(arsanit)).projects.map((p) => p.code)).toEqual(['PIT-RADWAR'])
+    expect((await me(arsanit)).projects.map((p) => p.code)).toEqual(['OF14'])
     expect((await me(outsider)).projects).toEqual([])
   })
 

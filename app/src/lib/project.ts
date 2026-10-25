@@ -4,7 +4,7 @@ import { useMe } from '../auth/AuthProvider'
 
 export const PROJECTS_BASE = '/projekty'
 
-/** Adres modułu projektu, np. `projectPath('PIT-RADWAR', 'hrf')` → `/projekty/PIT-RADWAR/hrf`. */
+/** Adres modułu projektu, np. `projectPath('OF14', 'hrf')` → `/projekty/OF14/hrf`. */
 export function projectPath(code: string, sub = '') {
   return `${PROJECTS_BASE}/${encodeURIComponent(code)}${sub ? `/${sub}` : ''}`
 }

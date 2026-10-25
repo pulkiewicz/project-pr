@@ -1,19 +1,19 @@
 # Raport z etapu R0 — Envcheck Hub: platforma wieloprojektowa
 
-Stan: R0 gotowy na gałęzi `claude/project-files-547b06`. Wdrożenie i akceptacja przed R1 (CRM). Zakres: [PLAN_ERP_CRM_WYCENY.md](PLAN_ERP_CRM_WYCENY.md) §10. Szczegóły zmian: [CHANGELOG.md](CHANGELOG.md).
+Stan: R0 **zaakceptowany** przez Admina 25.10.2026 (gałąź `claude/project-files-547b06`). Zakres: [PLAN_ERP_CRM_WYCENY.md](PLAN_ERP_CRM_WYCENY.md) §10. Szczegóły zmian: [CHANGELOG.md](CHANGELOG.md).
 
 ## Co działa
 
-- PIT-RADWAR działa jak dotąd pod `/projekty/PIT-RADWAR/…`; dawne linki przekierowują.
+- PIT-RADWAR działa jak dotąd pod `/projekty/OF14/…`; dawne linki przekierowują.
 - Menu: Pulpit, Projekty, Sprzedaż (zapowiedzi R1/R2), Administracja.
 - Role zewnętrzne widzą tylko przypisane projekty; CRM, wyceny i bazy wiedzy nie da się im nadać.
 - Admin przypisuje projekty użytkownikom zewnętrznym w Administracji → Użytkownicy.
 
-Sprawdzone w przeglądarce na kopii lokalnej bazy: Admin (pulpit, HRF w projekcie, przekierowanie `/hrf`, zapowiedź CRM, przypisanie projektu w formularzu), Arsanit (przekierowanie z pulpitu do projektu, brak sekcji Sprzedaż, „Brak uprawnień” na `/crm`, „Nie znaleziono strony” dla nieznanego projektu).
+Sprawdzone w przeglądarce na kopii lokalnej bazy (jeszcze z kodem `PIT-RADWAR`): Admin (pulpit, HRF w projekcie, przekierowanie `/hrf`, zapowiedź CRM, przypisanie projektu w formularzu), Arsanit (przekierowanie z pulpitu do projektu, brak sekcji Sprzedaż, „Brak uprawnień” na `/crm`, „Nie znaleziono strony” dla nieznanego projektu).
 
 ## Założenia do potwierdzenia
 
-1. **Kod projektu PIT-RADWAR = `PIT-RADWAR`.** W CRM ten kontrakt to OF14 („aktywny projekt”), a OF20 i OF26 to osobne oferty dla tego samego klienta. Czy kod w adresie ma zostać `PIT-RADWAR`, czy zmienić go na `OF14`? Nowe projekty z wygranych szans (R1) dostaną kod oferty, np. `OF038`.
+1. ~~Kod projektu PIT-RADWAR~~ — **decyzja Admina (25.10.2026): `OF14`**, kod oferty z CRM. Nowe projekty z wygranych szans dostaną kod oferty, np. `OF038`.
 2. **Envcheck wewnętrzny może edytować bazę wiedzy wycen** (profile, katalog komponentów), ale nie widzi marży i kosztów. Marżę i koszty widzi tylko Admin, zgodnie z decyzją B1.
 3. **Pulpit dla użytkownika zewnętrznego z jednym projektem** od razu otwiera projekt, tak jak przed zmianą. Kilka projektów = lista kart.
 

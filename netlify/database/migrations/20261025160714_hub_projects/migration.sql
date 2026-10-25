@@ -7,8 +7,8 @@ CREATE TABLE "project_members" (
 );
 --> statement-breakpoint
 ALTER TABLE "projects" ADD COLUMN "code" text;--> statement-breakpoint
--- Envcheck Hub (R0): kod projektu w adresach /projekty/{code}. Projekt z seeda = PIT-RADWAR, pozostałe (gdyby były) = id.
-UPDATE "projects" SET "code" = CASE WHEN "id" = '6f1c2a3e-0000-4000-8000-000000000001' THEN 'PIT-RADWAR' ELSE "id"::text END WHERE "code" IS NULL;--> statement-breakpoint
+-- Envcheck Hub (R0): kod projektu w adresach /projekty/{code}. Projekt z seeda (PIT-RADWAR) = OF14 — kod oferty z CRM, pozostałe (gdyby były) = id.
+UPDATE "projects" SET "code" = CASE WHEN "id" = '6f1c2a3e-0000-4000-8000-000000000001' THEN 'OF14' ELSE "id"::text END WHERE "code" IS NULL;--> statement-breakpoint
 ALTER TABLE "projects" ALTER COLUMN "code" SET NOT NULL;--> statement-breakpoint
 CREATE INDEX "project_members_user_idx" ON "project_members" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "projects_code_uq" ON "projects" (lower("code"));--> statement-breakpoint
