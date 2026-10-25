@@ -18,7 +18,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { ACTIVITY_KINDS, AVIZATION_STATUSES, DEPENDENCY_TYPES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
+import { ACTIVITY_KINDS, AVIZATION_STATUSES, CONFIDENCES, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type QuoteInfo, type QuoteParams, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -639,3 +639,85 @@ export const opportunityCodeSeq = pgTable('opportunity_code_seq', {
   prefix: text('prefix').primaryKey(),
   last: integer('last').notNull(),
 })
+
+// ---------------- R2: Wyceny i profile wyceny ----------------
+export const quoteKindEnum = pgEnum('quote_kind', QUOTE_KINDS)
+export const quoteStatusEnum = pgEnum('quote_status', QUOTE_STATUSES)
+export const quoteLineSourceEnum = pgEnum('quote_line_source', LINE_SOURCES)
+export const confidenceEnum = pgEnum('confidence', CONFIDENCES)
+
+/** Wycena (rewizja dla szansy) albo profil wyceny (kind = 'profile', bez szansy). */
+export const quotes = pgTable(
+  'quotes',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    kind: quoteKindEnum('kind').notNull().default('quote'),
+    opportunityId: uuid('opportunity_id').references(() => opportunities.id),
+    /** Litera rewizji (A, B, …) w obrębie szansy. */
+    revision: text('revision'),
+    name: text('name'),
+    description: text('description'),
+    status: quoteStatusEnum('status').notNull().default('draft'),
+    basedOnId: uuid('based_on_id'),
+    basedOnLabel: text('based_on_label'),
+    params: jsonb('params').$type<QuoteParams>().notNull(),
+    info: jsonb('info').$type<QuoteInfo>().notNull().default({}),
+    notes: text('notes'),
+    approvedAt: ts('approved_at'),
+    approvedBy: uuid('approved_by').references(() => users.id),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [
+    index('quotes_opportunity_idx').on(t.opportunityId),
+    uniqueIndex('quotes_revision_uq').on(t.opportunityId, t.revision).where(sql`${t.deletedAt} IS NULL AND ${t.kind} = 'quote'`),
+  ],
+)
+
+export const quoteDevices = pgTable(
+  'quote_devices',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    quoteId: uuid('quote_id').notNull().references(() => quotes.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    quantity: integer('quantity').notNull().default(1),
+    /** Opcja / wariant wyceniany osobno (D6); `included` = wliczone do ceny łącznej. */
+    isOption: boolean('is_option').notNull().default(false),
+    included: boolean('included').notNull().default(true),
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (t) => [index('quote_devices_quote_idx').on(t.quoteId)],
+)
+
+export const quoteSections = pgTable(
+  'quote_sections',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    deviceId: uuid('device_id').notNull().references(() => quoteDevices.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (t) => [index('quote_sections_device_idx').on(t.deviceId)],
+)
+
+export const quoteLines = pgTable(
+  'quote_lines',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    sectionId: uuid('section_id').notNull().references(() => quoteSections.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    /** Grupa w sekcji, np. „Stopień 1”, „Komora 2”. */
+    group: text('group'),
+    quantity: numeric('quantity', { precision: 14, scale: 3, mode: 'number' }).notNull().default(1),
+    unit: text('unit'),
+    unitCost: numeric('unit_cost', { precision: 14, scale: 2, mode: 'number' }),
+    laborHours: numeric('labor_hours', { precision: 10, scale: 2, mode: 'number' }),
+    laborRate: numeric('labor_rate', { precision: 10, scale: 2, mode: 'number' }),
+    justification: text('justification'),
+    source: quoteLineSourceEnum('source').notNull().default('manual'),
+    confidence: confidenceEnum('confidence'),
+    approved: boolean('approved').notNull().default(false),
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (t) => [index('quote_lines_section_idx').on(t.sectionId)],
+)

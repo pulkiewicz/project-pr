@@ -1,0 +1,129 @@
+import { Alert, Button, Card, Group, Loader, NumberInput, SimpleGrid, Stack, Text, Title } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { IconPlus } from '@tabler/icons-react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { COMPLEXITIES, type QuoteSettings } from '#shared'
+import { useAuth } from '../../auth/AuthProvider'
+import { errorMessage } from '../../lib/errors'
+import { formatDateTime } from '../../lib/format'
+import { useCreateQuote, useQuoteSettings, useQuotes, useSaveQuoteSettings } from './api'
+import { QuoteEditor } from './QuoteEditor'
+
+const pct = (v: number) => Math.round(v * 10000) / 100
+
+function SettingsCard() {
+  const { t } = useTranslation()
+  const { can } = useAuth()
+  const q = useQuoteSettings()
+  const save = useSaveQuoteSettings()
+  const [s, setS] = useState<QuoteSettings | null>(null)
+  useEffect(() => {
+    if (q.data) setS(q.data)
+  }, [q.data])
+  if (!s) return <Loader size="sm" />
+  const editable = can('quotesPricing', 'edit')
+  return (
+    <Card withBorder>
+      <Title order={4} mb="xs">
+        {t('knowledge.settings')}
+      </Title>
+      <Text size="sm" c="dimmed" mb="sm">
+        {t('knowledge.formula')}
+      </Text>
+      <SimpleGrid cols={{ base: 1, sm: 3 }}>
+        {COMPLEXITIES.map((c) => (
+          <NumberInput
+            key={c}
+            label={`${t('knowledge.reserveBase')} — ${t(`quotes.complexityName.${c}`)}`}
+            suffix=" %"
+            min={0}
+            decimalSeparator=","
+            disabled={!editable}
+            value={pct(s.reserve[c])}
+            onChange={(v) => setS({ ...s, reserve: { ...s.reserve, [c]: (Number(v) || 0) / 100 } })}
+          />
+        ))}
+        <NumberInput label={t('knowledge.perExtraYear')} min={0} step={0.1} decimalSeparator="," disabled={!editable} value={s.reserve.perExtraYear} onChange={(v) => setS({ ...s, reserve: { ...s.reserve, perExtraYear: Number(v) || 0 } })} />
+        <NumberInput label={t('knowledge.laborRate')} min={0} decimalSeparator="," disabled={!editable} value={s.laborRate ?? ''} onChange={(v) => setS({ ...s, laborRate: v === '' ? null : Number(v) })} />
+      </SimpleGrid>
+      {editable && (
+        <Group justify="flex-end" mt="sm">
+          <Button
+            loading={save.isPending}
+            disabled={JSON.stringify(s) === JSON.stringify(q.data)}
+            onClick={() => save.mutate(s, { onSuccess: () => notifications.show({ color: 'green', message: t('app.saved') }), onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }) })}
+          >
+            {t('app.save')}
+          </Button>
+        </Group>
+      )}
+    </Card>
+  )
+}
+
+function Profiles() {
+  const { t } = useTranslation()
+  const { can } = useAuth()
+  const navigate = useNavigate()
+  const profiles = useQuotes('profile')
+  const create = useCreateQuote()
+  return (
+    <Stack>
+      <Group justify="space-between">
+        <Title order={2}>{t('knowledge.title')}</Title>
+        {can('quoteKnowledge', 'create') && (
+          <Button
+            leftSection={<IconPlus size={16} />}
+            loading={create.isPending}
+            onClick={() =>
+              create.mutate({ kind: 'profile', name: t('quotes.newProfile') }, { onSuccess: (q) => navigate(`/baza-wiedzy/profile/${q.id}`), onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }) })
+            }
+          >
+            {t('quotes.newProfile')}
+          </Button>
+        )}
+      </Group>
+      <Title order={4}>{t('knowledge.profiles')}</Title>
+      <Text size="sm" c="dimmed">
+        {t('knowledge.profilesHint')}
+      </Text>
+      {profiles.isLoading ? (
+        <Loader />
+      ) : (
+        <SimpleGrid cols={{ base: 1, md: 2, xl: 3 }}>
+          {(profiles.data ?? []).map((p) => (
+            <Card key={p.id} withBorder component={Link} to={`/baza-wiedzy/profile/${p.id}`}>
+              <Group justify="space-between" wrap="nowrap">
+                <Text fw={600}>{p.name}</Text>
+                {p.cost != null && (
+                  <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
+                    {new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 0 }).format(p.cost)} zł
+                  </Text>
+                )}
+              </Group>
+              <Text size="sm" c="dimmed" lineClamp={3} mt={4}>
+                {p.description}
+              </Text>
+              <Text size="xs" c="dimmed" mt="xs">
+                {formatDateTime(p.updatedAt)}
+                {p.updatedByName ? ` · ${p.updatedByName}` : ''}
+              </Text>
+            </Card>
+          ))}
+        </SimpleGrid>
+      )}
+      <SettingsCard />
+      <Alert variant="light" color="gray">
+        {t('knowledge.calculatorSoon')}
+      </Alert>
+    </Stack>
+  )
+}
+
+/** `/baza-wiedzy` — profile i ustawienia; `/baza-wiedzy/profile/{id}` — edytor profilu. */
+export function KnowledgePage() {
+  const { id } = useParams()
+  return id ? <QuoteEditor key={id} id={id} /> : <Profiles />
+}

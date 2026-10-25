@@ -37,8 +37,9 @@ import {
 } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
-import { formatDateTime } from '../../lib/format'
+import { formatDateTime, formatPLNWhole } from '../../lib/format'
 import { projectPath } from '../../lib/project'
+import { useQuotes } from '../quotes/api'
 import { useAddActivity, useCompanies, useCompany, useCreateProject, useOpportunity, useOwners, useSaveOpportunity } from './api'
 import { NoResponseBadge, StageBadge, useStageChange } from './stage'
 
@@ -119,6 +120,43 @@ function CreateProjectModal({ opened, onClose, opportunityId, code, defaults }: 
         </Group>
       </Stack>
     </Modal>
+  )
+}
+
+/** Wyceny (rewizje) szansy z przejściem do edytora; nowa wycena otwiera okno z tą szansą. */
+function OpportunityQuotes({ opportunityId }: { opportunityId: string }) {
+  const { t } = useTranslation()
+  const { can } = useAuth()
+  const q = useQuotes('quote', opportunityId)
+  if (!can('quotes', 'view')) return null
+  return (
+    <>
+      <Divider label={t('quotes.forOpportunity')} labelPosition="left" />
+      {q.data?.length ? (
+        <Stack gap={4}>
+          {q.data.map((x) => (
+            <Group key={x.id} gap="xs" wrap="nowrap">
+              <Anchor component={Link} to={`/wyceny/${x.id}`} fw={600} size="sm">
+                {t('quotes.revisionLabel', { rev: x.revision })}
+              </Anchor>
+              <Text size="sm" c="dimmed">
+                {t(`quotes.status.${x.status}`)}
+                {x.net != null ? ` · ${formatPLNWhole(x.net)} ${t('quotes.net').toLowerCase()}` : ''}
+              </Text>
+            </Group>
+          ))}
+        </Stack>
+      ) : (
+        <Text size="sm" c="dimmed">
+          {t('quotes.none')}
+        </Text>
+      )}
+      {can('quotes', 'create') && (
+        <Button component={Link} to={`/wyceny?nowa&szansa=${opportunityId}`} size="xs" variant="light" w="fit-content">
+          {t('quotes.new')}
+        </Button>
+      )}
+    </>
   )
 }
 
@@ -290,6 +328,7 @@ export function OpportunityDrawer({ id, opened, onClose, onCreated }: { id: stri
             )}
           </Group>
 
+          {o && <OpportunityQuotes opportunityId={o.id} />}
           {o && (
             <>
               <Divider label={t('crm.activities')} labelPosition="left" />

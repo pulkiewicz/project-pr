@@ -1,5 +1,18 @@
 # Changelog
 
+## R2 — Wyceny: rdzeń bez AI (25.10.2026)
+
+- **Wyceny** (`/wyceny`): każda wycena należy do szansy z CRM i ma rewizję (A, B…). Nowa wycena powstaje pusta (jedno urządzenie z 6 domyślnymi sekcjami), z **profilu wyceny** albo z **poprzedniej wyceny**. Pozycje kopiowane z bazy dostają źródło „profil” lub „poprz. wycena” i status „niezatwierdzona”. Karta szansy w CRM pokazuje jej wyceny i ma przycisk „Nowa wycena”.
+- **Struktura:** urządzenia (z ilością) → sekcje (edytowalne: dodawanie, zmiana nazwy, kolejność, usuwanie) → pozycje. Urządzenie może być **opcją/wariantem**, wycenianym osobno i niewliczanym do ceny łącznej.
+- **Pozycja:** nazwa, grupa (np. „Stopień 1”), ilość × cena jednostkowa oraz opcjonalnie robocizna (godziny × stawka), **uzasadnienie „jak policzono”**, źródło (ręcznie, profil, poprzednia wycena, kalkulator, AI, arkusz), pewność i zatwierdzenie. Pozycję można przenieść do innej sekcji.
+- **Podsumowanie:** zestawienie kosztów per sekcja, marża jako mnożnik kosztu (domyślnie 2), **rezerwa gwarancyjna według wzoru** z bazy wiedzy (baza zależna od złożoności × (1 + 0,5 × (lata gwarancji − 1)), od kosztu; można nadpisać), osobny **narzut na ryzyko** (% kosztu), netto, brutto (VAT 23%), ceny urządzeń i opcji, różnica do budżetu zamawiającego. Informacje z arkusza: budżet, miejsce i termin dostawy, warunki udziału, kryteria oceny, notatki.
+- **Statusy:** robocza → zatwierdzona (Admin) → wysłana. Zatwierdzona i wysłana są tylko do odczytu; zmiany wymagają nowej rewizji. Wyceny historyczne z arkuszy też są tylko do odczytu.
+- **Ceny tylko z uprawnieniem `quotesPricing`** (decyzja B1, domyślnie Admin). Bez niego koszty, marża i rezerwa są ukryte, a API odrzuca zmianę pól cenowych; treść, ilości i uzasadnienia można edytować.
+- **Baza wiedzy wycen** (`/baza-wiedzy`): profile wyceny edytowane tym samym edytorem, „Zapisz jako profil” z dowolnej wyceny, ustawienia rezerwy (bazy dla złożoności, przyrost za rok) i domyślnej stawki robocizny.
+- **Eksport XLSX** w układzie arkusza „Wstępna cena wykonania”: PODSUMOWANIE i zakładka na każdą sekcję, z uzasadnieniami.
+- **Dane startowe** (migracje `20261025165516_quotes`, `20261025165632_quotes_seed`): historyczne wyceny **OF033** (KDM) i **OF036** (WB Electronics) przepisane z arkuszy, z sumami zgodnymi co do grosza (462 184,80 zł i 3 374 714,10 zł brutto), oraz 5 profili: Mała / standard, Mała / kaskada, Średnia / standard, Walk-in / custom duża, Komora grzewcza.
+- **Testy:** 908 (Vitest; macierz ról obejmuje nowe trasy wycen), w tym 17 nowych dla wycen: wzór rezerwy, opcje i ilości, sumy OF033/OF036, maskowanie cen, profile, rewizje, statusy, sekcje, eksport, ustawienia.
+
 ## R1 — CRM: szanse, firmy, kontakty (25.10.2026)
 
 - **Szanse (opportunities)** w lejku 6 etapów: Nowe, W wycenie, Złożona oferta, Wygrane, Przegrane, Zawieszone. Widok **kanban** z przeciąganiem kart między kolumnami (na dotyku menu „Przenieś do”), z liczbą szans i sumą wartości w kolumnie. Widok **listy** z filtrami (etap, opiekun, typ postępowania, wyszukiwanie po kodzie, nazwie i firmie, „tylko bez odpowiedzi”), sumą wartości i eksportem XLSX.

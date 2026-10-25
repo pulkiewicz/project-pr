@@ -6,6 +6,7 @@ import { adminPermissionsRouter } from './modules/admin/permissions.ts'
 import { adminUsersRouter } from './modules/admin/users.ts'
 import { auditRouter } from './modules/audit/routes.ts'
 import { crmRouter } from './modules/crm/routes.ts'
+import { quotesRouter } from './modules/quotes/routes.ts'
 import { dashboardRouter } from './modules/dashboard/routes.ts'
 import { hrfInternalRouter } from './modules/hrf/internal.ts'
 import { hrfRouter } from './modules/hrf/routes.ts'
@@ -51,6 +52,7 @@ export function createApp(deps: AppDeps) {
   app.route('/', peopleRouter)
   app.route('/', avizationsRouter)
   app.route('/', crmRouter)
+  app.route('/', quotesRouter)
 
   // Dokumentacja OpenAPI — tylko Admin.
   app.use('/openapi.json', requireMfa, requirePermission('admin', 'view'))

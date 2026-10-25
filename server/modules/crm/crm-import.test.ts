@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { sql } from 'drizzle-orm'
+import { isNotNull, sql } from 'drizzle-orm'
 import { MIGRATIONS_DIR, createUser, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
 
 /** Import arkusza CRM uruchomiony na bazie z Administratorem (jak na produkcji): opiekun = pierwszy Admin. */
@@ -9,6 +9,7 @@ let first: TestUser
 beforeAll(async () => {
   h = await startHarness()
   // Migracje w harnessie idą przed utworzeniem użytkowników — usuwamy import i powtarzamy go z kontami w bazie.
+  await h.db.delete(schema.quotes).where(isNotNull(schema.quotes.opportunityId))
   await h.db.delete(schema.crmActivities)
   await h.db.delete(schema.opportunities)
   first = await createUser(h, 'Admin')

@@ -22,6 +22,8 @@ const HrfPage = lazy(() => import('./features/hrf/HrfPage').then((m) => ({ defau
 const WeeklyPlanPage = lazy(() => import('./features/weekly/WeeklyPlanPage').then((m) => ({ default: m.WeeklyPlanPage })))
 const AvizationsPage = lazy(() => import('./features/avizations/AvizationsPage').then((m) => ({ default: m.AvizationsPage })))
 const CrmPage = lazy(() => import('./features/crm/CrmPage').then((m) => ({ default: m.CrmPage })))
+const QuotesPage = lazy(() => import('./features/quotes/QuotesPage').then((m) => ({ default: m.QuotesPage })))
+const KnowledgePage = lazy(() => import('./features/quotes/KnowledgePage').then((m) => ({ default: m.KnowledgePage })))
 const PurchasesPage = lazy(() => import('./features/purchases/PurchasesPage').then((m) => ({ default: m.PurchasesPage })))
 
 /** Ukrywa trasę w UI; właściwa autoryzacja zawsze po stronie API. */
@@ -87,6 +89,9 @@ export function App() {
         </Route>
         <Route path={PROJECTS_BASE} element={<Navigate to="/" replace />} />
         <Route path="/crm/*" element={<Guard module="crm"><Suspense fallback={<Loader />}><CrmPage /></Suspense></Guard>} />
+        <Route path="/wyceny/:id?" element={<Guard module="quotes"><Suspense fallback={<Loader />}><QuotesPage /></Suspense></Guard>} />
+        <Route path="/baza-wiedzy" element={<Guard module="quoteKnowledge"><Suspense fallback={<Loader />}><KnowledgePage /></Suspense></Guard>} />
+        <Route path="/baza-wiedzy/profile/:id" element={<Guard module="quoteKnowledge"><Suspense fallback={<Loader />}><KnowledgePage /></Suspense></Guard>} />
         {SALES_NAV.filter((n) => !n.ready).map((n) => (
           <Route key={n.module} path={n.path} element={<Guard module={n.module}><ModulePlaceholder item={n} /></Guard>} />
         ))}
