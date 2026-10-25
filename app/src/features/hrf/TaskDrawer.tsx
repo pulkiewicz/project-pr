@@ -1,11 +1,11 @@
-import { ActionIcon, Alert, Button, Checkbox, Divider, Drawer, Group, NumberInput, Select, Stack, Text, TextInput, Textarea } from '@mantine/core'
+import { ActionIcon, Alert, Badge, Button, Checkbox, Divider, Drawer, Group, NumberInput, Paper, Select, Stack, Text, TextInput, Textarea } from '@mantine/core'
 import { DateInput } from '@mantine/dates'
 import { notifications } from '@mantine/notifications'
-import { IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconExternalLink, IconPlus, IconTrash } from '@tabler/icons-react'
 import { format } from 'date-fns'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BASE_PARTIES, DEPENDENCY_TYPES, HRF_STATUSES, type DependencyType, type HrfDependencyDto, type HrfStatus, type HrfTaskDto } from '#shared'
+import { BASE_PARTIES, DEPENDENCY_TYPES, HRF_STATUSES, type DependencyType, type HrfDependencyDto, type HrfInternalTaskDto, type HrfStatus, type HrfTaskDto } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { ApiError } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
@@ -18,7 +18,53 @@ interface Props {
   task: HrfTaskDto | null
   tasks: HrfTaskDto[]
   dependencies: HrfDependencyDto[]
+  internalTasks?: HrfInternalTaskDto[]
+  onOpenInternal?: (task: HrfInternalTaskDto) => void
+  onAddInternal?: (parentTaskId: string) => void
   onClose: () => void
+}
+
+/** Lista zadań wewnętrznych doprecyzowujących zadanie formalne. */
+function InternalTasksSection({ items, onOpen, onAdd }: { items: HrfInternalTaskDto[]; onOpen?: (t: HrfInternalTaskDto) => void; onAdd?: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <Stack gap={6}>
+      {items.length === 0 && (
+        <Text size="sm" c="dimmed">
+          {t('hrf.internal.none')}
+        </Text>
+      )}
+      {items.map((i) => (
+        <Paper key={i.id} withBorder p={6} radius="sm" bg="var(--mantine-color-blue-light)" style={{ cursor: 'pointer' }} onClick={() => onOpen?.(i)}>
+          <Group justify="space-between" wrap="nowrap" gap="xs">
+            <Text size="sm" c="blue.8" fw={500} lineClamp={2}>
+              {i.name}
+            </Text>
+            <Group gap={4} wrap="nowrap">
+              {i.link && (
+                <ActionIcon size="sm" variant="subtle" component="a" href={i.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label={t('hrf.internal.openLink')}>
+                  <IconExternalLink size={14} />
+                </ActionIcon>
+              )}
+              <Badge size="sm" variant="light" color={i.overdue ? 'red' : 'blue'}>
+                {i.percentComplete} %
+              </Badge>
+            </Group>
+          </Group>
+          <Text size="xs" c="dimmed">
+            {[i.assignees.map((a) => a.name).join(', '), [formatDate(i.startDate), formatDate(i.endDate)].filter((d) => d && d !== '—').join(' – ')].filter(Boolean).join(' · ')}
+          </Text>
+        </Paper>
+      ))}
+      {onAdd && (
+        <Group>
+          <Button variant="subtle" size="xs" color="blue" leftSection={<IconPlus size={14} />} onClick={onAdd}>
+            {t('hrf.internal.add')}
+          </Button>
+        </Group>
+      )}
+    </Stack>
+  )
 }
 
 const toDate = (d: string | null) => (d ? new Date(`${d}T00:00:00`) : null)
@@ -26,7 +72,7 @@ const fromDate = (d: Date | string | null) => (d ? format(typeof d === 'string' 
 
 type Form = Pick<HrfTaskDto, 'actualStart' | 'actualEnd' | 'forecastEnd' | 'percentComplete' | 'status' | 'notes' | 'name' | 'party' | 'startOffsetDays' | 'durationDays' | 'isMilestone' | 'isAcceptancePoint' | 'postAcceptanceAllowed'> & { contractValue: string | null }
 
-export function TaskDrawer({ task, tasks, dependencies, onClose }: Props) {
+export function TaskDrawer({ task, tasks, dependencies, internalTasks, onOpenInternal, onAddInternal, onClose }: Props) {
   const { t } = useTranslation()
   const { can } = useAuth()
   const patch = usePatchTask()
@@ -171,6 +217,17 @@ export function TaskDrawer({ task, tasks, dependencies, onClose }: Props) {
             </Button>
           )}
         </Group>
+
+        {can('hrfInternal', 'view') && (
+          <>
+            <Divider label={t('hrf.internal.title')} labelPosition="left" color="blue" />
+            <InternalTasksSection
+              items={(internalTasks ?? []).filter((i) => i.parentTaskId === task.id)}
+              onOpen={onOpenInternal}
+              onAdd={can('hrfInternal', 'create') && onAddInternal ? () => onAddInternal(task.id) : undefined}
+            />
+          </>
+        )}
 
         <Divider label={t('documents.linkedDocs')} labelPosition="left" />
         <LinkedDocuments targetType="hrf_task" targetId={task.id} />

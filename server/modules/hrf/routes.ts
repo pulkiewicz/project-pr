@@ -5,6 +5,7 @@ import type { Context } from 'hono'
 import {
   HRF_STRUCTURE_FIELDS,
   baselineCreateInput,
+  baselinePatchInput,
   dayZeroInput,
   dependenciesInput,
   hrfTaskCreate,
@@ -19,6 +20,7 @@ import {
   type ModuleKey,
 } from '#shared'
 import type { AppEnv } from '../../context.ts'
+import type { Database } from '../../db/client.ts'
 import { hrfBaselineTasks, hrfBaselines, hrfDependencies, hrfImportProfiles, hrfTasks, projects } from '../../db/schema.ts'
 import { plannedDates, todayWarsaw } from '../../lib/dates.ts'
 import { hrfToXlsx } from './export.ts'
@@ -436,12 +438,47 @@ hrfRouter.openapi(
 )
 
 // ---------- baseline ----------
+const baselineDto = (b: typeof hrfBaselines.$inferSelect, taskCount: number): BaselineDto => ({
+  id: b.id,
+  name: b.name,
+  createdAt: b.createdAt,
+  dayZeroDate: b.dayZeroDate,
+  taskCount,
+  isCurrent: b.isCurrent,
+})
+
+/** Zdejmuje oznaczenie „obowiązujący” z pozostałych planów projektu (unikalny indeks dopuszcza jeden). */
+const clearCurrentBaseline = (tx: Database, projectId: string) =>
+  tx
+    .update(hrfBaselines)
+    .set({ isCurrent: false })
+    .where(and(eq(hrfBaselines.projectId, projectId), eq(hrfBaselines.isCurrent, true)))
+
+async function findBaseline(db: Database, projectId: string, baselineId: string) {
+  const [b] = await db
+    .select()
+    .from(hrfBaselines)
+    .where(and(eq(hrfBaselines.id, baselineId), eq(hrfBaselines.projectId, projectId), isNull(hrfBaselines.deletedAt)))
+  if (!b) throw notFound()
+  return b
+}
+
+const countBaselineTasks = async (db: Database, baselineId: string) =>
+  (await db.select({ n: count() }).from(hrfBaselineTasks).where(eq(hrfBaselineTasks.baselineId, baselineId)))[0]!.n
+
 hrfRouter.openapi(
   route({ method: 'get', path: `${BASE}/baselines`, request: { params: projectParam }, responses: ok }, { module: 'hrf', action: 'view' }),
   async (c) => {
     const { projectId } = c.req.valid('param')
     const rows = await c.get('deps').db
-      .select({ id: hrfBaselines.id, name: hrfBaselines.name, createdAt: hrfBaselines.createdAt, dayZeroDate: hrfBaselines.dayZeroDate, taskCount: count(hrfBaselineTasks.taskId) })
+      .select({
+        id: hrfBaselines.id,
+        name: hrfBaselines.name,
+        createdAt: hrfBaselines.createdAt,
+        dayZeroDate: hrfBaselines.dayZeroDate,
+        isCurrent: hrfBaselines.isCurrent,
+        taskCount: count(hrfBaselineTasks.taskId),
+      })
       .from(hrfBaselines)
       .leftJoin(hrfBaselineTasks, eq(hrfBaselineTasks.baselineId, hrfBaselines.id))
       .where(and(eq(hrfBaselines.projectId, projectId), isNull(hrfBaselines.deletedAt)))
@@ -458,20 +495,27 @@ hrfRouter.openapi(
   ),
   async (c) => {
     const { projectId } = c.req.valid('param')
-    const { name } = c.req.valid('json')
+    const { name, isCurrent: requested } = c.req.valid('json')
     const deps = c.get('deps')
     const project = await getProject(deps.db, projectId)
     if (!project.dayZeroDate) throw new HttpProblem(422, 'day_zero_not_set')
     const tasks = await listTasks(deps.db, projectId)
     const row = await deps.db.transaction(async (tx) => {
-      const [b] = await tx.insert(hrfBaselines).values({ projectId, name, dayZeroDate: project.dayZeroDate, createdBy: c.get('user').id }).returning()
+      // Pierwszy plan projektu zostaje obowiązującym automatycznie.
+      const [existing] = await tx
+        .select({ n: count() })
+        .from(hrfBaselines)
+        .where(and(eq(hrfBaselines.projectId, projectId), isNull(hrfBaselines.deletedAt)))
+      const isCurrent = requested ?? existing!.n === 0
+      if (isCurrent) await clearCurrentBaseline(tx, projectId)
+      const [b] = await tx.insert(hrfBaselines).values({ projectId, name, dayZeroDate: project.dayZeroDate, isCurrent, createdBy: c.get('user').id }).returning()
       if (tasks.length) {
         await tx.insert(hrfBaselineTasks).values(tasks.map((t) => ({ baselineId: b!.id, taskId: t.id, start: t.plannedStart, end: t.plannedEnd })))
       }
-      await writeAudit(c, { action: 'hrf.baseline_create', entity: 'hrf_baselines', entityId: b!.id, projectId, changes: { name, tasks: tasks.length } }, tx)
+      await writeAudit(c, { action: 'hrf.baseline_create', entity: 'hrf_baselines', entityId: b!.id, projectId, changes: { name, isCurrent, tasks: tasks.length } }, tx)
       return b!
     })
-    return c.json({ id: row.id, name: row.name, createdAt: row.createdAt, dayZeroDate: row.dayZeroDate, taskCount: tasks.length }, 201)
+    return c.json(baselineDto(row, tasks.length), 201)
   },
 )
 
@@ -480,13 +524,33 @@ hrfRouter.openapi(
   async (c) => {
     const { projectId, baselineId } = c.req.valid('param')
     const db = c.get('deps').db
-    const [b] = await db
-      .select()
-      .from(hrfBaselines)
-      .where(and(eq(hrfBaselines.id, baselineId), eq(hrfBaselines.projectId, projectId), isNull(hrfBaselines.deletedAt)))
-    if (!b) throw notFound()
+    const b = await findBaseline(db, projectId, baselineId)
     const tasks = await db.select({ taskId: hrfBaselineTasks.taskId, start: hrfBaselineTasks.start, end: hrfBaselineTasks.end }).from(hrfBaselineTasks).where(eq(hrfBaselineTasks.baselineId, baselineId))
-    return c.json({ baseline: { id: b.id, name: b.name, createdAt: b.createdAt, dayZeroDate: b.dayZeroDate, taskCount: tasks.length }, tasks }, 200)
+    return c.json({ baseline: baselineDto(b, tasks.length), tasks }, 200)
+  },
+)
+
+hrfRouter.openapi(
+  route(
+    { method: 'patch', path: `${BASE}/baselines/{baselineId}`, request: { params: baselineParam, body: body(baselinePatchInput) }, responses: ok },
+    { module: 'hrf', action: 'approve' },
+  ),
+  async (c) => {
+    const { projectId, baselineId } = c.req.valid('param')
+    const patch = c.req.valid('json')
+    const deps = c.get('deps')
+    const current = await findBaseline(deps.db, projectId, baselineId)
+    const row = await deps.db.transaction(async (tx) => {
+      if (patch.isCurrent) await clearCurrentBaseline(tx, projectId)
+      const [r] = await tx
+        .update(hrfBaselines)
+        .set({ ...patch, updatedAt: sql`now()`, updatedBy: c.get('user').id })
+        .where(eq(hrfBaselines.id, baselineId))
+        .returning()
+      await writeAudit(c, { action: 'hrf.baseline_update', entity: 'hrf_baselines', entityId: baselineId, projectId, changes: diffFields(current, patch) }, tx)
+      return r!
+    })
+    return c.json(baselineDto(row, await countBaselineTasks(deps.db, baselineId)), 200)
   },
 )
 
@@ -495,9 +559,10 @@ hrfRouter.openapi(
   async (c) => {
     const { projectId, baselineId } = c.req.valid('param')
     const deps = c.get('deps')
+    // Usunięcie obowiązującego planu zdejmuje oznaczenie — projekt zostaje bez planu obowiązującego.
     const [row] = await deps.db
       .update(hrfBaselines)
-      .set({ deletedAt: sql`now()`, deletedBy: c.get('user').id })
+      .set({ isCurrent: false, deletedAt: sql`now()`, deletedBy: c.get('user').id })
       .where(and(eq(hrfBaselines.id, baselineId), eq(hrfBaselines.projectId, projectId), isNull(hrfBaselines.deletedAt)))
       .returning()
     if (!row) throw notFound()
@@ -505,7 +570,6 @@ hrfRouter.openapi(
     return c.json({ ok: true }, 200)
   },
 )
-
 
 // ---------- eksport ----------
 async function exportData(c: Context<AppEnv>, projectId: string) {

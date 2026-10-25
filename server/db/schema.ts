@@ -186,13 +186,19 @@ export const hrfDependencies = pgTable(
   (t) => [primaryKey({ columns: [t.taskId, t.predecessorId] }), index('hrf_dependencies_pred_idx').on(t.predecessorId)],
 )
 
-export const hrfBaselines = pgTable('hrf_baselines', {
-  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
-  projectId: uuid('project_id').notNull().references(() => projects.id),
-  name: text('name').notNull(),
-  dayZeroDate: date('day_zero_date', { mode: 'string' }),
-  ...auditColumns,
-})
+export const hrfBaselines = pgTable(
+  'hrf_baselines',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    name: text('name').notNull(),
+    dayZeroDate: date('day_zero_date', { mode: 'string' }),
+    /** Obowiązujący plan bazowy projektu (najwyżej jeden) — domyślne porównanie na Gantcie. */
+    isCurrent: boolean('is_current').notNull().default(false),
+    ...auditColumns,
+  },
+  (t) => [uniqueIndex('hrf_baselines_current_idx').on(t.projectId).where(sql`${t.isCurrent} AND ${t.deletedAt} IS NULL`)],
+)
 
 export const hrfBaselineTasks = pgTable(
   'hrf_baseline_tasks',
@@ -203,6 +209,34 @@ export const hrfBaselineTasks = pgTable(
     end: date('end', { mode: 'string' }),
   },
   (t) => [primaryKey({ columns: [t.baselineId, t.taskId] })],
+)
+
+/** Zadania wewnętrzne — doprecyzowanie jednego zadania formalnego HRF (nie wpływają na harmonogram umowny). */
+export const hrfInternalTasks = pgTable(
+  'hrf_internal_tasks',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    parentTaskId: uuid('parent_task_id').notNull().references(() => hrfTasks.id),
+    name: text('name').notNull(),
+    startDate: date('start_date', { mode: 'string' }),
+    endDate: date('end_date', { mode: 'string' }),
+    percentComplete: smallint('percent_complete').notNull().default(0),
+    notes: text('notes'),
+    link: text('link'),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [index('hrf_internal_tasks_parent_idx').on(t.parentTaskId), index('hrf_internal_tasks_project_idx').on(t.projectId)],
+)
+
+export const hrfInternalTaskAssignees = pgTable(
+  'hrf_internal_task_assignees',
+  {
+    taskId: uuid('task_id').notNull().references(() => hrfInternalTasks.id),
+    userId: uuid('user_id').notNull().references(() => users.id),
+  },
+  (t) => [primaryKey({ columns: [t.taskId, t.userId] }), index('hrf_internal_task_assignees_user_idx').on(t.userId)],
 )
 
 export const hrfImportProfiles = pgTable('hrf_import_profiles', {

@@ -112,7 +112,12 @@ export interface DayZeroPreview {
   warnings: { code: string; message: string }[]
 }
 
-export const baselineCreateInput = z.object({ name: z.string().trim().min(1).max(200) })
+export const baselineCreateInput = z.object({ name: z.string().trim().min(1).max(200), isCurrent: z.boolean().optional() })
+
+/** Zmiana nazwy i/lub oznaczenie jako obowiązujący (`false` zdejmuje oznaczenie). */
+export const baselinePatchInput = z
+  .object({ name: z.string().trim().min(1).max(200).optional(), isCurrent: z.boolean().optional() })
+  .refine((v) => v.name !== undefined || v.isCurrent !== undefined, { message: 'empty_patch' })
 
 export interface BaselineDto {
   id: string
@@ -120,6 +125,7 @@ export interface BaselineDto {
   createdAt: string
   dayZeroDate: string | null
   taskCount: number
+  isCurrent: boolean
 }
 
 export interface BaselineTasksDto {
@@ -198,6 +204,69 @@ export interface DashboardResponse {
   milestones: { id: string; code: string; name: string; date: string; isAcceptancePoint: boolean }[]
   alerts: { severity: 'yellow' | 'red'; module: string; message: string; entityId?: string }[]
   miniGantt: { from: string; to: string; tasks: { id: string; code: string; name: string; start: string; end: string; percent: number; status: HrfStatus; critical: boolean }[] }
-  myTasks: { id: string; code: string; name: string; plannedEnd: string | null; status: string; source: 'hrf' | 'weekly' }[]
+  myTasks: { id: string; code: string; name: string; plannedEnd: string | null; status: string; source: 'hrf' | 'weekly' | 'internal' }[]
   dayZeroSet: boolean
+}
+
+// --- Zadania wewnętrzne (doprecyzowanie zadań formalnych HRF, moduł `hrfInternal`) ---
+
+const httpUrl = z
+  .string()
+  .trim()
+  .max(2000)
+  .regex(/^https?:\/\/\S+$/i, 'validation.httpUrl')
+
+const internalTaskFields = {
+  name: z.string().trim().min(1).max(500),
+  assigneeIds: z.array(z.uuid()).max(20),
+  startDate: isoDate.nullable(),
+  endDate: isoDate.nullable(),
+  percentComplete: z.number().int().min(0).max(100),
+  notes: z.string().max(5000).nullable(),
+  link: httpUrl.nullable(),
+}
+
+const datesInOrder = (v: { startDate?: string | null; endDate?: string | null }) => !v.startDate || !v.endDate || v.endDate >= v.startDate
+const datesIssue = { message: 'validation.dateRange', path: ['endDate'] }
+
+export const hrfInternalTaskCreate = z
+  .object({
+    parentTaskId: z.uuid(),
+    ...internalTaskFields,
+    assigneeIds: internalTaskFields.assigneeIds.default([]),
+    startDate: internalTaskFields.startDate.default(null),
+    endDate: internalTaskFields.endDate.default(null),
+    percentComplete: internalTaskFields.percentComplete.default(0),
+    notes: internalTaskFields.notes.default(null),
+    link: internalTaskFields.link.default(null),
+  })
+  .refine(datesInOrder, datesIssue)
+export type HrfInternalTaskCreate = z.input<typeof hrfInternalTaskCreate>
+
+export const hrfInternalTaskPatch = z
+  .object({ parentTaskId: z.uuid(), ...internalTaskFields })
+  .partial()
+  .extend({ version: z.number().int() })
+  .refine(datesInOrder, datesIssue)
+export type HrfInternalTaskPatch = z.input<typeof hrfInternalTaskPatch>
+
+export interface HrfInternalTaskDto {
+  id: string
+  parentTaskId: string
+  name: string
+  assignees: { id: string; name: string }[]
+  startDate: string | null
+  endDate: string | null
+  percentComplete: number
+  notes: string | null
+  link: string | null
+  /** Termin minął, a zadanie nie jest ukończone. */
+  overdue: boolean
+  version: number
+}
+
+export interface HrfInternalAssigneeOption {
+  id: string
+  name: string
+  role: string
 }

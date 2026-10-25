@@ -206,6 +206,33 @@ describe('re-import i plan bazowy', () => {
     expect(detail.tasks).toHaveLength(9)
     expect((await req(h, 'POST', `${P}/hrf/baselines`, u.env.headers, { name: 'x' })).status).toBe(403)
   })
+
+  it('obowiązujący plan bazowy: pierwszy automatycznie, przełączenie, zmiana nazwy i usunięcie', async () => {
+    type B = { id: string; name: string; isCurrent: boolean }
+    const list = async () => (await (await req(h, 'GET', `${P}/hrf/baselines`, u.client.headers)).json()) as B[]
+    const [first] = await list()
+    expect(first).toMatchObject({ name: 'Umowny', isCurrent: true })
+
+    const second = (await (await req(h, 'POST', `${P}/hrf/baselines`, u.admin.headers, { name: 'Rev.12' })).json()) as B
+    expect(second.isCurrent).toBe(false)
+    const third = (await (await req(h, 'POST', `${P}/hrf/baselines`, u.admin.headers, { name: 'Rev.13', isCurrent: true })).json()) as B
+    expect(third.isCurrent).toBe(true)
+    expect((await list()).filter((b) => b.isCurrent).map((b) => b.id)).toEqual([third.id])
+
+    const patched = await req(h, 'PATCH', `${P}/hrf/baselines/${second.id}`, u.admin.headers, { name: 'Rev.12 — umowny', isCurrent: true })
+    expect(patched.status).toBe(200)
+    expect(await patched.json()).toMatchObject({ name: 'Rev.12 — umowny', isCurrent: true, taskCount: 9 })
+    expect((await list()).filter((b) => b.isCurrent).map((b) => b.id)).toEqual([second.id])
+    expect((await req(h, 'PATCH', `${P}/hrf/baselines/${second.id}`, u.env.headers, { isCurrent: false })).status).toBe(403)
+    expect((await req(h, 'PATCH', `${P}/hrf/baselines/${second.id}`, u.admin.headers, {})).status).toBe(422)
+
+    expect((await req(h, 'DELETE', `${P}/hrf/baselines/${second.id}`, u.admin.headers)).status).toBe(200)
+    const after = await list()
+    expect(after.map((b) => b.id)).not.toContain(second.id)
+    expect(after.some((b) => b.isCurrent)).toBe(false)
+    expect((await req(h, 'GET', `${P}/hrf/baselines/${second.id}`, u.admin.headers)).status).toBe(404)
+    expect((await req(h, 'PATCH', `${P}/hrf/baselines/${second.id}`, u.admin.headers, { isCurrent: true })).status).toBe(404)
+  })
 })
 
 describe('eksport PDF i dashboard', () => {

@@ -71,6 +71,13 @@ export interface AuditEntryDto {
   projectId: string | null
 }
 
+/** Użytkownik występujący w audit logu — opcja filtra. */
+export interface AuditUserOption {
+  id: string
+  name: string
+  email: string
+}
+
 export interface Paged<T> {
   items: T[]
   total: number

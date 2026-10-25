@@ -154,6 +154,15 @@ describe('audit log', () => {
     expect(body.total).toBeGreaterThan(0)
     expect(body.items.every((i) => i.action === 'user.invite')).toBe(true)
 
+    const options = (await (await req(h, 'GET', '/api/admin/audit/users', admin.headers)).json()) as { id: string; email: string }[]
+    expect(options.map((o) => o.id)).toContain(admin.id)
+    const byUser = (await (await req(h, 'GET', `/api/admin/audit?userId=${admin.id}&pageSize=200`, admin.headers)).json()) as {
+      items: { userId: string }[]
+      total: number
+    }
+    expect(byUser.total).toBeGreaterThan(0)
+    expect(byUser.items.every((i) => i.userId === admin.id)).toBe(true)
+
     const csv = await req(h, 'GET', '/api/admin/audit/export.csv', admin.headers)
     expect(csv.status).toBe(200)
     expect(csv.headers.get('content-type')).toContain('text/csv')

@@ -1,6 +1,6 @@
 import { z } from '@hono/zod-openapi'
-import { and, count, desc, eq, gte, lt, type SQL } from 'drizzle-orm'
-import { auditQuery, type AuditEntryDto, type AuditQuery, type Paged } from '#shared'
+import { and, asc, count, desc, eq, gte, inArray, lt, type SQL } from 'drizzle-orm'
+import { auditQuery, type AuditEntryDto, type AuditQuery, type AuditUserOption, type Paged } from '#shared'
 import type { Database } from '../../db/client.ts'
 import { auditLog, users } from '../../db/schema.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
@@ -44,6 +44,21 @@ function select(db: Database) {
     .from(auditLog)
     .leftJoin(users, eq(users.id, auditLog.userId))
 }
+
+/** Opcje filtra „Użytkownik”: każdy, kto ma wpis w audit logu (także usunięci), bez wymogu uprawnień do modułu Admin. */
+auditRouter.openapi(
+  secureRoute('/admin', { method: 'get', path: '/audit/users', responses: ok }, { permission: { module: 'auditLog', action: 'view' } }),
+  async (c) => {
+    const db = c.get('deps').db
+    const ids = db.selectDistinct({ id: auditLog.userId }).from(auditLog)
+    const rows = await db
+      .select({ id: users.id, name: users.name, email: users.email })
+      .from(users)
+      .where(inArray(users.id, ids))
+      .orderBy(asc(users.name))
+    return c.json(rows satisfies AuditUserOption[], 200)
+  },
+)
 
 auditRouter.openapi(
   secureRoute(

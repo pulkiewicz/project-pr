@@ -108,7 +108,8 @@
     "presentation": "Tryb prezentacji",
     "hrfSettings": "Dzień „0”",
     "adminAvizations": "Awizacje",
-    "adminDocuments": "Repozytorium"
+    "adminDocuments": "Repozytorium",
+    "hrfInternal": "HRF — zadania wewnętrzne"
   },
   "roles": {
     "Admin": "Administrator",
@@ -216,7 +217,9 @@
     "ip": "IP",
     "changes": "Zmiany",
     "from": "Od",
-    "to": "Do"
+    "to": "Do",
+    "allUsers": "Wszyscy użytkownicy",
+    "noUsers": "Brak użytkownika"
   },
   "errors": {
     "forbidden": "Brak uprawnień",
@@ -291,7 +294,9 @@
     "password_rejected": "Netlify Identity odrzuciło hasło. Wybierz inne (dłuższe, mniej oczywiste).",
     "identity_password_failed": "Nie udało się ustawić hasła w Netlify Identity. Sprawdź, czy Identity jest włączone, i spróbuj ponownie.",
     "identity_mismatch": "Konto Netlify Identity o tym e-mailu jest powiązane z innym użytkownikiem aplikacji.",
-    "target_user_inactive": "Użytkownik jest nieaktywny — najpierw go aktywuj."
+    "target_user_inactive": "Użytkownik jest nieaktywny — najpierw go aktywuj.",
+    "assignee_not_allowed": "Wybrana osoba nie ma dostępu do zadań wewnętrznych.",
+    "hrf_parent_not_found": "Zadanie formalne HRF nie istnieje lub zostało usunięte."
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -303,7 +308,8 @@
     "fileName": "Nazwa nie może zawierać / ani \\",
     "date": "Niepoprawna data",
     "subcontractor": "Wybierz podwykonawcę",
-    "passwordTooShort": "Hasło musi mieć co najmniej 12 znaków"
+    "passwordTooShort": "Hasło musi mieć co najmniej 12 znaków",
+    "httpUrl": "Podaj adres zaczynający się od http:// lub https://"
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -369,6 +375,24 @@
     "baselineNone": "bez porównania",
     "baselineCreate": "Zamroź plan bazowy",
     "baselineName": "Nazwa planu bazowego",
+    "baselineMakeCurrent": "Ustaw jako obowiązujący plan bazowy",
+    "baselineCompare": "Porównaj z",
+    "baselineManage": "Plany bazowe",
+    "baselineCurrent": "obowiązujący",
+    "baselineSetCurrent": "Ustaw jako obowiązujący",
+    "baselineUnsetCurrent": "Zdejmij oznaczenie „obowiązujący”",
+    "baselineRename": "Zmień nazwę",
+    "baselineDelete": "Usuń plan bazowy",
+    "baselineDeleteConfirm": "Usunąć plan bazowy „{{name}}”? Bieżący harmonogram się nie zmieni.",
+    "baselineDeleted": "Usunięto plan bazowy",
+    "baselineFrozenAt": "Zamrożony",
+    "baselineTasks": "Zadań",
+    "baselineEmpty": "Brak planów bazowych. Zamroź bieżący harmonogram, aby móc do niego wracać i porównywać zmiany.",
+    "baselineCurrentHint": "Obowiązujący plan bazowy jest domyślnie porównywany z harmonogramem na wykresie Gantta. Wariant wybierasz listą „Wariant planu” nad filtrami.",
+    "variant": "Wariant planu",
+    "variantCurrent": "Bieżący harmonogram",
+    "variantViewing": "Wyświetlasz plan bazowy „{{name}}” zamrożony {{date}} (dzień „0”: {{dayZero}}). Daty planowane pochodzą z tego planu; status, postęp i daty rzeczywiste są bieżące. Zadania dodane po zamrożeniu nie mają dat.",
+    "variantBack": "Wróć do bieżącego",
     "dependencies": "Poprzedniki",
     "addDependency": "Dodaj poprzednika",
     "lag": "Opóźnienie (dni)",
@@ -421,7 +445,36 @@
       "back": "Wstecz",
       "row": "Wiersz"
     },
-    "structure": "Struktura harmonogramu"
+    "structure": "Struktura harmonogramu",
+    "internal": {
+      "title": "Zadania wewnętrzne",
+      "single": "Zadanie wewnętrzne",
+      "add": "Dodaj zadanie wewnętrzne",
+      "edit": "Zadanie wewnętrzne",
+      "delete": "Usuń zadanie wewnętrzne",
+      "deleteConfirm": "Usunąć zadanie wewnętrzne „{{name}}”?",
+      "deleted": "Usunięto zadanie wewnętrzne",
+      "parent": "Zadanie formalne (HRF)",
+      "parentHint": "Zadanie z umowy, które to zadanie doprecyzowuje",
+      "name": "Nazwa",
+      "assignees": "Osoby",
+      "noAssignees": "Brak osób z dostępem do zadań wewnętrznych",
+      "start": "Start",
+      "end": "Termin",
+      "notes": "Notatka",
+      "link": "Link",
+      "openLink": "Otwórz link",
+      "none": "Brak zadań wewnętrznych",
+      "overdue": "po terminie",
+      "open": "w toku",
+      "done": "ukończone",
+      "readOnly": "Masz dostęp tylko do odczytu.",
+      "filter": {
+        "all": "Wszystkie",
+        "mine": "Tylko moje",
+        "none": "Ukryj"
+      }
+    }
   },
   "weekly": {
     "title": "Plan tygodniowy",

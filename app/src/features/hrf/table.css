@@ -16,3 +16,10 @@
 .pmo-dense-table td[data-column-pinned] {
   opacity: 1 !important;
 }
+/* Zadania wewnętrzne — niebieskie tło wiersza (także w przypiętych kolumnach). */
+.pmo-dense-table tr.pmo-internal-row td {
+  background-color: var(--mantine-color-blue-0) !important;
+}
+[data-mantine-color-scheme='dark'] .pmo-dense-table tr.pmo-internal-row td {
+  background-color: #1a2b40 !important;
+}

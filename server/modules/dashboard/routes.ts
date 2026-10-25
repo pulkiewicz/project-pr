@@ -6,6 +6,7 @@ import { weeklyItems } from '../../db/schema.ts'
 import { todayWarsaw } from '../../lib/dates.ts'
 import { defaultBuffer, listPurchases } from '../purchases/service.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
+import { listInternalTasks } from '../hrf/internal.ts'
 import { getProject, listTasks } from '../hrf/service.ts'
 import { computeDashboard } from './compute.ts'
 
@@ -58,6 +59,18 @@ dashboardRouter.openapi(
         .from(weeklyItems)
         .where(and(eq(weeklyItems.projectId, projectId), eq(weeklyItems.isoWeek, week), eq(weeklyItems.assigneeUserId, user.id), isNull(weeklyItems.deletedAt), inArray(weeklyItems.status, [...WEEKLY_OPEN_STATUSES])))
       body.myTasks.unshift(...mine.map((m) => ({ id: m.id, code: week, name: m.title, plannedEnd: weekEnd(week), status: m.status, source: 'weekly' as const })))
+    }
+    // Moje zadania: przypisane, nieukończone zadania wewnętrzne HRF.
+    if (perms.has('hrfInternal:view')) {
+      const internal = await listInternalTasks(db, projectId, today, user.id)
+      body.myTasks.push(
+        ...internal
+          .filter((i) => i.percentComplete < 100)
+          .map((i) => ({ id: i.id, code: '', name: i.name, plannedEnd: i.endDate, status: i.overdue ? 'delayed' : 'in_progress', source: 'internal' as const })),
+      )
+      // Plan tygodniowy na górze, dalej HRF i wewnętrzne wg terminu.
+      const rank = (m: { source: string }) => (m.source === 'weekly' ? 0 : 1)
+      body.myTasks.sort((a, b) => rank(a) - rank(b) || (a.plannedEnd ?? '9999').localeCompare(b.plannedEnd ?? '9999'))
     }
     return c.json(body, 200)
   },

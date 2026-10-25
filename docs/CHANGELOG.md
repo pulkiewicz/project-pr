@@ -1,5 +1,24 @@
 # Changelog
 
+## HRF — warianty planu i obowiązujący plan bazowy (25.10.2026)
+
+- **Wariant planu** (lista nad filtrami): bieżący harmonogram albo dowolny zamrożony plan bazowy. Po wybraniu planu lista i Gantt pokazują jego daty planowane, a status, postęp i daty rzeczywiste pozostają bieżące. Baner informuje, który plan jest wyświetlany, i ma przycisk powrotu. Zadania dodane po zamrożeniu nie mają dat.
+- **Porównanie na Gantcie** domyślnie z obowiązującym planem bazowym. Można wybrać inny plan, bieżący harmonogram (gdy wyświetlany jest plan bazowy) albo wyłączyć porównanie.
+- **Okno „Plany bazowe”**: lista planów (nazwa, data zamrożenia, dzień „0”, liczba zadań) z akcjami: pokaż, ustaw lub zdejmij „obowiązujący”, zmień nazwę (`hrf` approve), usuń (`hrf` delete, miękkie). Zmiany trafiają do audit logu (`hrf.baseline_update`, `hrf.baseline_delete`).
+- **Obowiązujący plan bazowy**: najwyżej jeden na projekt (unikalny indeks). Przy zamrażaniu jest opcja „Ustaw jako obowiązujący” (domyślnie zaznaczona); pierwszy plan projektu zostaje obowiązującym automatycznie. Usunięcie obowiązującego planu zostawia projekt bez obowiązującego.
+- API: `PATCH /projects/{id}/hrf/baselines/{baselineId}` (`name`, `isCurrent`), `isCurrent` w `POST` i w odpowiedziach.
+- Migracja `20261025071353_hrf_baseline_current`: kolumna `is_current`; najnowszy istniejący plan bazowy projektu staje się obowiązującym.
+
+## HRF — zadania wewnętrzne; audit log — filtr użytkownika (25.10.2026)
+
+- **Zadania wewnętrzne** doprecyzowują zadania formalne z umowy. Każde jest podpięte do jednego zadania formalnego i ma: nazwę, osoby (jedną lub kilka), start, termin, % wykonania, notatkę i link (http/https). Dodawanie, edycja (z kontrolą wersji) i usuwanie (miękkie) trafiają do audit logu.
+- Na liście HRF wyświetlają się jako niebieskie wiersze pod swoim zadaniem formalnym: osoby w kolumnie „Strona”, oznaczenie „po terminie”, ikona linku. Na Gantcie to niebieskie paski pod zadaniem formalnym, z czerwoną obwódką po terminie. Szczegóły zadania formalnego mają sekcję „Zadania wewnętrzne” z przyciskiem dodawania. Filtr: wszystkie / tylko moje / ukryj.
+- Nieukończone zadania przypisane do użytkownika trafiają do kafla „Moje zadania” na dashboardzie.
+- Nie wpływają na harmonogram umowny (daty planowane, ścieżkę krytyczną, eksport HRF).
+- **Nowy moduł uprawnień `hrfInternal` [W]**: domyślnie pełny dostęp mają Admin i Envcheck. Arsanit, Zamawiający i podwykonawcy nie mają dostępu (można to zmienić w macierzy uprawnień). Przypisać można tylko aktywnych użytkowników z rolą, która widzi moduł.
+- **Audit log:** filtr „Użytkownik” (lista osób z wpisami w logu, wyszukiwanie po nazwisku lub e-mailu). Kliknięcie e-maila w tabeli filtruje log do tej osoby.
+- Migracja `20261025070141_hrf_internal_tasks` (tabele i uprawnienia nowego modułu).
+
 ## Użytkownicy z hasłem tymczasowym (13.10.2026)
 
 - **Dodawanie użytkownika bez e-maila z Netlify** (domyślny tryb): Admin zakłada konto w aplikacji, a serwer od razu tworzy potwierdzone konto Netlify Identity (GoTrue admin API, `confirm: true`). Hasło tymczasowe podaje Admin albo generuje serwer (16 znaków bez mylących liter i cyfr). Hasło jest pokazywane tylko raz, z przyciskiem kopiowania, i nie trafia do bazy ani audit logu. Jeśli konto Identity o tym e-mailu już istnieje, dostaje nowe hasło.

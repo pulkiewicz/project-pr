@@ -6,6 +6,7 @@ import { adminPermissionsRouter } from './modules/admin/permissions.ts'
 import { adminUsersRouter } from './modules/admin/users.ts'
 import { auditRouter } from './modules/audit/routes.ts'
 import { dashboardRouter } from './modules/dashboard/routes.ts'
+import { hrfInternalRouter } from './modules/hrf/internal.ts'
 import { hrfRouter } from './modules/hrf/routes.ts'
 import { purchasesRouter } from './modules/purchases/routes.ts'
 import { avizationsRouter } from './modules/avizations/routes.ts'
@@ -43,6 +44,7 @@ export function createApp(deps: AppDeps) {
   app.route('/admin', adminPermissionsRouter)
   app.route('/admin', auditRouter)
   app.route('/', hrfRouter)
+  app.route('/', hrfInternalRouter)
   app.route('/', dashboardRouter)
   app.route('/', weeklyRouter)
   app.route('/', purchasesRouter)

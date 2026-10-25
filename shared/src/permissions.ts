@@ -11,6 +11,7 @@ export const MODULES = {
   dashboard: { internal: false },
   dashboardInternal: { internal: true },
   hrf: { internal: false },
+  hrfInternal: { internal: true },
   weeklyPlan: { internal: false },
   purchases: { internal: false },
   avizations: { internal: false },
@@ -65,6 +66,8 @@ export const DEFAULT_LEVELS: Record<ModuleKey, Row> = {
   dashboard: row('P', 'O', 'O', 'O', '-'),
   dashboardInternal: row('P', 'O', '-', '-', '-'),
   hrf: row('P', 'E', 'E', 'O', '-'),
+  // Zadania wewnętrzne doprecyzowujące HRF — niewidoczne dla Zamawiającego i podwykonawców.
+  hrfInternal: row('P', 'P', '-', '-', '-'),
   weeklyPlan: row('P', 'E', 'E', 'O', 'O'),
   purchases: row('P', 'E', 'E', '-', '-'),
   avizations: row('P', 'E', 'E', 'A', 'E'),

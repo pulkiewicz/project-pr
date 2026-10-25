@@ -4,6 +4,10 @@ import type {
   BaselineTasksDto,
   DashboardResponse,
   DayZeroPreview,
+  HrfInternalAssigneeOption,
+  HrfInternalTaskCreate,
+  HrfInternalTaskDto,
+  HrfInternalTaskPatch,
   HrfTaskDto,
   HrfTaskPatch,
   HrfTasksResponse,
@@ -12,7 +16,7 @@ import type {
   ImportPreviewResponse,
   ImportProfileDto,
 } from '#shared'
-import { useMe } from '../../auth/AuthProvider'
+import { useAuth, useMe } from '../../auth/AuthProvider'
 import { api } from '../../lib/api'
 
 export function useProjectId(): string {
@@ -88,7 +92,26 @@ export function useCreateBaseline() {
   const pid = useProjectId()
   const invalidate = useInvalidateHrf()
   return useMutation({
-    mutationFn: (name: string) => api<BaselineDto>(`${base(pid)}/baselines`, { method: 'POST', json: { name } }),
+    mutationFn: (v: { name: string; isCurrent: boolean }) => api<BaselineDto>(`${base(pid)}/baselines`, { method: 'POST', json: v }),
+    onSettled: invalidate,
+  })
+}
+
+export function useUpdateBaseline() {
+  const pid = useProjectId()
+  const invalidate = useInvalidateHrf()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: { name?: string; isCurrent?: boolean } }) =>
+      api<BaselineDto>(`${base(pid)}/baselines/${id}`, { method: 'PATCH', json: patch }),
+    onSettled: invalidate,
+  })
+}
+
+export function useDeleteBaseline() {
+  const pid = useProjectId()
+  const invalidate = useInvalidateHrf()
+  return useMutation({
+    mutationFn: (id: string) => api(`${base(pid)}/baselines/${id}`, { method: 'DELETE' }),
     onSettled: invalidate,
   })
 }
@@ -128,3 +151,46 @@ export function useImportApi() {
 }
 
 export const exportPath = (pid: string, kind: 'xlsx' | 'pdf') => `${base(pid)}/export.${kind}`
+
+// --- Zadania wewnętrzne (moduł hrfInternal) ---
+
+export function useInternalTasks() {
+  const pid = useProjectId()
+  const { can } = useAuth()
+  return useQuery({
+    queryKey: ['hrf', pid, 'internal'],
+    queryFn: () => api<HrfInternalTaskDto[]>(`${base(pid)}/internal-tasks`),
+    enabled: can('hrfInternal', 'view'),
+  })
+}
+
+export function useInternalAssignees(enabled: boolean) {
+  const pid = useProjectId()
+  return useQuery({
+    queryKey: ['hrf', pid, 'internal', 'assignees'],
+    queryFn: () => api<HrfInternalAssigneeOption[]>(`${base(pid)}/internal-tasks/assignees`),
+    enabled,
+    staleTime: 60_000,
+  })
+}
+
+export function useSaveInternalTask() {
+  const pid = useProjectId()
+  const invalidate = useInvalidateHrf()
+  return useMutation({
+    mutationFn: (v: { id: string; patch: HrfInternalTaskPatch } | { create: HrfInternalTaskCreate }) =>
+      'create' in v
+        ? api<HrfInternalTaskDto>(`${base(pid)}/internal-tasks`, { method: 'POST', json: v.create })
+        : api<HrfInternalTaskDto>(`${base(pid)}/internal-tasks/${v.id}`, { method: 'PATCH', json: v.patch }),
+    onSettled: invalidate,
+  })
+}
+
+export function useDeleteInternalTask() {
+  const pid = useProjectId()
+  const invalidate = useInvalidateHrf()
+  return useMutation({
+    mutationFn: (id: string) => api(`${base(pid)}/internal-tasks/${id}`, { method: 'DELETE' }),
+    onSettled: invalidate,
+  })
+}

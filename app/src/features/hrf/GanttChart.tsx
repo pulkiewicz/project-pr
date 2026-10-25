@@ -1,6 +1,6 @@
 import Gantt, { type FrappeTask } from 'frappe-gantt'
 import { useEffect, useMemo, useRef } from 'react'
-import type { HrfDependencyDto, HrfTaskDto } from '#shared'
+import type { HrfDependencyDto, HrfInternalTaskDto, HrfTaskDto } from '#shared'
 import 'frappe-gantt.css'
 import './gantt.css'
 
@@ -9,6 +9,8 @@ export type GanttView = 'Day' | 'Week' | 'Month'
 interface Props {
   tasks: HrfTaskDto[]
   dependencies: HrfDependencyDto[]
+  /** Zadania wewnętrzne — niebieskie paski pod swoim zadaniem formalnym. */
+  internalTasks?: HrfInternalTaskDto[]
   view: GanttView
   contractEndDate: string
   deadlineLabel: string
@@ -88,9 +90,24 @@ export function GanttChart(props: Props) {
     const parents = new Set(props.tasks.map((t) => t.parentId).filter(Boolean))
     const deps = new Map<string, string[]>()
     for (const d of props.dependencies) deps.set(d.taskId, [...(deps.get(d.taskId) ?? []), d.predecessorId])
+    const internalByParent = new Map<string, FrappeTask[]>()
+    for (const i of props.internalTasks ?? []) {
+      // Bez daty końca nie ma paska; brak startu = pasek jednodniowy na termin.
+      if (!i.endDate) continue
+      const bar: FrappeTask = {
+        id: i.id,
+        name: `↳ ${i.name}`,
+        start: i.startDate ?? i.endDate,
+        end: i.endDate,
+        progress: i.percentComplete,
+        dependencies: '',
+        custom_class: `g-int-${i.overdue ? 'late' : 'ok'}-c0`,
+      }
+      internalByParent.set(i.parentTaskId, [...(internalByParent.get(i.parentTaskId) ?? []), bar])
+    }
     return props.tasks
       .filter((t) => t.plannedStart && t.plannedEnd)
-      .map((t) => ({
+      .flatMap((t) => [{
         id: t.id,
         name: `${t.code} ${t.name}`,
         start: t.plannedStart!,
@@ -99,8 +116,8 @@ export function GanttChart(props: Props) {
         dependencies: (deps.get(t.id) ?? []).join(', '),
         // frappe-gantt przyjmuje jeden token klasy: g-<rodzaj>-<status>-c<0|1>
         custom_class: `g-${parents.has(t.id) ? 'sum' : t.isAcceptancePoint ? 'acc' : 'task'}-${t.status}-c${t.isCriticalPath && !parents.has(t.id) ? 1 : 0}`,
-      }))
-  }, [props.tasks, props.dependencies])
+      }, ...(internalByParent.get(t.id) ?? [])])
+  }, [props.tasks, props.dependencies, props.internalTasks])
 
   useEffect(() => {
     if (!ref.current) return

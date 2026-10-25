@@ -17,3 +17,7 @@
 .pmo-gantt .pmo-deadline { stroke: #d64545; stroke-width: 2; stroke-dasharray: 6 4; }
 .pmo-gantt .pmo-deadline-label { fill: #d64545; font-size: 11px; font-weight: 600; }
 .pmo-gantt .pmo-baseline { fill: none; stroke: #6b7785; stroke-width: 1; stroke-dasharray: 3 2; }
+.pmo-gantt .bar-wrapper[class*='g-int-'] .bar { fill: #d0ebff; stroke: #74c0fc; stroke-width: 1; }
+.pmo-gantt .bar-wrapper[class*='g-int-'] .bar-progress { fill: #1c7ed6; }
+.pmo-gantt .bar-wrapper[class*='g-int-'] .bar-label { fill: #1864ab; font-style: italic; }
+.pmo-gantt .bar-wrapper[class*='g-int-late'] .bar { stroke: #d64545; stroke-width: 2; }
