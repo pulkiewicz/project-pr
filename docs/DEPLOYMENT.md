@@ -1,6 +1,6 @@
 # Wdrożenie na Netlify
 
-Zakres pierwszego wdrożenia: logowanie z 2FA, administracja (użytkownicy, uprawnienia, audit log), HRF i dashboard. Repozytorium dokumentów (Google Drive) i zadania cykliczne dojdą w kolejnym etapie, bez zmian w tej konfiguracji.
+Zakres wdrożenia: logowanie z 2FA, administracja (użytkownicy, uprawnienia, audit log), HRF, dashboard, plan tygodniowy, zakupy i awizacje. Pliki podpina się linkiem w zadaniach HRF (moduł repozytorium Google Drive wycofano 25.10.2026).
 
 ## Wymagania
 
@@ -38,9 +38,7 @@ npm run secrets:generate -- adres@firmy.pl        # wypisuje gotowe polecenia ne
 | `MFA_JWT_SECRET` | podpis cookie sesji 2FA |
 | `FIELD_ENCRYPTION_KEY` | klucz AES-256-GCM pól szyfrowanych (format `k1:<base64>`). **Zapisz kopię w sejfie haseł** — utrata = brak odczytu sekretów 2FA |
 | `FIELD_HMAC_KEY` | wyszukiwanie po polach szyfrowanych |
-| `JOB_SECRET` | autoryzacja zadań w tle (używany od kolejnego etapu) |
 | `BOOTSTRAP_ADMIN_EMAIL` | e-mail pierwszego Administratora |
-| `GOOGLE_SA_EMAIL`, `GOOGLE_SA_PRIVATE_KEY` | konto serwisowe Google dla repozytorium dokumentów (sekcja niżej) |
 
 **Nie ustawiaj** `DEV_AUTH` w Netlify (logowanie deweloperskie; i tak działa wyłącznie pod lokalnym `netlify dev`).
 
@@ -84,32 +82,9 @@ Po deployu sprawdź `https://<projekt>.netlify.app/api/health` → `{"ok":true}`
 - **Region bazy**: sprawdź `netlify database status` — dane osobowe (awizacje, kolejne etapy) muszą być w UE.
 - Własna domena (np. `pmo.envcheck.com`) z HTTPS — Identity wymaga HTTPS.
 
-## Repozytorium dokumentów — Google Shared Drive
-
-Wymaga Google Workspace (Dysk współdzielony). Pliki trafiają wyłącznie na Shared Drive. Użytkownicy zewnętrzni widzą je tylko przez aplikację i nie potrzebują kont Google.
-
-1. **Google Cloud Console** (https://console.cloud.google.com):
-   - nowy projekt (np. `envcheck-pmo`), potem **APIs & Services → Library → Google Drive API → Enable**;
-   - **IAM & Admin → Service Accounts → Create service account** (np. `pmo-drive`), bez ról w projekcie;
-   - konto serwisowe → **Keys → Add key → Create new key → JSON** i pobierz plik. Nie zapisuj go w repozytorium.
-2. **Google Drive:** **Dyski współdzielone → Nowy** (np. „PIT-RADWAR PMO”) → **Zarządzaj członkami** → e-mail konta serwisowego (`…@…iam.gserviceaccount.com`) z rolą **Menedżer treści**.
-3. **Zmienne w Netlify** — tylko e-mail i klucz prywatny, nie cały JSON (limit ok. 4 KB na wszystkie zmienne):
-   ```bash
-   KEY=~/Downloads/<plik>.json
-   netlify env:set GOOGLE_SA_EMAIL "$(node -p "require('$KEY').client_email")" --scope functions
-   netlify env:set GOOGLE_SA_PRIVATE_KEY "$(node -p "require('$KEY').private_key")" --secret --scope functions
-   ```
-   Potem **Trigger deploy**. Plik JSON możesz usunąć z dysku (kopię zachowaj w sejfie haseł).
-4. **W aplikacji:** **Administracja → Repozytorium**:
-   - wpisz ID dysku (z adresu `drive.google.com/drive/folders/<ID>`) i domenę kont Google firmy, potem **Zapisz i sprawdź połączenie**;
-   - kliknij **Utwórz / uzupełnij strukturę folderów**. Powstaje struktura z domyślnymi uprawnieniami, a podfoldery Etapu 1 i punktów odbioru są tworzone z HRF.
-5. **Szablony Google Docs:** dodaj dokumenty Google (notatka ze spotkania, protokół, pismo) do folderu `00_Szablony`. Pojawią się w opcji „Nowy z szablonu”.
-
-Synchronizacja z Drive działa co 5 minut, ale tylko w opublikowanym deployu produkcyjnym. Ręcznie można ją uruchomić przyciskiem **Synchronizuj teraz**.
-
 ## Kopie zapasowe bazy
 
-Netlify Database umożliwia snapshoty (panel lub API). Nocny eksport do Google Drive (`backup-export`) dojdzie wraz z integracją Drive. Do tego czasu zalecany ręczny snapshot przed każdą większą zmianą (np. re-importem HRF).
+Netlify Database umożliwia snapshoty (panel lub API). Zalecany ręczny snapshot przed każdą większą zmianą (np. re-importem HRF).
 
 ## Kontrola przed każdym wdrożeniem
 

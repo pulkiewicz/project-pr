@@ -1,5 +1,12 @@
 # Changelog
 
+## Link do pliku w zadaniach; wycofanie modułu „Dokumenty” (25.10.2026)
+
+- **Link do pliku w zadaniach formalnych HRF** (nowe pole `link`, tylko http/https): edytuje go każdy, kto może edytować postęp danego zadania (jak notatki); w szczegółach zadania pole z przyciskiem otwarcia, na liście HRF ikona linku przy nazwie. Re-import HRF nie nadpisuje linku. Zadania wewnętrzne miały już link — etykieta ujednolicona na „Link do pliku”, walidacja wspólna (`isHttpUrl` w `#shared`).
+- **Usunięty moduł „Dokumenty”** (repozytorium Google Shared Drive): strona Dokumenty, Administracja → Repozytorium, sekcje „Dokumenty” w szczegółach zadania HRF, pozycji zakupów i awizacji, API `/documents`, integracja Google Drive, synchronizacja co 5 min i sprzątanie uploadów (funkcje harmonogramu i wykonawca zadań w tle), archiwizacja rewizji HRF i list awizacji na Drive, zależność `pdfjs-dist`, uprawnienie `documents`. Zmienne `GOOGLE_SA_*`, `JOB_SECRET` i `DEV_FAKE_DRIVE` nie są już używane.
+- Tabele `drive_*`, `folder_acl`, `record_links`, `pending_uploads`, `drive_sync_state`, `job_runs` zostają w bazie bez zmian (nieużywane).
+- Migracje `20261025105142_hrf_task_link` (kolumna `hrf_tasks.link`) i `20261025105516_remove_documents_module` (usunięcie wpisów macierzy uprawnień modułu).
+
 ## Zakupy — import planu z pliku „Radwar zakupy” (25.10.2026)
 
 - Jednorazowa migracja danych `20261025103859_purchases_radwar_import`: 22 pozycje planu zakupów (strona Envcheck, status „do zapytania”), powiązane z zadaniami HRF po kodzie. Decyzje Admina: 7.8 → 6.17 (monitoring), 7.12 → 6.21 (holownik), 4.6* (desuperheatery) → 4.6.

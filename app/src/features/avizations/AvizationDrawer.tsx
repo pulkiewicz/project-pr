@@ -15,7 +15,6 @@ import { formatDateTime } from '../../lib/format'
 import { useHrfTasks, useProjectId } from '../hrf/api'
 import { exportUrl, useAvizationMutations, useEntryPoints, usePersons, useVehicles } from './api'
 import { AVIZ_COLOR } from './colors'
-import { LinkedDocuments } from '../documents/LinkedDocuments'
 
 export interface AvizationPreset {
   dateFrom?: string
@@ -205,12 +204,6 @@ export function AvizationDrawer({ opened, avization: a, preset, onClose }: Props
             )}
           </Group>
         </Group>
-        {a && (
-          <>
-            <Divider label={t('documents.linkedDocs')} labelPosition="left" />
-            <LinkedDocuments targetType="avization" targetId={a.id} defaultFolderPath="/10_BHP_i_awizacje" />
-          </>
-        )}
       </Stack>
     </Drawer>
   )

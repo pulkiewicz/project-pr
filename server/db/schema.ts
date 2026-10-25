@@ -18,7 +18,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { ACL_LEVELS, AVIZATION_STATUSES, DOC_STATUSES, LINK_TARGETS, DEPENDENCY_TYPES, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
+import { AVIZATION_STATUSES, DEPENDENCY_TYPES, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -163,6 +163,8 @@ export const hrfTasks = pgTable(
     isCriticalPath: boolean('is_critical_path').notNull().default(false),
     totalFloatDays: integer('total_float_days'),
     notes: text('notes'),
+    /** Link do pliku (http/https) — np. dokument w Google Drive / SharePoint. */
+    link: text('link'),
     sortOrder: integer('sort_order').notNull().default(0),
     version: integer('version').notNull().default(1),
     ...auditColumns,
@@ -416,9 +418,11 @@ export const avizationVehicles = pgTable(
 )
 
 // ---------------- M7: Repozytorium dokumentów (Google Shared Drive) ----------------
-export const docStatusEnum = pgEnum('doc_status', DOC_STATUSES)
-export const aclLevelEnum = pgEnum('acl_level', ACL_LEVELS)
-export const linkTargetEnum = pgEnum('link_target', LINK_TARGETS)
+// Moduł wycofany 25.10.2026 (zastąpiony linkami do plików w zadaniach HRF). Tabele i typy zostają
+// w bazie z ewentualnymi danymi — nieużywane przez aplikację; definicje tu, by migracje ich nie usuwały.
+export const docStatusEnum = pgEnum('doc_status', ['draft', 'review', 'approved', 'obsolete'])
+export const aclLevelEnum = pgEnum('acl_level', ['none', 'read', 'write', 'manage'])
+export const linkTargetEnum = pgEnum('link_target', ['hrf_task', 'purchase_item', 'avization', 'weekly_item'])
 
 export const driveFolders = pgTable(
   'drive_folders',

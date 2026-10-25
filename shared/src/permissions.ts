@@ -27,7 +27,6 @@ export const MODULES = {
   arsanitFlows: { internal: true },
   guarantees: { internal: true },
   acceptanceDocs: { internal: false },
-  documents: { internal: false },
   auditLog: { internal: true },
   admin: { internal: true },
 } as const satisfies Record<string, { internal: boolean }>
@@ -83,8 +82,6 @@ export const DEFAULT_LEVELS: Record<ModuleKey, Row> = {
   arsanitFlows: row('P', 'O', '-', '-', '-'),
   guarantees: row('P', 'O', '-', '-', '-'),
   acceptanceDocs: row('P', 'E', 'E', 'O', '-'),
-  // Repozytorium: dostęp do treści wg ACL folderu (sekcja 7); macierz decyduje tylko o widoczności modułu.
-  documents: row('P', 'O', 'O', 'O', 'O'),
   auditLog: row('P', '-', '-', '-', '-'),
   admin: row('P', '-', '-', '-', '-'),
 }

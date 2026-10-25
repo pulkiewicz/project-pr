@@ -1,0 +1,1 @@
+ALTER TABLE "hrf_tasks" ADD COLUMN "link" text;

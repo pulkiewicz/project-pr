@@ -5,14 +5,13 @@ import { IconExternalLink, IconPlus, IconTrash } from '@tabler/icons-react'
 import { format } from 'date-fns'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BASE_PARTIES, DEPENDENCY_TYPES, HRF_STATUSES, type DependencyType, type HrfDependencyDto, type HrfInternalTaskDto, type HrfStatus, type HrfTaskDto } from '#shared'
+import { BASE_PARTIES, DEPENDENCY_TYPES, HRF_STATUSES, isHttpUrl, type DependencyType, type HrfDependencyDto, type HrfInternalTaskDto, type HrfStatus, type HrfTaskDto } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { ApiError } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 import { formatDate } from '../../lib/format'
 import { usePatchTask, useSetDependencies } from './api'
 import { StatusBadge } from './StatusBadge'
-import { LinkedDocuments } from '../documents/LinkedDocuments'
 
 interface Props {
   task: HrfTaskDto | null
@@ -70,7 +69,7 @@ function InternalTasksSection({ items, onOpen, onAdd }: { items: HrfInternalTask
 const toDate = (d: string | null) => (d ? new Date(`${d}T00:00:00`) : null)
 const fromDate = (d: Date | string | null) => (d ? format(typeof d === 'string' ? new Date(d) : d, 'yyyy-MM-dd') : null)
 
-type Form = Pick<HrfTaskDto, 'actualStart' | 'actualEnd' | 'forecastEnd' | 'percentComplete' | 'status' | 'notes' | 'name' | 'party' | 'startOffsetDays' | 'durationDays' | 'isMilestone' | 'isAcceptancePoint' | 'postAcceptanceAllowed'> & { contractValue: string | null }
+type Form = Pick<HrfTaskDto, 'actualStart' | 'actualEnd' | 'forecastEnd' | 'percentComplete' | 'status' | 'notes' | 'link' | 'name' | 'party' | 'startOffsetDays' | 'durationDays' | 'isMilestone' | 'isAcceptancePoint' | 'postAcceptanceAllowed'> & { contractValue: string | null }
 
 export function TaskDrawer({ task, tasks, dependencies, internalTasks, onOpenInternal, onAddInternal, onClose }: Props) {
   const { t } = useTranslation()
@@ -92,6 +91,7 @@ export function TaskDrawer({ task, tasks, dependencies, internalTasks, onOpenInt
       percentComplete: task.percentComplete,
       status: task.status,
       notes: task.notes,
+      link: task.link,
       name: task.name,
       party: task.party,
       startOffsetDays: task.startOffsetDays,
@@ -113,10 +113,11 @@ export function TaskDrawer({ task, tasks, dependencies, internalTasks, onOpenInt
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm({ ...form, [k]: v })
   const editable = task.canEdit
+  const linkInvalid = !!form.link && !isHttpUrl(form.link)
 
   const submit = () => {
     const changes: Record<string, unknown> = {}
-    const progressKeys = ['actualStart', 'actualEnd', 'forecastEnd', 'percentComplete', 'status', 'notes'] as const
+    const progressKeys = ['actualStart', 'actualEnd', 'forecastEnd', 'percentComplete', 'status', 'notes', 'link'] as const
     const structKeys = ['name', 'party', 'startOffsetDays', 'durationDays', 'isMilestone', 'isAcceptancePoint', 'postAcceptanceAllowed'] as const
     for (const k of progressKeys) if (form[k] !== task[k]) changes[k] = form[k]
     if (structure) for (const k of structKeys) if (form[k] !== task[k]) changes[k] = form[k]
@@ -180,6 +181,21 @@ export function TaskDrawer({ task, tasks, dependencies, internalTasks, onOpenInt
           </>
         )}
         <Textarea label={t('hrf.notes')} autosize minRows={2} disabled={!editable} value={form.notes ?? ''} onChange={(e) => set('notes', e.currentTarget.value || null)} />
+        <TextInput
+          label={t('hrf.link')}
+          placeholder="https://…"
+          disabled={!editable}
+          value={form.link ?? ''}
+          onChange={(e) => set('link', e.currentTarget.value.trim() || null)}
+          error={linkInvalid ? t('validation.httpUrl') : undefined}
+          rightSection={
+            form.link && !linkInvalid ? (
+              <ActionIcon variant="subtle" component="a" href={form.link} target="_blank" rel="noopener noreferrer" aria-label={t('hrf.internal.openLink')}>
+                <IconExternalLink size={16} />
+              </ActionIcon>
+            ) : null
+          }
+        />
 
         {structure && (
           <>
@@ -212,7 +228,7 @@ export function TaskDrawer({ task, tasks, dependencies, internalTasks, onOpenInt
             {t('app.cancel')}
           </Button>
           {(editable || structure) && (
-            <Button onClick={submit} loading={patch.isPending}>
+            <Button onClick={submit} loading={patch.isPending} disabled={linkInvalid}>
               {t('app.save')}
             </Button>
           )}
@@ -228,9 +244,6 @@ export function TaskDrawer({ task, tasks, dependencies, internalTasks, onOpenInt
             />
           </>
         )}
-
-        <Divider label={t('documents.linkedDocs')} labelPosition="left" />
-        <LinkedDocuments targetType="hrf_task" targetId={task.id} />
 
         {!isStage && (
           <>

@@ -8,7 +8,6 @@ import {
   IconChecklist,
   IconClipboardCheck,
   IconFileText,
-  IconFolder,
   IconGauge,
   IconHistory,
   IconLock,
@@ -51,7 +50,6 @@ const ICONS: Partial<Record<ModuleKey, typeof IconGauge>> = {
   risks: IconAlertTriangle,
   letters: IconMail,
   meetings: IconUsersGroup,
-  documents: IconFolder,
   weeklyReport: IconReportAnalytics,
   weeklyReportInternal: IconReportAnalytics,
   penalties: IconCoin,
@@ -214,7 +212,6 @@ export function AppLayout() {
               {section(t('nav.admin'))}
               {item('admin-users', '/admin/users', t('nav.adminUsers'), IconUsers)}
               {item('admin-permissions', '/admin/permissions', t('nav.adminPermissions'), IconKey)}
-              {item('admin-docs', '/admin/repozytorium', t('nav.adminDocuments'), IconFolder)}
               {item('admin-settings', '/admin/settings', t('nav.adminSettings'), IconSettings)}
             </>
           )}

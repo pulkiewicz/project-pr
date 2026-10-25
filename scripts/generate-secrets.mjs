@@ -14,7 +14,6 @@ const secrets = {
   MFA_JWT_SECRET: randomBytes(48).toString('base64'),
   FIELD_ENCRYPTION_KEY: `k1:${randomBytes(32).toString('base64')}`,
   FIELD_HMAC_KEY: randomBytes(32).toString('base64'),
-  JOB_SECRET: randomBytes(32).toString('hex'),
 }
 console.log('# Skopiuj i uruchom (wartości pokazywane tylko raz). FIELD_ENCRYPTION_KEY przechowaj także w sejfie haseł —')
 console.log('# bez niego zaszyfrowanych pól (sekrety 2FA, dane awizacji) nie da się odczytać.\n')

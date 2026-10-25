@@ -106,6 +106,15 @@ describe('edycja zadań — polityka stron i pól', () => {
     expect(await s.json()).toMatchObject({ code: 'structure_edit_denied' })
   })
 
+  it('link do pliku: edytuje go strona z prawem do postępu, tylko http/https', async () => {
+    const t = byCode(await tasksOf(u.ars), '1.1')
+    expect((await patch(u.ars, t, { link: 'javascript:alert(1)' })).status).toBe(422)
+    const ok = await patch(u.ars, t, { link: 'https://drive.google.com/file/d/abc/view' })
+    expect(ok.status).toBe(200)
+    expect(await ok.json()).toMatchObject({ link: 'https://drive.google.com/file/d/abc/view' })
+    expect((await patch(u.client, byCode(await tasksOf(u.client), '1.1'), { link: 'https://x.pl' })).status).toBe(403)
+  })
+
   it('konflikt wersji → 409 z aktualnym stanem', async () => {
     const t = byCode(await tasksOf(u.admin), '1.2')
     expect((await patch(u.admin, t, { notes: 'a' })).status).toBe(200)

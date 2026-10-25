@@ -36,6 +36,7 @@ export interface HrfTaskDto {
   isCriticalPath: boolean
   totalFloatDays: number | null
   notes: string | null
+  link: string | null
   sortOrder: number
   version: number
   /** [W] — obecne tylko dla uprawnionych. */
@@ -59,6 +60,15 @@ export interface HrfTasksResponse {
   criticalPathComputed: boolean
 }
 
+/** Link do pliku (http/https) — zadania formalne i wewnętrzne. */
+const httpUrl = z
+  .string()
+  .trim()
+  .max(2000)
+  .regex(/^https?:\/\/\S+$/i, 'validation.httpUrl')
+
+export const isHttpUrl = (v: string) => /^https?:\/\/\S+$/i.test(v.trim())
+
 /** Pola postępu — edytowalne przez strony z uprawnieniem `hrf:edit` dla własnych zadań. */
 export const hrfProgressPatch = z.object({
   actualStart: isoDate.nullable().optional(),
@@ -67,6 +77,7 @@ export const hrfProgressPatch = z.object({
   percentComplete: z.number().min(0).max(100).optional(),
   status: z.enum(HRF_STATUSES).optional(),
   notes: z.string().max(5000).nullable().optional(),
+  link: httpUrl.nullable().optional(),
   responsibleUserId: z.uuid().nullable().optional(),
 })
 
@@ -215,12 +226,6 @@ export interface DashboardResponse {
 }
 
 // --- Zadania wewnętrzne (doprecyzowanie zadań formalnych HRF, moduł `hrfInternal`) ---
-
-const httpUrl = z
-  .string()
-  .trim()
-  .max(2000)
-  .regex(/^https?:\/\/\S+$/i, 'validation.httpUrl')
 
 const internalTaskFields = {
   name: z.string().trim().min(1).max(500),

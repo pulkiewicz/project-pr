@@ -11,7 +11,6 @@ import { hrfRouter } from './modules/hrf/routes.ts'
 import { purchasesRouter } from './modules/purchases/routes.ts'
 import { avizationsRouter } from './modules/avizations/routes.ts'
 import { peopleRouter } from './modules/avizations/people.ts'
-import { documentsRouter } from './modules/documents/routes.ts'
 import { weeklyRouter } from './modules/weekly/routes.ts'
 import { meRouter } from './modules/me/routes.ts'
 import { mfaRouter } from './modules/mfa/routes.ts'
@@ -50,7 +49,6 @@ export function createApp(deps: AppDeps) {
   app.route('/', purchasesRouter)
   app.route('/', peopleRouter)
   app.route('/', avizationsRouter)
-  app.route('/', documentsRouter)
 
   // Dokumentacja OpenAPI — tylko Admin.
   app.use('/openapi.json', requireMfa, requirePermission('admin', 'view'))

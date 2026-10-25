@@ -38,6 +38,7 @@ function internalRow(i: HrfInternalTaskDto): TreeTask {
     isCriticalPath: false,
     totalFloatDays: null,
     notes: i.notes,
+    link: i.link,
     sortOrder: 0,
     version: i.version,
     canEdit: false,
@@ -123,9 +124,9 @@ export function TaskTable({ tasks, internalTasks = [], showInternal, onOpen }: P
             >
               {row.original.name}
             </Text>
-            {row.original.internal?.link && (
+            {row.original.link && (
               <Tooltip label={t('hrf.internal.openLink')}>
-                <a href={row.original.internal.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label={t('hrf.internal.openLink')}>
+                <a href={row.original.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label={t('hrf.internal.openLink')}>
                   <IconExternalLink size={14} color="var(--mantine-color-blue-6)" />
                 </a>
               </Tooltip>

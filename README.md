@@ -45,7 +45,7 @@ Pełna instrukcja krok po kroku: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 1. Połącz repozytorium z projektem Netlify (plan z kredytami — wymagany przez Netlify Database).
 2. **Identity** → Enable → Registration: **Invite only**; External providers: wyłączone.
-3. **Environment variables** (scope: Functions, oznaczone jako secret): `MFA_JWT_SECRET`, `FIELD_ENCRYPTION_KEY`, `FIELD_HMAC_KEY`, `JOB_SECRET`, `BOOTSTRAP_ADMIN_EMAIL` — opis w [.env.example](.env.example).
+3. **Environment variables** (scope: Functions, oznaczone jako secret): `MFA_JWT_SECRET`, `FIELD_ENCRYPTION_KEY`, `FIELD_HMAC_KEY`, `BOOTSTRAP_ADMIN_EMAIL` — opis w [.env.example](.env.example).
 4. Zaproś siebie w Identity (Users → Invite) adresem z `BOOTSTRAP_ADMIN_EMAIL`. Pierwsze logowanie tworzy konto Admina (tylko gdy w bazie nie ma żadnego Admina), potem obowiązkowa konfiguracja 2FA. Kolejnych użytkowników zaprasza się już z aplikacji (Administracja → Użytkownicy).
 5. **Region funkcji**: Project configuration → Functions → Region → UE (np. Frankfurt) — wymaga planu Pro.
 6. **Deploy previews**: włącz ochronę hasłem (Access control).

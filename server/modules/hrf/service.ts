@@ -55,6 +55,7 @@ export function toTaskDto(t: TaskRow, opts: { internal: boolean; canEdit: boolea
     isCriticalPath: t.isCriticalPath,
     totalFloatDays: t.totalFloatDays,
     notes: t.notes,
+    link: t.link,
     sortOrder: t.sortOrder,
     version: t.version,
     canEdit: opts.canEdit,

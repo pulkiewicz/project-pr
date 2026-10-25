@@ -6,7 +6,7 @@ import { IconExternalLink } from '@tabler/icons-react'
 import { format } from 'date-fns'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { HrfInternalTaskDto, HrfTaskDto } from '#shared'
+import { isHttpUrl, type HrfInternalTaskDto, type HrfTaskDto } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { ApiError } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
@@ -34,7 +34,6 @@ interface Form {
 
 const toDate = (d: string | null) => (d ? new Date(`${d}T00:00:00`) : null)
 const fromDate = (d: Date | string | null) => (d ? format(typeof d === 'string' ? new Date(d) : d, 'yyyy-MM-dd') : null)
-const isHttpUrl = (v: string) => /^https?:\/\/\S+$/i.test(v.trim())
 
 function initialForm(target: InternalTaskTarget): Form {
   if ('task' in target) {
