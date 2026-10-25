@@ -42,6 +42,42 @@ npm run secrets:generate -- adres@firmy.pl        # wypisuje gotowe polecenia ne
 
 **Nie ustawiaj** `DEV_AUTH` w Netlify (logowanie deweloperskie; i tak działa wyłącznie pod lokalnym `netlify dev`).
 
+### Envcheck Hub — zmienne dla wycen z AI i Google Drive (etapy R4–R5)
+
+| Zmienna | Opis |
+|---|---|
+| `ANTHROPIC_API_KEY` | klucz API Claude (ekstrakcja checklisty z SIWZ, propozycje wyceny, treść oferty) |
+| `GOOGLE_SA_EMAIL` | e-mail konta serwisowego Google (`…@…iam.gserviceaccount.com`) |
+| `GOOGLE_SA_PRIVATE_KEY` | klucz prywatny konta serwisowego (pole `private_key` z pliku JSON, razem z `-----BEGIN PRIVATE KEY-----`) |
+
+ID dysku współdzielonego nie jest sekretem — wpisuje się je w aplikacji (Baza wiedzy → Ustawienia), tak jak w dawnym module „Dokumenty”. `JOB_SECRET` po wycofaniu modułu „Dokumenty” nie jest używany i można go usunąć.
+
+**Klucz Anthropic API**
+1. https://console.anthropic.com → zaloguj się kontem firmowym → **Settings → Workspaces**: utwórz workspace (np. `envcheck-hub`), żeby koszty były osobno.
+2. **Settings → Limits**: ustaw miesięczny limit wydatków dla workspace'u.
+3. **Settings → API Keys → Create Key** (workspace `envcheck-hub`, nazwa np. `netlify-prod`) → skopiuj klucz `sk-ant-…` (pokazywany tylko raz).
+4. `netlify env:set ANTHROPIC_API_KEY "sk-ant-…" --secret --scope functions` (albo w panelu: Project configuration → Environment variables → Add → Functions, „Contains secret values”).
+
+**Konto serwisowe Google (Drive i Docs)**
+1. https://console.cloud.google.com → nowy projekt (np. `envcheck-hub`) → **APIs & Services → Library**: włącz **Google Drive API** i **Google Docs API** (Docs — generowanie ofert w R5).
+2. **IAM & Admin → Service Accounts → Create service account** (np. `hub-drive`), bez ról w projekcie → **Keys → Add key → Create new key → JSON** → pobierz plik.
+3. Ustaw zmienne z pliku (ścieżkę podmień):
+   ```bash
+   KEY=~/Downloads/envcheck-hub-xxxx.json
+   netlify env:set GOOGLE_SA_EMAIL "$(node -p "require('$KEY').client_email")" --scope functions
+   netlify env:set GOOGLE_SA_PRIVATE_KEY "$(node -p "require('$KEY').private_key")" --secret --scope functions
+   ```
+   Potem usuń plik JSON z dysku (klucz jest już w Netlify).
+4. Jeśli w Google Workspace działa zasada „Disable service account key creation”, administrator Workspace musi ją wyłączyć dla tego projektu (Admin console / Organization policies).
+
+**Dysk współdzielony (Shared Drive)**
+1. Google Drive → **Dyski współdzielone → Nowy** (np. „Envcheck Hub — oferty”).
+2. **Zarządzaj członkami** → dodaj e-mail konta serwisowego z rolą **Menedżer treści**.
+3. ID dysku to końcówka adresu `https://drive.google.com/drive/folders/<ID>` po otwarciu dysku — wpisz je w aplikacji.
+4. Szablon oferty (np. dokument „OF022 ENVIBRA”) skopiuj na ten dysk albo udostępnij go kontu serwisowemu.
+
+Lokalnie te same zmienne wpisz do `.env` (`ANTHROPIC_API_KEY=…`, `GOOGLE_SA_EMAIL=…`, `GOOGLE_SA_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n…"` w cudzysłowie, z `\n`).
+
 ## 3. Netlify Identity
 
 Panel projektu → **Identity** → **Enable Identity**, następnie:
