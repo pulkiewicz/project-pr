@@ -1,6 +1,6 @@
-# Envcheck PMO — PIT-RADWAR
+# Envcheck Hub
 
-Aplikacja do zarządzania realizacją kontraktu PIT-RADWAR (umowa 4500010164). Specyfikacja: [docs/SPEC_Envcheck_PMO_PIT-RADWAR.md](docs/SPEC_Envcheck_PMO_PIT-RADWAR.md). Postęp etapów: [docs/CHANGELOG.md](docs/CHANGELOG.md).
+Narzędzie ERP/CRM Envcheck: projekty (moduły realizacji kontraktu PIT-RADWAR, umowa 4500010164: HRF, plan tygodniowy, zakupy, awizacje), a od etapów R1–R6 CRM i wyceny komór klimatycznych. Plan rozbudowy: [docs/PLAN_ERP_CRM_WYCENY.md](docs/PLAN_ERP_CRM_WYCENY.md). Specyfikacja modułów projektu: [docs/SPEC_Envcheck_PMO_PIT-RADWAR.md](docs/SPEC_Envcheck_PMO_PIT-RADWAR.md). Postęp etapów: [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 Stack: React 18 + Vite + Mantine 7 (frontend), Netlify Functions + Hono (API `/api/*`), Netlify Database (Postgres) + Drizzle, Netlify Identity + własne 2FA TOTP.
 
@@ -52,4 +52,4 @@ Pełna instrukcja krok po kroku: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Bezpieczeństwo — warstwy
 
-JWT Identity (Bearer) → aktywny rekord w `users` (źródło prawdy o roli) → cookie `pmo_mfa` (2FA, 8 h bezczynności / 12 h maks.) → macierz rola × moduł × akcja (tabela `permissions`) → (od E1) filtr `party` i pól [W] w DTO. Każdy endpoint deklaruje uprawnienie przez `secureRoute()`, a [server/route-matrix.test.ts](server/route-matrix.test.ts) testuje go automatycznie dla każdej roli.
+JWT Identity (Bearer) → aktywny rekord w `users` (źródło prawdy o roli) → cookie `pmo_mfa` (2FA, 8 h bezczynności / 12 h maks.) → macierz rola × moduł × akcja (tabela `permissions`; moduły sprzedaży nigdy dla ról zewnętrznych) → dostęp do projektu (pracownicy Envcheck — wszystkie, role zewnętrzne — `project_members`) → (od E1) filtr `party` i pól [W] w DTO. Każdy endpoint deklaruje uprawnienie przez `secureRoute()`, a [server/route-matrix.test.ts](server/route-matrix.test.ts) testuje go automatycznie dla każdej roli.

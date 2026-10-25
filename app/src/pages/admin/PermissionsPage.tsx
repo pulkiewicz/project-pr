@@ -3,11 +3,12 @@ import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ACTIONS, MODULE_KEYS, ROLES, type PermissionEntry } from '#shared'
+import { ACTIONS, MODULE_KEYS, ROLES, isStaffOnlyModule, isStaffRole, type ModuleKey, type PermissionEntry, type Role } from '#shared'
 import { api } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 
 const key = (e: Pick<PermissionEntry, 'role' | 'module' | 'action'>) => `${e.role}|${e.module}|${e.action}`
+const blocked = (role: Role, module: ModuleKey) => !isStaffRole(role) && isStaffOnlyModule(module)
 
 export function PermissionsPage() {
   const { t } = useTranslation()
@@ -94,6 +95,8 @@ export function PermissionsPage() {
                           size="xs"
                           aria-label={`${r} ${m} ${a}`}
                           checked={value(k)}
+                          // Moduły sprzedaży: blokada dla ról zewnętrznych egzekwowana też w API.
+                          disabled={blocked(r, m)}
                           onChange={(e) => {
                             const next = new Map(draft)
                             const v = e.currentTarget.checked

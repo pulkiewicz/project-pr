@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Envcheck PMO",
+    "name": "Envcheck Hub",
     "loading": "Ładowanie…",
     "internalSection": "Wewnętrzne Envcheck",
     "daysToDeadline_one": "{{count}} dzień do terminu",
@@ -107,7 +107,13 @@
     "presentation": "Tryb prezentacji",
     "hrfSettings": "Dzień „0”",
     "adminAvizations": "Awizacje",
-    "hrfInternal": "HRF — zadania wewnętrzne"
+    "hrfInternal": "HRF — zadania wewnętrzne",
+    "crm": "CRM",
+    "quotes": "Wyceny",
+    "quotesPricing": "Wyceny — marża i koszty",
+    "quoteKnowledge": "Baza wiedzy wycen",
+    "projects": "Projekty",
+    "sales": "Sprzedaż"
   },
   "roles": {
     "Admin": "Administrator",
@@ -192,7 +198,11 @@
     "credentialsHint": "Hasło jest pokazywane tylko teraz — nie jest nigdzie zapisywane. Przekaż je użytkownikowi bezpiecznym kanałem (np. osobno od adresu e-mail).",
     "loginUrl": "Adres aplikacji",
     "copyAll": "Kopiuj wszystko",
-    "done": "Gotowe"
+    "done": "Gotowe",
+    "projects": "Projekty",
+    "projectsHint": "Użytkownik zewnętrzny widzi wyłącznie wskazane projekty.",
+    "projectsAll": "Pracownik Envcheck — dostęp do wszystkich projektów.",
+    "projectsAllShort": "wszystkie"
   },
   "permissions": {
     "title": "Macierz uprawnień",
@@ -274,7 +284,7 @@
     "mfa_setup_not_started": "Rozpocznij konfigurację 2FA od nowa",
     "not_found": "Nie znaleziono rekordu (mógł zostać usunięty) — odśwież stronę",
     "permission_denied": "Brak uprawnień do tej operacji",
-    "project_not_found": "Nie znaleziono projektu",
+    "project_not_found": "Nie znaleziono projektu albo nie masz do niego dostępu",
     "user_already_linked": "Użytkownik już aktywował konto",
     "user_inactive": "Konto zostało dezaktywowane",
     "user_not_registered": "Konto nie jest zarejestrowane w aplikacji",
@@ -285,7 +295,9 @@
     "identity_mismatch": "Konto Netlify Identity o tym e-mailu jest powiązane z innym użytkownikiem aplikacji.",
     "target_user_inactive": "Użytkownik jest nieaktywny — najpierw go aktywuj.",
     "assignee_not_allowed": "Wybrana osoba nie ma dostępu do zadań wewnętrznych.",
-    "hrf_parent_not_found": "Zadanie formalne HRF nie istnieje lub zostało usunięte."
+    "hrf_parent_not_found": "Zadanie formalne HRF nie istnieje lub zostało usunięte.",
+    "staff_only_module": "Moduły sprzedaży są dostępne wyłącznie dla pracowników Envcheck",
+    "unknown_project": "Wskazano nieistniejący projekt"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -717,5 +729,15 @@
     "filterAll": "wszystkie",
     "personsShort": "{{count}} os.",
     "vehiclesShort": "{{count}} poj."
+  },
+  "home": {
+    "title": "Pulpit",
+    "noProjects": "Nie masz przypisanych projektów. Skontaktuj się z administratorem.",
+    "openProject": "Otwórz projekt",
+    "salesHint": {
+      "crm": "Szanse, firmy i kontakty — lista i kanban",
+      "quotes": "Wyceny komór klimatycznych krok po kroku",
+      "quoteKnowledge": "Profile wyceny, katalog komponentów, lista specyfikacyjna"
+    }
   }
 }

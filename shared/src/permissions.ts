@@ -6,9 +6,16 @@ export type Action = (typeof ACTIONS)[number]
 /**
  * Moduły aplikacji (klucze używane w macierzy uprawnień, menu i API).
  * `internal: true` oznacza moduł [W] — wyłącznie wewnętrzny dla Envcheck.
+ * `staffOnly: true` — moduł nie może być nadany rolom zewnętrznym (blokada w API i przy wczytywaniu uprawnień).
+ * `scope` — `project`: dane w kontekście projektu; `global`: moduł firmy (sprzedaż, baza wiedzy, administracja).
  */
 export const MODULES = {
   dashboard: { internal: false },
+  // Sprzedaż i wyceny (Envcheck Hub)
+  crm: { internal: true, staffOnly: true, scope: 'global' },
+  quotes: { internal: true, staffOnly: true, scope: 'global' },
+  quotesPricing: { internal: true, staffOnly: true, scope: 'global' },
+  quoteKnowledge: { internal: true, staffOnly: true, scope: 'global' },
   dashboardInternal: { internal: true },
   hrf: { internal: false },
   hrfInternal: { internal: true },
@@ -29,10 +36,14 @@ export const MODULES = {
   acceptanceDocs: { internal: false },
   auditLog: { internal: true },
   admin: { internal: true },
-} as const satisfies Record<string, { internal: boolean }>
+} as const satisfies Record<string, { internal: boolean; staffOnly?: boolean; scope?: 'global' | 'project' }>
 
 export type ModuleKey = keyof typeof MODULES
 export const MODULE_KEYS = Object.keys(MODULES) as ModuleKey[]
+
+export function isStaffOnlyModule(module: ModuleKey): boolean {
+  return (MODULES[module] as { staffOnly?: boolean }).staffOnly === true
+}
 
 /**
  * Poziomy z sekcji 4.3 specyfikacji:
@@ -63,6 +74,11 @@ const row = (Admin: Level, EnvcheckInternal: Level, Arsanit: Level, Client: Leve
 /** Domyślna macierz z sekcji 4.3 (seed). */
 export const DEFAULT_LEVELS: Record<ModuleKey, Row> = {
   dashboard: row('P', 'O', 'O', 'O', '-'),
+  // Marża, rezerwa i koszty wycen — domyślnie tylko Admin (decyzja B1 planu ERP/CRM).
+  crm: row('P', 'E', '-', '-', '-'),
+  quotes: row('P', 'E', '-', '-', '-'),
+  quotesPricing: row('P', '-', '-', '-', '-'),
+  quoteKnowledge: row('P', 'E', '-', '-', '-'),
   dashboardInternal: row('P', 'O', '-', '-', '-'),
   hrf: row('P', 'E', 'E', 'O', '-'),
   // Zadania wewnętrzne doprecyzowujące HRF — niewidoczne dla Zamawiającego i podwykonawców.

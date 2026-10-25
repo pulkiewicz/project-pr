@@ -1,7 +1,7 @@
 import { OpenAPIHono, createRoute, type RouteConfig } from '@hono/zod-openapi'
 import type { MiddlewareHandler } from 'hono'
 import type { Action, ModuleKey } from '#shared'
-import { requireMfa, requirePermission } from './auth/middleware.ts'
+import { requireMfa, requirePermission, requireProjectAccess } from './auth/middleware.ts'
 import type { AppEnv, RoutePolicy } from './context.ts'
 import { problemResponse } from './lib/problem.ts'
 
@@ -30,6 +30,7 @@ export function secureRoute<R extends RouteConfig>(basePath: string, route: R, s
   const mw: MiddlewareHandler<AppEnv>[] = []
   if (!secured.mfaExempt) mw.push(requireMfa)
   if (secured.permission) mw.push(requirePermission(secured.permission.module, secured.permission.action))
+  if (`${basePath}${route.path}`.includes('{projectId}')) mw.push(requireProjectAccess)
   const existing = route.middleware ? (Array.isArray(route.middleware) ? route.middleware : [route.middleware]) : []
   ROUTE_POLICIES.push({
     method: route.method.toUpperCase(),

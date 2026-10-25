@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { BASE_PARTIES, WEEKLY_STATUSES, daysToMask, maskToDays, weekDay, type WeeklyItemDto, type WeeklyItemInput, type WeeklyStatus } from '#shared'
 import { useAuth, useMe } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
+import { projectPath, useCurrentProject } from '../../lib/project'
 import { useHrfTasks } from '../hrf/api'
 import { usePeople, useSaveItem } from './api'
 
@@ -25,6 +26,7 @@ export function ItemModal({ opened, isoWeek, item, presetTask, onClose }: Props)
   const hrf = useHrfTasks()
   const save = useSaveItem()
   const navigate = useNavigate()
+  const project = useCurrentProject()
   const defaultParty = me.user.party === 'Envcheck' ? 'Envcheck' : me.user.party === 'Arsanit' ? 'Arsanit' : 'Konsorcjum'
   const [f, setF] = useState<WeeklyItemInput>({ isoWeek, title: '', party: 'Konsorcjum', plannedDays: 0, status: 'plan' })
 
@@ -93,7 +95,7 @@ export function ItemModal({ opened, isoWeek, item, presetTask, onClose }: Props)
                 const to = weekDay(item.isoWeek, days.at(-1) ?? 4)
                 const q = new URLSearchParams({ from, to, purpose: item.title, weeklyItem: item.id, ...(item.hrfTaskId ? { hrfTask: item.hrfTaskId } : {}) })
                 onClose()
-                navigate(`/awizacje?${q}`)
+                navigate(`${projectPath(project!.code, 'awizacje')}?${q}`)
               }}
             >
               {t('avizations.createFromWeekly')}

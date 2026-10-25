@@ -25,7 +25,7 @@ export interface AvizationPdfInput {
 export function AvizationDocument(p: AvizationPdfInput) {
   const total = p.template.columns.reduce((n, c) => n + c.width, 0)
   return (
-    <Document title={p.title} author="Envcheck PMO">
+    <Document title={p.title} author="Envcheck Hub">
       <Page size="A4" style={s.page}>
         <Text style={s.title}>{p.title}</Text>
         {p.meta.map((m) => (

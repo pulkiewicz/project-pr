@@ -4,7 +4,7 @@ import type { Action, ModuleKey } from '#shared'
 import type { AppEnv } from '../context.ts'
 import { HttpProblem, forbidden, unauthorized } from '../lib/problem.ts'
 import { writeAudit } from '../modules/audit/service.ts'
-import { loadPermissions, mfaRequiredRoles, resolveUser } from './access.ts'
+import { canAccessProject, loadPermissions, mfaRequiredRoles, resolveUser } from './access.ts'
 import { MFA_COOKIE, mfaCookieHeader, shouldRefresh, signMfaSession, verifyMfaSession } from './mfa-session.ts'
 
 const nowSec = (c: Parameters<MiddlewareHandler<AppEnv>>[0]) =>
@@ -67,6 +67,16 @@ export function requirePermission(module: ModuleKey, action: Action): Middleware
     if (!c.get('permissions').has(`${module}:${action}`)) throw forbidden('permission_denied', `${module}:${action}`)
     await next()
   }
+}
+
+/**
+ * Warstwa 4: dostęp do projektu z parametru `{projectId}` (po sprawdzeniu uprawnień, więc brak uprawnienia
+ * to nadal 403). Projekt nieistniejący lub nieprzypisany → 404, bez ujawniania, który to przypadek.
+ */
+export const requireProjectAccess: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const projectId = c.req.param('projectId')
+  if (!projectId || !(await canAccessProject(c.get('deps').db, c.get('user'), projectId))) throw new HttpProblem(404, 'project_not_found')
+  await next()
 }
 
 export function can(c: { get(k: 'permissions'): Set<string> }, module: ModuleKey, action: Action) {

@@ -1,8 +1,9 @@
 import { z } from '@hono/zod-openapi'
-import { eq, isNull, sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { changePasswordInput, type MeResponse, type Party, type PermissionSet } from '#shared'
 import { IdentityError } from '../../auth/identity.ts'
-import { projects, users } from '../../db/schema.ts'
+import { accessibleProjects } from '../../auth/access.ts'
+import { users } from '../../db/schema.ts'
 import { HttpProblem } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
 import { writeAudit } from '../audit/service.ts'
@@ -24,13 +25,14 @@ meRouter.openapi(meRoute, async (c) => {
   const mfa = c.get('mfa')
   const perms = [...c.get('permissions')] as unknown as PermissionSet
   const fullAccess = (!mfa.required || mfa.verified) && !user.mustChangePassword
-  const projectRows = fullAccess ? await c.get('deps').db.select().from(projects).where(isNull(projects.deletedAt)) : []
+  const projectRows = fullAccess ? await accessibleProjects(c.get('deps').db, user) : []
   const body: MeResponse = {
     user: { id: user.id, email: user.email, name: user.name, role: user.role, party: user.party as Party, mustChangePassword: user.mustChangePassword },
     mfa: { required: mfa.required, enrolled: user.totpEnabled, verified: mfa.verified },
     permissions: perms,
     projects: projectRows.map((p) => ({
       id: p.id,
+      code: p.code,
       name: p.name,
       client: p.client,
       contractNo: p.contractNo,

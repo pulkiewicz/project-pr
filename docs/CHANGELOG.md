@@ -1,5 +1,17 @@
 # Changelog
 
+## R0 — Envcheck Hub: platforma wieloprojektowa (25.10.2026)
+
+- **Nowa nazwa: Envcheck Hub** (tytuł strony, nagłówek, eksporty XLSX/PDF, OpenAPI). Wydawca kodów 2FA w aplikacjach uwierzytelniających zostaje „Envcheck PMO”, żeby nie mylić istniejących wpisów.
+- **Projekty w adresach:** moduły projektu działają pod `/projekty/{kod}/…` (np. `/projekty/PIT-RADWAR/hrf`). Dawne adresy (`/hrf`, `/zakupy`, `/awizacje`, `/plan-tygodniowy` i zapowiedziane moduły) przekierowują do pierwszego dostępnego projektu, z zachowaniem parametrów. Projekt z seeda ma kod `PIT-RADWAR`.
+- **Menu:** Pulpit, sekcja „Projekty” (moduły rozwijają się pod bieżącym projektem, wewnętrzne [W] osobno), sekcja „Sprzedaż” (CRM — R1, Wyceny i Baza wiedzy wycen — R2, na razie zapowiedzi), Administracja. Nagłówek pokazuje kod i nazwę bieżącego projektu, a licznik dni do terminu tylko w projekcie.
+- **Pulpit:** karty projektów (kod, klient, termin umowny, dni do terminu) i, dla pracowników Envcheck, karty modułów sprzedaży. Użytkownik bez dostępu do sprzedaży i z jednym projektem trafia od razu do projektu (dashboard albo pierwszy dostępny moduł, np. dla podwykonawcy).
+- **Dostęp do projektów:** pracownicy Envcheck (Admin, Envcheck wewnętrzny) widzą wszystkie projekty, role zewnętrzne tylko przypisane (tabela `project_members`). Każda trasa `/projects/{projectId}/…` sprawdza przypisanie po sprawdzeniu uprawnień: brak uprawnienia to nadal 403, a projekt nieprzypisany lub nieistniejący daje 404 `project_not_found`. `/me` zwraca tylko dostępne projekty, z kodem.
+- **Użytkownicy:** pole „Projekty” w formularzu dla ról zewnętrznych i kolumna „Projekty” na liście. Zmiana roli na pracownika Envcheck czyści przypisania. Zmiany przypisań trafiają do audit logu (`projectsAdded`, `projectsRemoved`). API: `projectIds` w `POST/PATCH /admin/users` i w odpowiedziach.
+- **Nowe moduły uprawnień** `crm`, `quotes`, `quotesPricing` (marża, rezerwa, koszty), `quoteKnowledge`. Domyślnie Admin ma pełny dostęp, Envcheck wewnętrzny edycję (bez `quotesPricing`), role zewnętrzne brak. Tych modułów nie da się nadać rolom zewnętrznym: blokada w macierzy (pola wyłączone), w API (422 `staff_only_module`) i przy wczytywaniu uprawnień.
+- Migracja `20261025160714_hub_projects`: kolumna `projects.code` (unikalna bez względu na wielkość liter), tabela `project_members`, przypisanie istniejących użytkowników zewnętrznych do istniejących projektów, wpisy macierzy dla nowych modułów.
+- **Testy:** 640 (Vitest), w tym 9 nowych dla dostępu do projektów, blokady modułów sprzedaży i przypisań w API użytkowników.
+
 ## Link do pliku w zadaniach; wycofanie modułu „Dokumenty” (25.10.2026)
 
 - **Link do pliku w zadaniach formalnych HRF** (nowe pole `link`, tylko http/https): edytuje go każdy, kto może edytować postęp danego zadania (jak notatki); w szczegółach zadania pole z przyciskiem otwarcia, na liście HRF ikona linku przy nazwie. Re-import HRF nie nadpisuje linku. Zadania wewnętrzne miały już link — etykieta ujednolicona na „Link do pliku”, walidacja wspólna (`isHttpUrl` w `#shared`).

@@ -1,14 +1,16 @@
 import { Center, Loader } from '@mantine/core'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import type { Action, ModuleKey } from '#shared'
 import { Suspense, lazy, type ReactNode } from 'react'
-import { useAuth } from './auth/AuthProvider'
+import { useAuth, useMe } from './auth/AuthProvider'
 import { LoginPage } from './auth/LoginPage'
 import { MfaSetupPage, MfaVerifyPage } from './auth/MfaPages'
 import { ChangePasswordPage, SetPasswordPage } from './auth/SetPasswordPage'
 import { AppLayout } from './layout/AppLayout'
-import { NAV } from './nav'
+import { PROJECTS_BASE, projectPath, useCurrentProject } from './lib/project'
+import { LEGACY_PROJECT_PATHS, PROJECT_NAV, SALES_NAV } from './nav'
 import { DashboardPage } from './pages/DashboardPage'
+import { HomePage } from './pages/HomePage'
 import { ForbiddenPage, ModulePlaceholder, NotFoundPage } from './pages/ModulePlaceholder'
 import { AuditPage } from './pages/admin/AuditPage'
 import { PermissionsPage } from './pages/admin/PermissionsPage'
@@ -25,6 +27,19 @@ const PurchasesPage = lazy(() => import('./features/purchases/PurchasesPage').th
 function Guard({ module, action = 'view', children }: { module: ModuleKey; action?: Action; children: ReactNode }) {
   const { can } = useAuth()
   return can(module, action) ? <>{children}</> : <ForbiddenPage />
+}
+
+/** Moduły projektu renderują się tylko dla projektu dostępnego użytkownikowi (kod z adresu). */
+function ProjectLayout() {
+  const project = useCurrentProject()
+  return project ? <Outlet key={project.id} /> : <NotFoundPage />
+}
+
+/** Dawne adresy (`/hrf`, `/zakupy`, …) → ten sam moduł w pierwszym dostępnym projekcie, z zachowaniem parametrów. */
+function LegacyProjectRedirect({ path }: { path: string }) {
+  const project = useMe().projects[0]
+  const { search, hash } = useLocation()
+  return project ? <Navigate to={`${projectPath(project.code, path)}${search}${hash}`} replace /> : <NotFoundPage />
 }
 
 export function App() {
@@ -58,28 +73,23 @@ export function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route
-          index
-          element={
-            <Guard module="dashboard">
-              <DashboardPage />
-            </Guard>
-          }
-        />
-        <Route path="/hrf" element={<Guard module="hrf"><Suspense fallback={<Loader />}><HrfPage /></Suspense></Guard>} />
-        <Route path="/plan-tygodniowy" element={<Guard module="weeklyPlan"><Suspense fallback={<Loader />}><WeeklyPlanPage /></Suspense></Guard>} />
-        <Route path="/awizacje" element={<Guard module="avizations"><Suspense fallback={<Loader />}><AvizationsPage /></Suspense></Guard>} />
-        <Route path="/zakupy" element={<Guard module="purchases"><Suspense fallback={<Loader />}><PurchasesPage /></Suspense></Guard>} />
-        {NAV.filter((n) => !n.ready).map((n) => (
-          <Route
-            key={n.module}
-            path={n.path}
-            element={
-              <Guard module={n.module}>
-                <ModulePlaceholder item={n} />
-              </Guard>
-            }
-          />
+        <Route index element={<HomePage />} />
+        <Route path={`${PROJECTS_BASE}/:code`} element={<ProjectLayout />}>
+          <Route index element={<Guard module="dashboard"><DashboardPage /></Guard>} />
+          <Route path="hrf" element={<Guard module="hrf"><Suspense fallback={<Loader />}><HrfPage /></Suspense></Guard>} />
+          <Route path="plan-tygodniowy" element={<Guard module="weeklyPlan"><Suspense fallback={<Loader />}><WeeklyPlanPage /></Suspense></Guard>} />
+          <Route path="awizacje" element={<Guard module="avizations"><Suspense fallback={<Loader />}><AvizationsPage /></Suspense></Guard>} />
+          <Route path="zakupy" element={<Guard module="purchases"><Suspense fallback={<Loader />}><PurchasesPage /></Suspense></Guard>} />
+          {PROJECT_NAV.filter((n) => !n.ready).map((n) => (
+            <Route key={n.module} path={n.path} element={<Guard module={n.module}><ModulePlaceholder item={n} /></Guard>} />
+          ))}
+        </Route>
+        <Route path={PROJECTS_BASE} element={<Navigate to="/" replace />} />
+        {SALES_NAV.filter((n) => !n.ready).map((n) => (
+          <Route key={n.module} path={n.path} element={<Guard module={n.module}><ModulePlaceholder item={n} /></Guard>} />
+        ))}
+        {LEGACY_PROJECT_PATHS.map((path) => (
+          <Route key={path} path={`/${path}`} element={<LegacyProjectRedirect path={path} />} />
         ))}
         <Route path="/admin/users" element={<Guard module="admin"><UsersPage /></Guard>} />
         <Route path="/admin/permissions" element={<Guard module="admin"><PermissionsPage /></Guard>} />

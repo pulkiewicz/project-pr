@@ -38,6 +38,8 @@ export const inviteUserInput = z
     access: z.enum(USER_ACCESS_MODES).default('password'),
     /** Puste = hasło generowane przez serwer i zwracane jednorazowo w odpowiedzi. */
     initialPassword: passwordSchema.optional(),
+    /** Projekty dla ról zewnętrznych (dla pracowników Envcheck ignorowane). */
+    projectIds: z.array(z.uuid()).max(100).default([]),
   })
   .refine((v) => v.role !== 'Subcontractor' || !!v.subcontractorId, {
     message: 'validation.subcontractorRequired',
@@ -54,6 +56,7 @@ export const updateUserInput = z.object({
   role: roleSchema.optional(),
   subcontractorId: z.uuid().nullish(),
   isActive: z.boolean().optional(),
+  projectIds: z.array(z.uuid()).max(100).optional(),
   version: z.number().int(),
 })
 export type UpdateUserInput = z.infer<typeof updateUserInput>

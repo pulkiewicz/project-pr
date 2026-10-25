@@ -3,13 +3,14 @@ import { NetlifyDB } from '@netlify/database-dev'
 import { drizzle } from 'drizzle-orm/netlify-db'
 import { eq } from 'drizzle-orm'
 import { generate } from 'otplib'
-import { defaultPartyForRole, type Role } from '#shared'
+import { defaultPartyForRole, isStaffRole, type Role } from '#shared'
 import { createApp } from '../app.ts'
 import { signMfaSession, MFA_COOKIE } from '../auth/mfa-session.ts'
 import { IdentityError, type IdentityAdmin, type IdentityVerifier } from '../auth/identity.ts'
 import type { AppDeps } from '../context.ts'
 import type { Database } from '../db/client.ts'
 import * as schema from '../db/schema.ts'
+import { SEED_PROJECT_ID } from '../db/seed-sql.ts'
 import { encryptField, parseKeyring } from '../lib/field-crypto.ts'
 import { newTotpSecret } from '../auth/totp.ts'
 
@@ -111,7 +112,11 @@ export interface TestUser {
 
 let seq = 0
 
-export async function createUser(h: Harness, role: Role, opts: { subcontractorId?: string; active?: boolean } = {}): Promise<TestUser> {
+/**
+ * Użytkownik testowy. Role zewnętrzne są domyślnie przypisane do projektu z seeda (jak po migracji hub_projects);
+ * `projects: []` — bez przypisań.
+ */
+export async function createUser(h: Harness, role: Role, opts: { subcontractorId?: string; active?: boolean; projects?: string[] } = {}): Promise<TestUser> {
   seq += 1
   const sub = `sub-${role}-${seq}`
   const email = `${role.toLowerCase()}${seq}@example.test`
@@ -131,6 +136,10 @@ export async function createUser(h: Harness, role: Role, opts: { subcontractorId
       totpSecretEnc: encryptField(h.deps.config.keyring, totpSecret),
     })
     .returning()
+  if (!isStaffRole(role)) {
+    const projectIds = opts.projects ?? [SEED_PROJECT_ID]
+    if (projectIds.length) await h.db.insert(schema.projectMembers).values(projectIds.map((projectId) => ({ projectId, userId: row!.id })))
+  }
   const token = `test:${sub}:${email}`
   const nowSec = Math.floor(h.clock.now.getTime() / 1000)
   const { token: mfa } = await signMfaSession(h.deps.config.mfaSecret, sub, nowSec, nowSec)

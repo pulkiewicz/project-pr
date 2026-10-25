@@ -14,7 +14,7 @@ function level(code: string) {
 /** Eksport listy HRF do XLSX — pola [W] tylko gdy obecne w DTO (już przefiltrowane politykami). */
 export async function hrfToXlsx(tasks: HrfTaskDto[], meta: { projectName: string; dayZero: string | null }): Promise<ArrayBuffer> {
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'Envcheck PMO'
+  wb.creator = 'Envcheck Hub'
   const ws = wb.addWorksheet('HRF', { views: [{ state: 'frozen', ySplit: 3 }] })
   const internal = tasks.some((t) => 'contractValue' in t)
   ws.getCell('A1').value = meta.projectName

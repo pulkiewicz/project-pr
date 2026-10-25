@@ -1,6 +1,6 @@
 import { z } from '@hono/zod-openapi'
 import { and, eq, sql } from 'drizzle-orm'
-import { ROLES, mfaPolicyInput, permissionsUpdateInput, type Role } from '#shared'
+import { ROLES, isStaffOnlyModule, isStaffRole, mfaPolicyInput, permissionsUpdateInput, type ModuleKey, type Role } from '#shared'
 import { appSettings, permissions } from '../../db/schema.ts'
 import { HttpProblem } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
@@ -35,6 +35,9 @@ adminPermissionsRouter.openapi(
     for (const e of entries) {
       if (e.role === 'Admin' && !e.allowed && ADMIN_LOCKED.has(`${e.module}:${e.action}`)) {
         throw new HttpProblem(422, 'cannot_revoke_admin_core', `${e.module}:${e.action}`)
+      }
+      if (e.allowed && !isStaffRole(e.role) && isStaffOnlyModule(e.module as ModuleKey)) {
+        throw new HttpProblem(422, 'staff_only_module', `${e.role}:${e.module}`)
       }
     }
     const deps = c.get('deps')

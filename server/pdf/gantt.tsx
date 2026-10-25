@@ -72,7 +72,7 @@ export function GanttDocument(p: GanttPdfInput) {
   const bodyH = ROWS_PER_PAGE * ROW_H
 
   return (
-    <Document title={`HRF — ${p.projectName}`} author="Envcheck PMO">
+    <Document title={`HRF — ${p.projectName}`} author="Envcheck Hub">
       {pages.map((rows, pageIdx) => (
         <Page key={pageIdx} size="A3" orientation="landscape" style={s.page}>
           <View style={{ height: HEADER_H - 22 }}>
@@ -136,7 +136,7 @@ export function GanttDocument(p: GanttPdfInput) {
             </Svg>
           </View>
           <View style={s.footer} fixed>
-            <Text>Envcheck Sp. z o.o. · Envcheck PMO · wygenerował: {p.generatedBy}</Text>
+            <Text>Envcheck Sp. z o.o. · Envcheck Hub · wygenerował: {p.generatedBy}</Text>
             <Text>Legenda: ▬ Etap · pasek = postęp (czerwona ramka: ścieżka krytyczna) · ◆ odbiór · linia zielona: dziś · czerwona przerywana: termin umowny</Text>
             <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
           </View>

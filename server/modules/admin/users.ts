@@ -1,19 +1,22 @@
 import { z } from '@hono/zod-openapi'
-import { and, asc, eq, isNull, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import {
   defaultPartyForRole,
+  isStaffRole,
   inviteUserInput,
   tempPasswordInput,
   updateUserInput,
   type InviteStatus,
   type Party,
+  type Role,
   type TempPasswordResponse,
   type UserCreatedResponse,
   type UserDto,
 } from '#shared'
 import type { IdentityAdmin } from '../../auth/identity.ts'
 import type { UserRow } from '../../context.ts'
-import { users } from '../../db/schema.ts'
+import type { Database } from '../../db/client.ts'
+import { projectMembers, projects, users } from '../../db/schema.ts'
 import { generateTempPassword } from '../../lib/passwords.ts'
 import { HttpProblem, conflict, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
@@ -58,7 +61,7 @@ async function inviteOrFail(identityAdmin: { invite(email: string, name: string)
   return r
 }
 
-export function toUserDto(u: UserRow): UserDto {
+export function toUserDto(u: UserRow, projectIds: string[] = []): UserDto {
   return {
     id: u.id,
     email: u.email,
@@ -72,16 +75,49 @@ export function toUserDto(u: UserRow): UserDto {
     lastLoginAt: u.lastLoginAt,
     identityLinked: !!u.identitySub,
     mustChangePassword: u.mustChangePassword,
+    projectIds,
     version: u.version,
   }
+}
+
+async function memberProjects(db: Database, userIds: string[]) {
+  const map = new Map<string, string[]>()
+  if (!userIds.length) return map
+  const rows = await db.select().from(projectMembers).where(inArray(projectMembers.userId, userIds))
+  for (const r of rows) map.set(r.userId, [...(map.get(r.userId) ?? []), r.projectId])
+  return map
+}
+
+async function userDto(db: Database, u: UserRow) {
+  return toUserDto(u, (await memberProjects(db, [u.id])).get(u.id) ?? [])
+}
+
+/**
+ * Przypisania do projektów: role zewnętrzne — dokładnie wskazane projekty; pracownicy Envcheck widzą wszystkie,
+ * więc ich przypisania są czyszczone. Zwraca różnicę do audytu albo null, gdy nic się nie zmieniło.
+ */
+async function setMemberships(tx: Database, userId: string, role: Role, projectIds: string[], actorId: string) {
+  const wanted = isStaffRole(role) ? [] : [...new Set(projectIds)]
+  if (wanted.length) {
+    const found = await tx.select({ id: projects.id }).from(projects).where(and(inArray(projects.id, wanted), isNull(projects.deletedAt)))
+    if (found.length !== wanted.length) throw new HttpProblem(422, 'unknown_project')
+  }
+  const current = (await memberProjects(tx, [userId])).get(userId) ?? []
+  const added = wanted.filter((p) => !current.includes(p))
+  const removed = current.filter((p) => !wanted.includes(p))
+  if (removed.length) await tx.delete(projectMembers).where(and(eq(projectMembers.userId, userId), inArray(projectMembers.projectId, removed)))
+  if (added.length) await tx.insert(projectMembers).values(added.map((projectId) => ({ projectId, userId, createdBy: actorId })))
+  return added.length || removed.length ? { projectsAdded: added, projectsRemoved: removed } : null
 }
 
 
 adminUsersRouter.openapi(
   secureRoute('/admin', { method: 'get', path: '/users', responses: ok }, { permission: { module: 'admin', action: 'view' } }),
   async (c) => {
-    const rows = await c.get('deps').db.select().from(users).where(isNull(users.deletedAt)).orderBy(asc(users.name))
-    return c.json(rows.map(toUserDto), 200)
+    const db = c.get('deps').db
+    const rows = await db.select().from(users).where(isNull(users.deletedAt)).orderBy(asc(users.name))
+    const members = await memberProjects(db, rows.map((r) => r.id))
+    return c.json(rows.map((u) => toUserDto(u, members.get(u.id) ?? [])), 200)
   },
 )
 
@@ -114,7 +150,8 @@ adminUsersRouter.openapi(
           updatedBy: c.get('user').id,
         })
         .returning()
-      await writeAudit(c, { action: 'user.invite', entity: 'users', entityId: row!.id, changes: { email: input.email, role: input.role } }, tx)
+      const projectsChange = await setMemberships(tx, row!.id, input.role, input.projectIds, c.get('user').id)
+      await writeAudit(c, { action: 'user.invite', entity: 'users', entityId: row!.id, changes: { email: input.email, role: input.role, ...projectsChange } }, tx)
       return row!
     })
     // Rekord w aplikacji powstaje niezależnie od Identity — konto wiąże się po e-mailu przy pierwszym logowaniu.
@@ -136,7 +173,7 @@ adminUsersRouter.openapi(
       invite = { status: 'skipped', error: null }
     }
     await writeAudit(c, { action: 'user.invite_result', entity: 'users', entityId: created.id, changes: { access: input.access, ...invite } })
-    return c.json({ ...toUserDto(result), inviteStatus: invite.status, inviteError: invite.error, initialPassword } satisfies UserCreatedResponse, 201)
+    return c.json({ ...(await userDto(deps.db, result)), inviteStatus: invite.status, inviteError: invite.error, initialPassword } satisfies UserCreatedResponse, 201)
   },
 )
 
@@ -153,7 +190,7 @@ adminUsersRouter.openapi(
     const me = c.get('user')
     const [current] = await deps.db.select().from(users).where(and(eq(users.id, id), isNull(users.deletedAt)))
     if (!current) throw notFound()
-    if (current.version !== input.version) throw conflict(toUserDto(current))
+    if (current.version !== input.version) throw conflict(await userDto(deps.db, current))
     if (id === me.id && ((input.role && input.role !== 'Admin') || input.isActive === false)) {
       throw new HttpProblem(422, 'cannot_demote_self')
     }
@@ -176,14 +213,17 @@ adminUsersRouter.openapi(
         .where(and(eq(users.id, id), eq(users.version, input.version)))
         .returning()
       if (!row) return null
-      await writeAudit(c, { action: 'user.update', entity: 'users', entityId: id, changes: diffFields(current, patch, []) }, tx)
+      // Zmiana roli na pracownika czyści przypisania; bez `projectIds` przypisania roli zewnętrznej zostają.
+      const currentProjects = (await memberProjects(tx, [id])).get(id) ?? []
+      const projectsChange = await setMemberships(tx, id, role, input.projectIds ?? currentProjects, me.id)
+      await writeAudit(c, { action: 'user.update', entity: 'users', entityId: id, changes: { ...diffFields(current, patch, []), ...projectsChange } }, tx)
       return row
     })
     if (!updated) {
       const [fresh] = await deps.db.select().from(users).where(eq(users.id, id))
-      throw conflict(fresh ? toUserDto(fresh) : null)
+      throw conflict(fresh ? await userDto(deps.db, fresh) : null)
     }
-    return c.json(toUserDto(updated), 200)
+    return c.json(await userDto(deps.db, updated), 200)
   },
 )
 
@@ -214,7 +254,7 @@ adminUsersRouter.openapi(
       return row
     })
     if (!updated) throw notFound()
-    return c.json(toUserDto(updated), 200)
+    return c.json(await userDto(deps.db, updated), 200)
   },
 )
 
@@ -268,6 +308,6 @@ adminUsersRouter.openapi(
       await writeAudit(c, { action: 'user.temp_password_set', entity: 'users', entityId: id }, tx)
       return row!
     })
-    return c.json({ user: toUserDto(updated), password } satisfies TempPasswordResponse, 200)
+    return c.json({ user: await userDto(deps.db, updated), password } satisfies TempPasswordResponse, 200)
   },
 )

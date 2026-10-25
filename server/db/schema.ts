@@ -36,6 +36,8 @@ export const roleEnum = pgEnum('role', ROLES)
 
 export const projects = pgTable('projects', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  /** Kod w adresach aplikacji (`/projekty/{code}`), unikalny bez względu na wielkość liter. */
+  code: text('code').notNull(),
   name: text('name').notNull(),
   client: text('client').notNull(),
   contractNo: text('contract_no').notNull(),
@@ -46,7 +48,7 @@ export const projects = pgTable('projects', {
   settings: jsonb('settings').$type<Record<string, unknown>>().notNull().default({}),
   version: integer('version').notNull().default(1),
   ...auditColumns,
-})
+}, (t) => [uniqueIndex('projects_code_uq').on(sql`lower(${t.code})`)])
 
 export const users = pgTable(
   'users',
@@ -72,6 +74,18 @@ export const users = pgTable(
     ...auditColumns,
   },
   (t) => [uniqueIndex('users_email_lower_idx').on(sql`lower(${t.email})`)],
+)
+
+/** Przypisanie użytkownika z rolą zewnętrzną do projektu (pracownicy Envcheck widzą wszystkie projekty). */
+export const projectMembers = pgTable(
+  'project_members',
+  {
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    userId: uuid('user_id').notNull().references(() => users.id),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    createdBy: uuid('created_by'),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.userId] }), index('project_members_user_idx').on(t.userId)],
 )
 
 export const permissions = pgTable(

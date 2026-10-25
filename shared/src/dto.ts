@@ -3,6 +3,8 @@ import type { Party, Role } from './roles.ts'
 
 export interface ProjectSummary {
   id: string
+  /** Kod w adresie: `/projekty/{code}/…`. */
+  code: string
   name: string
   client: string
   contractNo: string
@@ -54,6 +56,8 @@ export interface UserDto {
   lastLoginAt: string | null
   identityLinked: boolean
   mustChangePassword: boolean
+  /** Projekty przypisane (dotyczy ról zewnętrznych; pracownicy Envcheck widzą wszystkie). */
+  projectIds: string[]
   version: number
 }
 

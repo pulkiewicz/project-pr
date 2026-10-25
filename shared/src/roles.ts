@@ -1,6 +1,14 @@
 export const ROLES = ['Admin', 'EnvcheckInternal', 'Arsanit', 'Client', 'Subcontractor'] as const
 export type Role = (typeof ROLES)[number]
 
+/** Role pracowników Envcheck — dostęp do wszystkich projektów i modułów sprzedaży. */
+export const STAFF_ROLES = ['Admin', 'EnvcheckInternal'] as const satisfies readonly Role[]
+
+/** Pracownik Envcheck; pozostałe role (Arsanit, Zamawiający, podwykonawcy) widzą tylko przypisane projekty. */
+export function isStaffRole(role: Role): boolean {
+  return (STAFF_ROLES as readonly Role[]).includes(role)
+}
+
 /**
  * Strona projektu. Dla podwykonawcy: `Subcontractor:{id}`.
  * `Konsorcjum` — zadanie wspólne Envcheck i Arsanit (w HRF: „Envcheck / Arsanit”); edytują obie strony.

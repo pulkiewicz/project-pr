@@ -28,13 +28,19 @@ import {
   IconKey,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
+  IconHome,
+  IconFolder,
+  IconAddressBook,
+  IconCalculator,
+  IconBooks,
 } from '@tabler/icons-react'
 import type { ModuleKey } from '#shared'
 import { NavLink as RouterLink, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { daysUntil, formatDate } from '../lib/format'
-import { NAV, isInternal } from '../nav'
+import { projectPath, useCurrentProject } from '../lib/project'
+import { PROJECT_NAV, SALES_NAV, isInternal, projectHomePath } from '../nav'
 import { BuildInfo } from './BuildInfo'
 
 const ICONS: Partial<Record<ModuleKey, typeof IconGauge>> = {
@@ -56,11 +62,14 @@ const ICONS: Partial<Record<ModuleKey, typeof IconGauge>> = {
   arsanitFlows: IconTransfer,
   guarantees: IconShieldCheck,
   auditLog: IconHistory,
+  crm: IconAddressBook,
+  quotes: IconCalculator,
+  quoteKnowledge: IconBooks,
 }
 
 function Countdown() {
   const { t } = useTranslation()
-  const project = useMe().projects[0]
+  const project = useCurrentProject()
   if (!project) return null
   const days = daysUntil(project.contractEndDate)
   // Kolor neutralny — ocena zagrożenia (prognoza vs termin) jest na kaflu Dashboardu.
@@ -89,15 +98,19 @@ export function AppLayout() {
   const [collapsedPref, setCollapsed] = useLocalStorage({ key: 'pmo_nav_collapsed', defaultValue: false })
   const desktop = useMediaQuery('(min-width: 48em)')
   const collapsed = collapsedPref && !!desktop
-  const project = me.projects[0]
+  const project = useCurrentProject()
 
-  // W menu tylko moduły już wdrożone (kolejne etapy pojawią się wraz z implementacją).
-  const visible = NAV.filter((n) => n.ready && can(n.module, 'view'))
+  // Moduły projektu: tylko wdrożone (kolejne etapy pojawią się wraz z implementacją).
+  // Dashboard projektu = sama pozycja projektu w menu.
+  const visible = PROJECT_NAV.filter((n) => n.ready && n.path && can(n.module, 'view'))
   const shared = visible.filter((n) => !isInternal(n.module))
-  const internal = visible.filter((n) => isInternal(n.module) && n.module !== 'auditLog')
-  const isActive = (path: string) => (path === '/' ? location.pathname === '/' : location.pathname.startsWith(path))
+  const internal = visible.filter((n) => isInternal(n.module))
+  // Sprzedaż: także moduły zapowiedziane (z etapem), żeby było widać docelową strukturę.
+  const sales = SALES_NAV.filter((n) => can(n.module, 'view'))
+  const norm = (p: string) => p.replace(/\/+$/, '') || '/'
+  const isActive = (path: string, exact = false) => (path === '/' || exact ? norm(location.pathname) === norm(path) : location.pathname.startsWith(path))
 
-  const item = (key: string, to: string, label: string, Icon: typeof IconGauge, internalMark = false) => {
+  const item = (key: string, to: string, label: string, Icon: typeof IconGauge, internalMark = false, opts: { exact?: boolean; indent?: boolean; badge?: string } = {}) => {
     const nav = (
       <NavLink
         key={key}
@@ -106,10 +119,24 @@ export function AppLayout() {
         label={collapsed ? undefined : label}
         aria-label={label}
         leftSection={<Icon size={collapsed ? 20 : 18} stroke={1.6} />}
-        rightSection={!collapsed && internalMark ? <IconLock size={14} /> : undefined}
-        active={isActive(to)}
+        rightSection={
+          collapsed ? undefined : opts.badge ? (
+            <Badge size="xs" variant="light" color="gray">
+              {opts.badge}
+            </Badge>
+          ) : internalMark ? (
+            <IconLock size={14} />
+          ) : undefined
+        }
+        active={isActive(to, opts.exact)}
         onClick={close}
-        styles={collapsed ? { root: { justifyContent: 'center', paddingInline: 0 }, section: { marginInlineEnd: 0 }, body: { display: 'none' } } : undefined}
+        styles={
+          collapsed
+            ? { root: { justifyContent: 'center', paddingInline: 0 }, section: { marginInlineEnd: 0 }, body: { display: 'none' } }
+            : opts.indent
+              ? { root: { paddingInlineStart: 28 } }
+              : undefined
+        }
       />
     )
     return collapsed ? (
@@ -120,7 +147,8 @@ export function AppLayout() {
       nav
     )
   }
-  const link = (n: (typeof NAV)[number]) => item(n.module, n.path, t(`nav.${n.module}`), ICONS[n.module] ?? IconFileText, isInternal(n.module))
+  const projectLink = (code: string) => (n: (typeof PROJECT_NAV)[number]) =>
+    item(`${code}-${n.module}`, projectPath(code, n.path), t(`nav.${n.module}`), ICONS[n.module] ?? IconFileText, isInternal(n.module), { indent: true })
   const section = (label: React.ReactNode) => (collapsed ? <Divider my="xs" /> : <Divider my="xs" label={label} labelPosition="left" />)
 
   return (
@@ -141,7 +169,7 @@ export function AppLayout() {
             </Tooltip>
             <Image src="/brand/envcheck-mark.svg" w={34} h={34} alt="Envcheck" />
             <Text fw={600} truncate visibleFrom="md" maw={420}>
-              {project?.name ?? t('app.name')}
+              {project ? `${project.code} · ${project.name}` : t('app.name')}
             </Text>
           </Group>
           <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
@@ -200,11 +228,35 @@ export function AppLayout() {
 
       <AppShell.Navbar p={collapsed ? 6 : 'xs'}>
         <AppShell.Section grow component={ScrollArea}>
-          {shared.map(link)}
-          {internal.length > 0 && (
+          {item('home', '/', t('home.title'), IconHome)}
+          {me.projects.length > 0 && section(t('nav.projects'))}
+          {me.projects.map((p) => (
+            <Box key={p.id}>
+              {item(`project-${p.id}`, projectHomePath(p.code, can), p.code, IconFolder, false, { exact: true })}
+              {project?.id === p.id && (
+                <>
+                  {shared.map(projectLink(p.code))}
+                  {internal.length > 0 && (
+                    <>
+                      {!collapsed && (
+                        <Group gap={4} pl={28} mt={6} mb={2}>
+                          <IconLock size={12} />
+                          <Text size="xs" c="dimmed">
+                            {t('app.internalSection')}
+                          </Text>
+                        </Group>
+                      )}
+                      {internal.map(projectLink(p.code))}
+                    </>
+                  )}
+                </>
+              )}
+            </Box>
+          ))}
+          {sales.length > 0 && (
             <>
-              {section(<Group gap={4}><IconLock size={12} />{t('app.internalSection')}</Group>)}
-              {internal.map(link)}
+              {section(t('nav.sales'))}
+              {sales.map((n) => item(n.module, n.path, t(`nav.${n.module}`), ICONS[n.module] ?? IconFileText, false, { badge: n.ready ? undefined : n.stage }))}
             </>
           )}
           {can('admin', 'view') && (

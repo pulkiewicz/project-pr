@@ -16,11 +16,13 @@ import type {
   ImportPreviewResponse,
   ImportProfileDto,
 } from '#shared'
-import { useAuth, useMe } from '../../auth/AuthProvider'
+import { useAuth } from '../../auth/AuthProvider'
 import { api } from '../../lib/api'
+import { useCurrentProject } from '../../lib/project'
 
+/** Id projektu z adresu `/projekty/{code}/…` — strony modułów są renderowane tylko w kontekście projektu. */
 export function useProjectId(): string {
-  const project = useMe().projects[0]
+  const project = useCurrentProject()
   if (!project) throw new Error('No project')
   return project.id
 }

@@ -9,6 +9,7 @@ import {
   Menu,
   Modal,
   Radio,
+  MultiSelect,
   Select,
   Stack,
   Switch,
@@ -23,8 +24,8 @@ import { IconDots, IconUserPlus } from '@tabler/icons-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ROLES, USER_ACCESS_MODES, type Role, type TempPasswordResponse, type UserAccessMode, type UserCreatedResponse, type UserDto } from '#shared'
-import { useAuth } from '../../auth/AuthProvider'
+import { ROLES, USER_ACCESS_MODES, isStaffRole, type Role, type TempPasswordResponse, type UserAccessMode, type UserCreatedResponse, type UserDto } from '#shared'
+import { useAuth, useMe } from '../../auth/AuthProvider'
 import { ApiError, api } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 import { formatDateTime } from '../../lib/format'
@@ -39,6 +40,7 @@ interface FormState {
   isActive: boolean
   access: UserAccessMode
   initialPassword: string
+  projectIds: string[]
 }
 
 interface Credentials {
@@ -47,7 +49,7 @@ interface Credentials {
   password: string
 }
 
-const emptyForm: FormState = { email: '', name: '', role: 'EnvcheckInternal', subcontractorId: '', isActive: true, access: 'password', initialPassword: '' }
+const emptyForm: FormState = { email: '', name: '', role: 'EnvcheckInternal', subcontractorId: '', isActive: true, access: 'password', initialPassword: '', projectIds: [] }
 
 const ACCESS_LABEL = { password: 'users.accessPassword', invite: 'users.accessInvite', none: 'users.accessNone' } as const
 const ACCESS_HINT = { password: 'users.accessPasswordHint', invite: 'users.accessInviteHint', none: 'users.accessNoneHint' } as const
@@ -103,6 +105,8 @@ function CredentialsModal({ credentials, onClose }: { credentials: Credentials |
 export function UsersPage() {
   const { t } = useTranslation()
   const { can } = useAuth()
+  const me = useMe()
+  const projectCode = new Map(me.projects.map((p) => [p.id, p.code]))
   const qc = useQueryClient()
   const users = useQuery({ queryKey: ['admin', 'users'], queryFn: () => api<UserDto[]>('/admin/users') })
   const [form, setForm] = useState<FormState | null>(null)
@@ -113,7 +117,7 @@ export function UsersPage() {
       f.id
         ? api<UserDto>(`/admin/users/${f.id}`, {
             method: 'PATCH',
-            json: { name: f.name, role: f.role, subcontractorId: f.subcontractorId || null, isActive: f.isActive, version: f.version },
+            json: { name: f.name, role: f.role, subcontractorId: f.subcontractorId || null, isActive: f.isActive, projectIds: f.projectIds, version: f.version },
           })
         : api<UserCreatedResponse>('/admin/users', {
             method: 'POST',
@@ -124,6 +128,7 @@ export function UsersPage() {
               subcontractorId: f.subcontractorId || null,
               access: f.access,
               initialPassword: f.access === 'password' && f.initialPassword ? f.initialPassword : undefined,
+              projectIds: f.projectIds,
             },
           }),
     onSuccess: (r, f) => {
@@ -191,6 +196,7 @@ export function UsersPage() {
     isActive: u.isActive,
     access: 'none',
     initialPassword: '',
+    projectIds: u.projectIds,
   })
 
   const confirmReset = (u: UserDto) =>
@@ -220,6 +226,7 @@ export function UsersPage() {
               <Table.Th>{t('users.email')}</Table.Th>
               <Table.Th>{t('users.role')}</Table.Th>
               <Table.Th>{t('users.party')}</Table.Th>
+              <Table.Th>{t('users.projects')}</Table.Th>
               <Table.Th>{t('users.status')}</Table.Th>
               <Table.Th>{t('users.mfa')}</Table.Th>
               <Table.Th>{t('users.lastLogin')}</Table.Th>
@@ -233,6 +240,15 @@ export function UsersPage() {
                 <Table.Td>{u.email}</Table.Td>
                 <Table.Td>{t(`roles.${u.role}`)}</Table.Td>
                 <Table.Td>{u.party}</Table.Td>
+                <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                  {isStaffRole(u.role) ? (
+                    <Text size="sm" c="dimmed">
+                      {t('users.projectsAllShort')}
+                    </Text>
+                  ) : (
+                    u.projectIds.map((id) => projectCode.get(id) ?? '?').join(', ') || '—'
+                  )}
+                </Table.Td>
                 <Table.Td>
                   {!u.isActive ? (
                     <Badge color="gray">{t('users.inactive')}</Badge>
@@ -295,6 +311,21 @@ export function UsersPage() {
               />
               {form.role === 'Subcontractor' && (
                 <TextInput label={t('users.subcontractorId')} required value={form.subcontractorId} onChange={(e) => setForm({ ...form, subcontractorId: e.currentTarget.value })} />
+              )}
+              {isStaffRole(form.role) ? (
+                <Text size="sm" c="dimmed">
+                  {t('users.projectsAll')}
+                </Text>
+              ) : (
+                <MultiSelect
+                  label={t('users.projects')}
+                  description={t('users.projectsHint')}
+                  data={me.projects.map((p) => ({ value: p.id, label: `${p.code} · ${p.name}` }))}
+                  value={form.projectIds}
+                  onChange={(v) => setForm({ ...form, projectIds: v })}
+                  searchable
+                  data-testid="user-projects"
+                />
               )}
               {!form.id && (
                 <Radio.Group label={t('users.access')} value={form.access} onChange={(v) => setForm({ ...form, access: v as UserAccessMode })}>

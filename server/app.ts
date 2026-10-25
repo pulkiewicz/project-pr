@@ -52,7 +52,7 @@ export function createApp(deps: AppDeps) {
 
   // Dokumentacja OpenAPI — tylko Admin.
   app.use('/openapi.json', requireMfa, requirePermission('admin', 'view'))
-  app.doc31('/openapi.json', { openapi: '3.1.0', info: { title: 'Envcheck PMO API', version: '0.1.0' } })
+  app.doc31('/openapi.json', { openapi: '3.1.0', info: { title: 'Envcheck Hub API', version: '0.1.0' } })
   app.get('/docs', requireMfa, requirePermission('admin', 'view'), (c) =>
     c.html(`<!doctype html><meta charset="utf-8"><title>API</title><p>Specyfikacja OpenAPI: <a href="/api/openapi.json">/api/openapi.json</a></p>`),
   )
