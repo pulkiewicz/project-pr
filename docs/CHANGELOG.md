@@ -65,6 +65,11 @@
 - Tabele `drive_*`, `folder_acl`, `record_links`, `pending_uploads`, `drive_sync_state`, `job_runs` zostają w bazie bez zmian (nieużywane).
 - Migracje `20261025105142_hrf_task_link` (kolumna `hrf_tasks.link`) i `20261025105516_remove_documents_module` (usunięcie wpisów macierzy uprawnień modułu).
 
+## Poprawka — częściowy PATCH nie nadpisuje pól wartościami domyślnymi (25.10.2026)
+
+- W Zod 4 `.partial()` zachowuje `.default()`, więc PATCH wysyłający tylko część pól dostawał wstrzyknięte wartości domyślne i nadpisywał zapisane dane: plan zakupów (`status` → „do zapytania”, `isCritical`, `requiresAvization` → nie), pojazdy (`vehicleType` → „osobowy”), plan tygodniowy (`status` → „plan”, `plannedDays` → 0). Formularze w aplikacji wysyłały pełne obiekty, więc błąd ujawniał się tylko przy częściowych wywołaniach API.
+- Schematy `purchaseItemPatch`, `vehiclePatch`, `weeklyItemPatch` budowane są teraz z bazy bez wartości domyślnych; schematy tworzenia nadal je uzupełniają. Testy: parsowanie `{ version }` oraz częściowy PATCH przez API dla każdego modułu.
+
 ## Zakupy — import planu z pliku „Radwar zakupy” (25.10.2026)
 
 - Jednorazowa migracja danych `20261025103859_purchases_radwar_import`: 22 pozycje planu zakupów (strona Envcheck, status „do zapytania”), powiązane z zadaniami HRF po kodzie. Decyzje Admina: 7.8 → 6.17 (monitoring), 7.12 → 6.21 (holownik), 4.6* (desuperheatery) → 4.6.

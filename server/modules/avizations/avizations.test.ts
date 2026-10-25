@@ -67,6 +67,13 @@ describe('M5 słowniki — szyfrowanie i maskowanie', () => {
     expect(r.map((v) => v.id)).toEqual([car.id])
   })
 
+  it('częściowy PATCH pojazdu nie nadpisuje typu domyślnym', async () => {
+    const van = (await post<VehicleDto>(u.env, '/vehicles', { registrationNumber: 'WW 222BB', vehicleType: 'van', company: 'Envcheck' })).body
+    const r = await req(h, 'PATCH', `${P}/vehicles/${van.id}`, u.env.headers, { version: van.version, makeModel: 'Ford Transit' })
+    expect(r.status).toBe(200)
+    expect(await r.json()).toMatchObject({ makeModel: 'Ford Transit', vehicleType: 'van' })
+  })
+
   it('Arsanit nie edytuje osób Envcheck; podwykonawca widzi tylko swoje wpisy', async () => {
     expect((await req(h, 'PATCH', `${P}/persons/${jan.id}`, u.ars.headers, { version: jan.version, phone: '1' })).status).toBe(403)
     const own = await post<PersonDto>(u.sub, '/persons', { firstName: 'Piotr', lastName: 'Podwykonawca', idDocType: 'id_card', idDocNumber: 'XYZ 654321', company: 'Firma Sp. z o.o.' })

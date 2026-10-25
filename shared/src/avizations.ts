@@ -25,15 +25,17 @@ export const personInput = z.object({
 export type PersonInput = z.infer<typeof personInput>
 export const personPatch = personInput.partial().extend({ version: z.number().int() })
 
-export const vehicleInput = z.object({
+/** Baza bez domyślnych — `.partial()` w Zod 4 zachowuje `.default()`, a PATCH nie może ich wstrzykiwać. */
+const vehicleBase = z.object({
   registrationNumber: z.string().trim().min(2).max(20),
   makeModel: opt(100),
-  vehicleType: z.enum(VEHICLE_TYPES).default('car'),
+  vehicleType: z.enum(VEHICLE_TYPES),
   company: z.string().trim().min(1).max(200),
   defaultDriverId: z.uuid().nullable().optional(),
 })
+export const vehicleInput = vehicleBase.extend({ vehicleType: vehicleBase.shape.vehicleType.default('car') })
 export type VehicleInput = z.infer<typeof vehicleInput>
-export const vehiclePatch = vehicleInput.partial().extend({ version: z.number().int() })
+export const vehiclePatch = vehicleBase.partial().extend({ version: z.number().int() })
 
 const isoDate = z.iso.date()
 

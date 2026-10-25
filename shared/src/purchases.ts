@@ -23,8 +23,8 @@ const isoDate = z.iso.date()
 const optDate = isoDate.nullable().optional()
 const optText = (max: number) => z.string().trim().max(max).nullable().optional()
 
-/** Bez pól cenowych (zasada nadrzędna spec. §1). */
-export const purchaseItemInput = z.object({
+/** Bez pól cenowych (zasada nadrzędna spec. §1). Baza bez domyślnych — `.partial()` w Zod 4 zachowuje `.default()`. */
+const purchaseItemBase = z.object({
   name: z.string().trim().min(1).max(300),
   category: optText(100),
   manufacturer: optText(200),
@@ -44,14 +44,19 @@ export const purchaseItemInput = z.object({
   orderRef: optText(100),
   confirmedDeliveryDate: optDate,
   actualDeliveryDate: optDate,
-  status: z.enum(PURCHASE_STATUSES).default('to_inquire'),
-  isCritical: z.boolean().default(false),
+  status: z.enum(PURCHASE_STATUSES),
+  isCritical: z.boolean(),
   deliveryLocation: optText(200),
-  requiresAvization: z.boolean().default(false),
+  requiresAvization: z.boolean(),
   notes: optText(5000),
 })
+export const purchaseItemInput = purchaseItemBase.extend({
+  status: purchaseItemBase.shape.status.default('to_inquire'),
+  isCritical: purchaseItemBase.shape.isCritical.default(false),
+  requiresAvization: purchaseItemBase.shape.requiresAvization.default(false),
+})
 export type PurchaseItemInput = z.infer<typeof purchaseItemInput>
-export const purchaseItemPatch = purchaseItemInput.partial().extend({ version: z.number().int() })
+export const purchaseItemPatch = purchaseItemBase.partial().extend({ version: z.number().int() })
 
 export type PurchaseAlertCode = 'order_due_soon' | 'order_overdue' | 'delivery_after_need' | 'no_confirmation'
 
