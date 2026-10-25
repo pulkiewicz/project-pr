@@ -119,6 +119,12 @@ export const baselinePatchInput = z
   .object({ name: z.string().trim().min(1).max(200).optional(), isCurrent: z.boolean().optional() })
   .refine((v) => v.name !== undefined || v.isCurrent !== undefined, { message: 'empty_patch' })
 
+/** Daty zadania w zamrożonym planie bazowym (korekta — tylko Admin). Obie puste albo obie ustawione. */
+export const baselineTaskInput = z
+  .object({ start: isoDate.nullable(), end: isoDate.nullable() })
+  .refine((v) => (v.start === null) === (v.end === null), { message: 'baseline_dates_incomplete' })
+  .refine((v) => !v.start || !v.end || v.end >= v.start, { message: 'end_before_start' })
+
 export interface BaselineDto {
   id: string
   name: string

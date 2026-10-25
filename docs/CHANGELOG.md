@@ -1,5 +1,17 @@
 # Changelog
 
+## Zakupy — import planu z pliku „Radwar zakupy” (25.10.2026)
+
+- Jednorazowa migracja danych `20261025103859_purchases_radwar_import`: 22 pozycje planu zakupów (strona Envcheck, status „do zapytania”), powiązane z zadaniami HRF po kodzie. Decyzje Admina: 7.8 → 6.17 (monitoring), 7.12 → 6.21 (holownik), 4.6* (desuperheatery) → 4.6.
+- Przeniesione: nazwa, ilość i jednostka (gdy podane), dostawca (gdy znany), lead time (tygodnie), transza Zamawiającego 40%, uwagi/ryzyka. Tygodnie zamówienia i dostawy z pliku są w uwagach; daty potrzeby i „zamów do” aplikacja wylicza z HRF. Pola cenowe pominięte (zasada spec. §1; w pliku i tak 0 zł).
+- Działa tylko, gdy projekt ma zaimportowany HRF; pozycji o tej samej nazwie nie dubluje. Jeden zbiorczy wpis `purchases.import` w audit logu.
+
+## HRF — korekta dat w planie bazowym (25.10.2026)
+
+- **Tylko Admin** (rola, niezależnie od macierzy uprawnień): w widoku planu bazowego („Wariant planu”) kliknięcie zadania na liście lub Gantcie otwiera okno korekty dat tego zadania w planie. Okno pokazuje daty z bieżącego harmonogramu do porównania i ma przejście do szczegółów zadania. Pozostali użytkownicy widzą jak dotąd szczegóły zadania.
+- Korekta zmienia tylko zamrożony plan: bieżący harmonogram, ścieżka krytyczna i postęp się nie zmieniają. Obie daty muszą być ustawione albo obie puste, koniec nie może być przed startem. Zadanie dodane po zamrożeniu dostaje w planie wiersz przy pierwszej korekcie.
+- API: `PUT /projects/{id}/hrf/baselines/{baselineId}/tasks/{taskId}` (`start`, `end`); wpis w audit logu `hrf.baseline_task_update` z kodem zadania i starymi/nowymi datami.
+
 ## HRF — warianty planu i obowiązujący plan bazowy (25.10.2026)
 
 - **Wariant planu** (lista nad filtrami): bieżący harmonogram albo dowolny zamrożony plan bazowy. Po wybraniu planu lista i Gantt pokazują jego daty planowane, a status, postęp i daty rzeczywiste pozostają bieżące. Baner informuje, który plan jest wyświetlany, i ma przycisk powrotu. Zadania dodane po zamrożeniu nie mają dat.

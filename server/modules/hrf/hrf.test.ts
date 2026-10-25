@@ -233,6 +233,27 @@ describe('re-import i plan bazowy', () => {
     expect((await req(h, 'GET', `${P}/hrf/baselines/${second.id}`, u.admin.headers)).status).toBe(404)
     expect((await req(h, 'PATCH', `${P}/hrf/baselines/${second.id}`, u.admin.headers, { isCurrent: true })).status).toBe(404)
   })
+
+  it('korekta dat zadania w planie bazowym — tylko Admin, bez wpływu na harmonogram', async () => {
+    type Detail = { tasks: { taskId: string; start: string | null; end: string | null }[] }
+    const [b] = (await (await req(h, 'GET', `${P}/hrf/baselines`, u.admin.headers)).json()) as { id: string }[]
+    const task = byCode(await tasksOf(u.admin), '1.1')
+    const url = `${P}/hrf/baselines/${b!.id}/tasks/${task.id}`
+
+    const res = await req(h, 'PUT', url, u.admin.headers, { start: '2026-10-20', end: '2026-11-08' })
+    expect(res.status).toBe(200)
+    const detail = (await (await req(h, 'GET', `${P}/hrf/baselines/${b!.id}`, u.client.headers)).json()) as Detail
+    expect(detail.tasks.find((x) => x.taskId === task.id)).toMatchObject({ start: '2026-10-20', end: '2026-11-08' })
+    expect(byCode(await tasksOf(u.admin), '1.1').plannedStart).toBe(task.plannedStart)
+
+    expect((await req(h, 'PUT', url, u.env.headers, { start: '2026-10-20', end: '2026-11-08' })).status).toBe(403)
+    expect((await req(h, 'PUT', url, u.admin.headers, { start: '2026-11-08', end: '2026-10-20' })).status).toBe(422)
+    expect((await req(h, 'PUT', url, u.admin.headers, { start: '2026-11-08', end: null })).status).toBe(422)
+    expect((await req(h, 'PUT', url, u.admin.headers, { start: null, end: null })).status).toBe(200)
+
+    const audit = await h.db.select().from(schema.auditLog).where(eq(schema.auditLog.action, 'hrf.baseline_task_update'))
+    expect(audit).toHaveLength(2)
+  })
 })
 
 describe('eksport PDF i dashboard', () => {

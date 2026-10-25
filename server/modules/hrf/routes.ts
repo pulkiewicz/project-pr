@@ -6,6 +6,7 @@ import {
   HRF_STRUCTURE_FIELDS,
   baselineCreateInput,
   baselinePatchInput,
+  baselineTaskInput,
   dayZeroInput,
   dependenciesInput,
   hrfTaskCreate,
@@ -52,6 +53,7 @@ const ok = { 200: { description: 'OK', ...json(z.any()) } }
 const projectParam = z.object({ projectId: z.uuid() })
 const taskParam = projectParam.extend({ taskId: z.uuid() })
 const baselineParam = projectParam.extend({ baselineId: z.uuid() })
+const baselineTaskParam = baselineParam.extend({ taskId: z.uuid() })
 const multipart = { content: { 'multipart/form-data': { schema: z.any() } }, required: true as const }
 
 const route = <R extends RouteConfig>(r: R, permission: { module: ModuleKey; action: Action }) => secureRoute('', r, { permission })
@@ -551,6 +553,46 @@ hrfRouter.openapi(
       return r!
     })
     return c.json(baselineDto(row, await countBaselineTasks(deps.db, baselineId)), 200)
+  },
+)
+
+hrfRouter.openapi(
+  route(
+    { method: 'put', path: `${BASE}/baselines/{baselineId}/tasks/{taskId}`, request: { params: baselineTaskParam, body: body(baselineTaskInput) }, responses: ok },
+    { module: 'hrf', action: 'approve' },
+  ),
+  async (c) => {
+    const { projectId, baselineId, taskId } = c.req.valid('param')
+    const { start, end } = c.req.valid('json')
+    // Korekta zamrożonego planu to decyzja Admina — niezależnie od macierzy uprawnień.
+    if (c.get('user').role !== 'Admin') throw forbidden('admin_only')
+    const deps = c.get('deps')
+    await findBaseline(deps.db, projectId, baselineId)
+    const [task] = await deps.db
+      .select({ id: hrfTasks.id, code: hrfTasks.code })
+      .from(hrfTasks)
+      .where(and(eq(hrfTasks.id, taskId), eq(hrfTasks.projectId, projectId), isNull(hrfTasks.deletedAt)))
+    if (!task) throw notFound()
+    const [old] = await deps.db
+      .select({ start: hrfBaselineTasks.start, end: hrfBaselineTasks.end })
+      .from(hrfBaselineTasks)
+      .where(and(eq(hrfBaselineTasks.baselineId, baselineId), eq(hrfBaselineTasks.taskId, taskId)))
+    await deps.db.transaction(async (tx) => {
+      // Zadanie dodane po zamrożeniu nie ma wiersza w planie — korekta go tworzy.
+      await tx
+        .insert(hrfBaselineTasks)
+        .values({ baselineId, taskId, start, end })
+        .onConflictDoUpdate({ target: [hrfBaselineTasks.baselineId, hrfBaselineTasks.taskId], set: { start, end } })
+      await tx.update(hrfBaselines).set({ updatedAt: sql`now()`, updatedBy: c.get('user').id }).where(eq(hrfBaselines.id, baselineId))
+      await writeAudit(c, {
+        action: 'hrf.baseline_task_update',
+        entity: 'hrf_baselines',
+        entityId: baselineId,
+        projectId,
+        changes: { code: task.code, ...diffFields(old ?? { start: null, end: null }, { start, end }) },
+      }, tx)
+    })
+    return c.json({ taskId, start, end }, 200)
   },
 )
 

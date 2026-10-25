@@ -13,6 +13,7 @@ import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime } from '../../lib/format'
 import { exportPath, useBaseline, useBaselines, useCreateBaseline, useHrfTasks, useInternalTasks, useProjectId } from './api'
 import { BaselinesModal } from './BaselinesModal'
+import { BaselineTaskModal, type BaselineTaskTarget } from './BaselineTaskModal'
 import { DayZeroModal } from './DayZeroModal'
 import { GanttChart, type GanttView } from './GanttChart'
 import { ImportWizard } from './ImportWizard'
@@ -85,6 +86,8 @@ export function HrfPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [dayZeroOpen, setDayZeroOpen] = useState(false)
   const [baselinesOpen, setBaselinesOpen] = useState(false)
+  const [baselineTask, setBaselineTask] = useState<BaselineTaskTarget | null>(null)
+  const isAdmin = state.status === 'ready' && state.me.user.role === 'Admin'
 
   const baselineList = baselines.data
   const currentBaseline = baselineList?.find((b) => b.isCurrent)
@@ -119,8 +122,13 @@ export function HrfPage() {
   }, [internalQuery.data, filters.internal, myId])
   const openRow = (id: string) => {
     const internal = internalQuery.data?.find((i) => i.id === id)
-    if (internal) setInternalTarget({ task: internal })
-    else setOpenTask(id)
+    if (internal) return setInternalTarget({ task: internal })
+    const task = data?.tasks.find((x) => x.id === id)
+    // W widoku planu bazowego Admin koryguje daty tego planu; pozostali widzą szczegóły zadania.
+    if (variant && isAdmin && task) {
+      const b = variantMap?.get(id)
+      setBaselineTask({ baseline: variant, task, start: b?.start ?? null, end: b?.end ?? null })
+    } else setOpenTask(id)
   }
   const baselineMap = useMemo<DateMap | undefined>(() => {
     if (compareId === CURRENT) return data ? new Map(data.tasks.map((x) => [x.id, { start: x.plannedStart, end: x.plannedEnd }])) : undefined
@@ -216,6 +224,7 @@ export function HrfPage() {
           <Group justify="space-between" wrap="nowrap" gap="sm">
             <Text size="sm">
               {t('hrf.variantViewing', { name: variant.name, date: formatDateTime(variant.createdAt), dayZero: formatDate(variant.dayZeroDate) })}
+              {isAdmin && ` ${t('hrf.variantEditHint')}`}
             </Text>
             <Button size="xs" variant="white" onClick={() => setVariantId(CURRENT)}>
               {t('hrf.variantBack')}
@@ -311,6 +320,14 @@ export function HrfPage() {
       />
       <InternalTaskModal target={internalTarget} formalTasks={data?.tasks ?? []} onClose={() => setInternalTarget(null)} />
       {approve && <ImportWizard opened={importOpen} onClose={() => setImportOpen(false)} />}
+      <BaselineTaskModal
+        target={baselineTask}
+        onClose={() => setBaselineTask(null)}
+        onOpenDetails={(id) => {
+          setBaselineTask(null)
+          setOpenTask(id)
+        }}
+      />
       <BaselinesModal
         opened={baselinesOpen}
         onClose={() => setBaselinesOpen(false)}

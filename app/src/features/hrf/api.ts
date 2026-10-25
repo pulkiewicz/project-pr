@@ -107,6 +107,17 @@ export function useUpdateBaseline() {
   })
 }
 
+/** Korekta dat zadania w zamrożonym planie bazowym (tylko Admin). */
+export function useSetBaselineTask() {
+  const pid = useProjectId()
+  const invalidate = useInvalidateHrf()
+  return useMutation({
+    mutationFn: ({ baselineId, taskId, start, end }: { baselineId: string; taskId: string; start: string | null; end: string | null }) =>
+      api(`${base(pid)}/baselines/${baselineId}/tasks/${taskId}`, { method: 'PUT', json: { start, end } }),
+    onSettled: invalidate,
+  })
+}
+
 export function useDeleteBaseline() {
   const pid = useProjectId()
   const invalidate = useInvalidateHrf()
