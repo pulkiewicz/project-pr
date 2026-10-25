@@ -9,7 +9,8 @@ export const WEEKLY_OPEN_STATUSES: readonly WeeklyStatus[] = ['plan', 'in_progre
 
 export const isoWeekSchema = z.string().regex(ISO_WEEK_RE, 'validation.isoWeek')
 
-export const weeklyItemInput = z.object({
+/** Baza bez domyślnych — `.partial()` w Zod 4 zachowuje `.default()`, a PATCH nie może ich wstrzykiwać. */
+const weeklyItemBase = z.object({
   isoWeek: isoWeekSchema,
   hrfTaskId: z.uuid().nullable().optional(),
   title: z.string().trim().min(1).max(300),
@@ -17,12 +18,16 @@ export const weeklyItemInput = z.object({
   party: z.enum(BASE_PARTIES),
   assigneeUserId: z.uuid().nullable().optional(),
   assigneeSubcontractorId: z.uuid().nullable().optional(),
-  plannedDays: z.number().int().min(0).max(127).default(0),
-  status: z.enum(WEEKLY_STATUSES).default('plan'),
+  plannedDays: z.number().int().min(0).max(127),
+  status: z.enum(WEEKLY_STATUSES),
+})
+export const weeklyItemInput = weeklyItemBase.extend({
+  plannedDays: weeklyItemBase.shape.plannedDays.default(0),
+  status: weeklyItemBase.shape.status.default('plan'),
 })
 export type WeeklyItemInput = z.infer<typeof weeklyItemInput>
 
-export const weeklyItemPatch = weeklyItemInput.partial().extend({ version: z.number().int() })
+export const weeklyItemPatch = weeklyItemBase.partial().extend({ version: z.number().int() })
 
 export const weekCloseInput = z.object({
   /** Pozycje niewykonane do przeniesienia na następny tydzień; pozostałe otwarte zostają bez zmian. */

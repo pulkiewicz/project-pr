@@ -67,6 +67,13 @@ describe('M3 plan tygodniowy', () => {
     expect((await req(h, 'PATCH', `${P}/weekly-items/${own.id}`, u.ars.headers, { version: own.version, title: 'x' })).status).toBe(403)
   })
 
+  it('częściowy PATCH nie nadpisuje statusu ani dni domyślnymi', async () => {
+    const created = (await (await req(h, 'POST', `${P}/weekly-items`, u.env.headers, { isoWeek: '2026-W50', title: 'Częściowy', party: 'Envcheck', plannedDays: 0b101, status: 'in_progress' })).json()) as WeeklyItemDto
+    const r = await req(h, 'PATCH', `${P}/weekly-items/${created.id}`, u.env.headers, { version: created.version, title: 'Częściowy 2' })
+    expect(r.status).toBe(200)
+    expect(await r.json()).toMatchObject({ title: 'Częściowy 2', plannedDays: 0b101, status: 'in_progress' })
+  })
+
   it('zamknięcie tygodnia przenosi wybrane niewykonane pozycje na następny tydzień', async () => {
     const r = (await (await req(h, 'GET', `${P}/weekly/2026-W41`, u.admin.headers)).json()) as WeekViewResponse
     const montaz = r.items.find((i) => i.title === 'Montaż A')!
@@ -145,5 +152,12 @@ describe('M4 plan zakupów', () => {
     const res = await req(h, 'GET', `${P}/purchases/export.xlsx`, u.ars.headers)
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('spreadsheetml')
+  })
+
+  it('częściowy PATCH (tylko uwagi) nie nadpisuje statusu ani flag domyślnymi', async () => {
+    const item = (await (await add(u.ars, { name: 'Zawór', party: 'Arsanit', status: 'offer', isCritical: true, requiresAvization: true })).json()) as PurchasesResponse['items'][number]
+    const r = await req(h, 'PATCH', `${P}/purchases/${item.id}`, u.ars.headers, { version: item.version, notes: 'tylko uwagi' })
+    expect(r.status).toBe(200)
+    expect(await r.json()).toMatchObject({ notes: 'tylko uwagi', status: 'offer', isCritical: true, requiresAvization: true })
   })
 })
