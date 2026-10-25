@@ -145,6 +145,24 @@ describe('AI: propozycje pozycji (krok 5)', () => {
     expect(s[0]!.payload.justification).toContain('Blacha 316')
   })
 
+  it('domyślna stawka robocizny trafia do modelu i uzupełnia robociznę bez stawki', async () => {
+    const reserve = { low: 0.15, medium: 0.2, high: 0.3, perExtraYear: 0.5 }
+    expect((await req(h, 'PUT', '/api/quotes/settings', admin.headers, { reserve, laborRate: 135 })).status).toBe(200)
+    const sectionId = suggestions[0]!.sectionId
+    h.ai.overrides.set('propose_lines', () => ({
+      notes: '',
+      suggestions: [{ action: 'add', lineId: null, sectionId, name: 'Montaż', group: null, quantity: 1, unit: null, unitCost: null, laborHours: 10, laborRate: null, justification: '10 h', confidence: 'medium' }],
+    }))
+    await runJob({ kind: 'propose_lines' })
+    h.ai.overrides.clear()
+    const prompt = h.ai.calls.at(-1)!.content.at(-1)!
+    expect(prompt.type === 'text' && prompt.text).toContain('Stawka robocizny Envcheck: 135 PLN/h')
+    const s = (await (await req(h, 'GET', `/api/quotes/${quote.id}/ai/suggestions`, kamil.headers)).json()) as AiSuggestionDto[]
+    expect(s).toHaveLength(1)
+    expect(s[0]).toMatchObject({ payload: { laborHours: 10, laborRate: 135 }, cost: 1350 })
+    await req(h, 'PUT', '/api/quotes/settings', admin.headers, { reserve, laborRate: null })
+  })
+
   it('bez uprawnienia do kosztów nie można zlecić propozycji', async () => {
     await h.db.update(schema.permissions).set({ allowed: false }).where(and(eq(schema.permissions.role, 'EnvcheckInternal'), eq(schema.permissions.module, 'quotesCost')))
     expect((await runJob({ kind: 'propose_lines' })).status).toBe(403)

@@ -12,7 +12,8 @@
 - **Koszty AI (G6):** każde wywołanie zapisane w `ai_calls` (tokeny, koszt w USD wg cennika, czas, błąd); koszt widać przy zadaniu. W Bazie wiedzy → Ustawienia jest suma miesięczna i próg ostrzeżenia (bez blokady).
 - **Lokalnie:** `DEV_FAKE_AI=1` i `DEV_FAKE_DRIVE=1` włączają atrapy (bez kosztów i bez Google) i mają pierwszeństwo przed kluczami wstrzykiwanymi przez `netlify dev`.
 - Migracja `20261025194949_ai_inputs_questions`: tabele `quote_inputs`, `ai_jobs`, `ai_calls`, `ai_suggestions`, `quote_questions`, kolumna `opportunities.drive_folder_id`. Nowa funkcja `netlify/functions/ai-job-background.mts`. Zależność `@anthropic-ai/sdk`.
-- **Testy:** 1139 (Vitest), w tym 14 nowych dla R4 na atrapach Drive i AI: konfiguracja dysku, folder szansy, materiały (serwer i resumable), checklista z cytatami, odmowa modelu, token zadania, sugestie, przeliczenie pozycji, pytania, koszty.
+- **Stawka robocizny dla AI:** domyślna stawka z Bazy wiedzy → Ustawienia trafia do propozycji AI; robocizna bez stawki dostaje stawkę domyślną. Próba z prawdziwym Claude na OF036 (WB): $0,76 i ~6 min za checklistę, propozycję i pytania (szczegóły w `R4_RAPORT.md`).
+- **Testy:** 1140 (Vitest), w tym 15 nowych dla R4 na atrapach Drive i AI: konfiguracja dysku, folder szansy, materiały (serwer i resumable), checklista z cytatami, odmowa modelu, token zadania, sugestie, przeliczenie pozycji, pytania, koszty.
 
 ## R3 — Checklista specyfikacyjna, kalkulator mocy, katalog komponentów (25.10.2026)
 

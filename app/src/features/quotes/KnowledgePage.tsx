@@ -50,7 +50,7 @@ function SettingsCard() {
           />
         ))}
         <NumberInput label={t('knowledge.perExtraYear')} min={0} step={0.1} decimalSeparator="," disabled={!editable} value={s.reserve.perExtraYear} onChange={(v) => setS({ ...s, reserve: { ...s.reserve, perExtraYear: Number(v) || 0 } })} />
-        <NumberInput label={t('knowledge.laborRate')} min={0} decimalSeparator="," disabled={!editable} value={s.laborRate ?? ''} onChange={(v) => setS({ ...s, laborRate: v === '' ? null : Number(v) })} />
+        <NumberInput label={t('knowledge.laborRate')} description={t('knowledge.laborRateHint')} min={0} decimalSeparator="," disabled={!editable} value={s.laborRate ?? ''} onChange={(v) => setS({ ...s, laborRate: v === '' ? null : Number(v) })} />
         <NumberInput label={t('knowledge.priceMaxAge')} min={1} max={120} disabled={!editable} value={s.priceMaxAgeMonths} onChange={(v) => setS({ ...s, priceMaxAgeMonths: Number(v) || 12 })} />
       </SimpleGrid>
       {editable && (

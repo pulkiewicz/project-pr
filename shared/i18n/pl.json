@@ -1045,6 +1045,7 @@
     "reserveBase": "Rezerwa gwarancyjna — baza dla 12 mies. (%)",
     "perExtraYear": "Przyrost za każdy kolejny rok gwarancji (×)",
     "laborRate": "Domyślna stawka robocizny (PLN/h)",
+    "laborRateHint": "Podpowiadana w nowych pozycjach i używana przez AI przy wycenie robocizny.",
     "formula": "Rezerwa = baza(złożoność) × (1 + przyrost × (lata gwarancji − 1)), liczona od kosztu.",
     "calculatorSoon": "Kalkulator mocy w wycenie: zakładka „Kalkulator mocy”.",
     "tabs": {

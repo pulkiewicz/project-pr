@@ -19,10 +19,22 @@ Sprawdzone w przeglądarce na atrapach (kopia lokalnej bazy, `netlify dev` z pra
 
 Akceptację, odrzucanie i przeliczanie sugestii obejmują testy.
 
-## Czego jeszcze nie sprawdziłem (wymaga Twojej zgody)
+## Próba z prawdziwym Claude (OF036 rew. B, zapytanie WB)
 
-1. **Prawdziwy Claude.** `netlify dev` wstrzyknął `ANTHROPIC_API_KEY` z ustawień projektu w Netlify, więc klucz wygląda na już dodany. Celowo nie uruchomiłem żadnego płatnego wywołania. Proponuję próbę na wycenie OF036 z zapytaniem WB. Szacunkowy koszt jednej pełnej sekwencji (checklista + propozycja + pytania) to kilka–kilkadziesiąt centów: zależy od długości PDF-ów, cennik 4 $ / 20 $ za milion tokenów.
-2. **Prawdziwy Drive** — po ustawieniu `GOOGLE_SA_EMAIL`, `GOOGLE_SA_PRIVATE_KEY` i podaniu ID dysku. Trzeba sprawdzić założenie folderu, upload małego i dużego pliku oraz odczyt PDF przez AI.
+Materiał: tylko treść maila WB. Wynik bez poprawek promptów:
+
+| Krok | Wynik | Czas | Koszt |
+|---|---|---|---|
+| Checklista | 12 parametrów uzupełnionych z cytatami, 68 „brak”, 9 wymagań dodatkowych | ~1,8 min | $0,22 |
+| Propozycja pozycji | 29 sugestii z uzasadnieniem; wskazana kaskada dla −60 °C (OF036 miał prosty układ) | ~3–4 min | $0,43 |
+| Pytania | 4 do Kamila, 11 do klienta | ~50 s | $0,11 |
+| **Razem** | | **~6 min** | **$0,76** |
+
+Jedyny brak: model sam przyjął stawkę robocizny 120 PLN/h. Poprawka: domyślna stawka z Bazy wiedzy → Ustawienia trafia teraz do promptu, a robocizna zaproponowana bez stawki dostaje stawkę domyślną (test w `ai.test.ts`). Gdy stawka nie jest ustawiona, model zostawia ją pustą i zaznacza to w uzasadnieniu.
+
+## Czego jeszcze nie sprawdziłem
+
+1. **Prawdziwy Drive** — po ustawieniu `GOOGLE_SA_EMAIL`, `GOOGLE_SA_PRIVATE_KEY` i podaniu ID dysku. Trzeba sprawdzić założenie folderu, upload małego i dużego pliku oraz odczyt PDF przez AI.
 
 ## Założenia do potwierdzenia
 
@@ -37,6 +49,6 @@ Dwa razy w tej sesji (przy R0 i R4) pełny zestaw testów raz zgłosił pojedync
 
 ## Następne kroki
 
-- Twoja zgoda na próbę z prawdziwym Claude (OF036, WB) → ewentualne poprawki promptów.
+- **R4 zaakceptowany (25.10.2026).** Do ustawienia: wartość domyślnej stawki robocizny (Baza wiedzy → Ustawienia).
 - Konto serwisowe Google i ID dysku → test Drive.
 - R5: generowanie oferty w Google Docs według szablonu OF022 (treść AI, liczby z wyceny), eksport do Sheets.

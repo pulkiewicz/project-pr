@@ -31,7 +31,7 @@ import {
 } from '../../db/schema.ts'
 import { AiError, type AiContentBlock, type AiRequest, type AiResult } from '../../integrations/ai/types.ts'
 import { CUSTOM_PREFIX, getChecklist, pinSpecList, specListFor } from '../quotes/checklist.ts'
-import { getQuote, touch } from '../quotes/service.ts'
+import { getQuote, loadSettings, touch } from '../quotes/service.ts'
 
 export const AI_SETTINGS_KEY = 'ai.settings'
 export const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
@@ -372,7 +372,8 @@ async function quoteContext(deps: AppDeps, quoteId: string) {
     })
   }
   const answers = (await db.select().from(quoteQuestions).where(and(eq(quoteQuestions.quoteId, quoteId), eq(quoteQuestions.status, 'answered')))).map((a) => ({ pytanie: a.text, odpowiedz: a.answer }))
-  return { quote: q, checklist, structure, calcs, catalog, history, answers }
+  const { laborRate } = await loadSettings(db)
+  return { quote: q, checklist, structure, calcs, catalog, history, answers, laborRate }
 }
 
 async function proposeLines(ctx: JobCtx, params: { hint?: string | null; lineId?: string; comment?: string }) {
@@ -395,6 +396,7 @@ async function proposeLines(ctx: JobCtx, params: { hint?: string | null; lineId?
 
 Zasady:
 - Koszty to koszty wykonania netto w PLN (bez marży i rezerwy — te liczy aplikacja). unitCost to cena jednostkowa lub kwota ryczałtowa przy ilości 1; robociznę podawaj jako laborHours × laborRate, gdy ma to sens.
+- ${c.laborRate != null ? `Stawka robocizny Envcheck: ${c.laborRate} PLN/h — używaj jej jako laborRate (inną tylko z uzasadnieniem, np. podwykonawca).` : 'Stawka robocizny nie jest ustalona w ustawieniach — przy robociźnie zostaw laborRate=null, podaj laborHours i zaznacz to w uzasadnieniu.'}
 - Każda propozycja ma "justification": jak policzono — z czego wynika kwota (profil/poprzednia wycena z nazwą, pozycja katalogu z ceną i datą, wynik kalkulatora mocy, parametr z checklisty) i ilość.
 - Opieraj się na: checkliście, kalkulacjach mocy, katalogu komponentów i podobnych wycenach. Gdy brak danych, zaproponuj ostrożny szacunek i ustaw confidence="low".
 - "notes": najważniejsze założenia i ryzyka (krótko).
@@ -442,7 +444,7 @@ ${JSON.stringify(c.history)}`,
             unit: s.unit?.slice(0, 20) ?? null,
             unitCost: s.unitCost,
             laborHours: s.laborHours,
-            laborRate: s.laborRate,
+            laborRate: s.laborRate ?? (s.laborHours != null ? c.laborRate : null),
             justification: s.justification.slice(0, 10000),
             confidence: s.confidence,
           } satisfies SuggestionPayload,
