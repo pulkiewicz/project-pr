@@ -20,6 +20,8 @@ export interface AppDeps {
   identityAdmin: IdentityAdmin
   config: AppConfig
   now?: () => Date
+  /** Zewnętrzne HTTP (np. biała lista VAT); w testach atrapa. */
+  fetch?: typeof fetch
 }
 
 export type UserRow = typeof users.$inferSelect

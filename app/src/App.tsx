@@ -21,6 +21,7 @@ import { UsersPage } from './pages/admin/UsersPage'
 const HrfPage = lazy(() => import('./features/hrf/HrfPage').then((m) => ({ default: m.HrfPage })))
 const WeeklyPlanPage = lazy(() => import('./features/weekly/WeeklyPlanPage').then((m) => ({ default: m.WeeklyPlanPage })))
 const AvizationsPage = lazy(() => import('./features/avizations/AvizationsPage').then((m) => ({ default: m.AvizationsPage })))
+const CrmPage = lazy(() => import('./features/crm/CrmPage').then((m) => ({ default: m.CrmPage })))
 const PurchasesPage = lazy(() => import('./features/purchases/PurchasesPage').then((m) => ({ default: m.PurchasesPage })))
 
 /** Ukrywa trasę w UI; właściwa autoryzacja zawsze po stronie API. */
@@ -85,6 +86,7 @@ export function App() {
           ))}
         </Route>
         <Route path={PROJECTS_BASE} element={<Navigate to="/" replace />} />
+        <Route path="/crm/*" element={<Guard module="crm"><Suspense fallback={<Loader />}><CrmPage /></Suspense></Guard>} />
         {SALES_NAV.filter((n) => !n.ready).map((n) => (
           <Route key={n.module} path={n.path} element={<Guard module={n.module}><ModulePlaceholder item={n} /></Guard>} />
         ))}

@@ -21,10 +21,13 @@ export function formatDateTime(value: string | Date | null | undefined): string 
 
 const numberFmt = new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const currencyFmt = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: 'PLN' })
+const currencyWholeFmt = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 })
 
 /** 1 234 567,89 */
 export const formatNumber = (n: number | string) => numberFmt.format(Number(n))
 export const formatPLN = (n: number | string) => currencyFmt.format(Number(n))
+/** 257 000 zł — wartości szacunkowe (CRM), bez groszy. */
+export const formatPLNWhole = (n: number | string) => currencyWholeFmt.format(Number(n))
 
 /** Dzisiejsza data (yyyy-MM-dd) w Warszawie. */
 export function todayWarsaw(now = new Date()): string {

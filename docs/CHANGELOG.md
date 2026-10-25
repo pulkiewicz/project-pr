@@ -1,5 +1,17 @@
 # Changelog
 
+## R1 — CRM: szanse, firmy, kontakty (25.10.2026)
+
+- **Szanse (opportunities)** w lejku 6 etapów: Nowe, W wycenie, Złożona oferta, Wygrane, Przegrane, Zawieszone. Widok **kanban** z przeciąganiem kart między kolumnami (na dotyku menu „Przenieś do”), z liczbą szans i sumą wartości w kolumnie. Widok **listy** z filtrami (etap, opiekun, typ postępowania, wyszukiwanie po kodzie, nazwie i firmie, „tylko bez odpowiedzi”), sumą wartości i eksportem XLSX.
+- **Kod oferty nadawany przy założeniu**: litera roku (2026 = OF, 2027 = OG…) i numer w roku, min. 3 cyfry. Pierwsza nowa szansa w 2026 to `OF038`, w 2027 `OG001`. Licznik jest atomowy i nie cofa się poniżej istniejących kodów.
+- **Karta szansy:** firma, kontakt, opiekun (pracownik Envcheck), typ postępowania, źródło, szacowana wartość netto, termin złożenia i decyzji, dalsze działania z datą, link, notatki. Zmiana etapu zapisuje wpis w historii, a „Przegrane” wymaga powodu. Historia aktywności: notatka, telefon, e-mail, spotkanie.
+- **„Brak odpowiedzi”:** złożona oferta bez aktywności od 14 dni dostaje etykietę. Na pulpicie są przypomnienia (moje lub bez opiekuna): oferty bez odpowiedzi i zaległe „dalsze działania”, z linkiem do karty (`/crm?szansa=…`).
+- **Firmy i kontakty:** lista firm z liczbą szans (wszystkie i otwarte), karta firmy z kontaktami i szansami. **Dane po NIP z białej listy VAT** (publiczne API Ministerstwa Finansów): nazwa, REGON, adres, z ostrzeżeniem, gdy firma już jest w CRM. NIP sprawdzany sumą kontrolną i unikalny.
+- **„Utwórz projekt” z wygranej szansy** (tylko Admin, `crm:approve`): projekt dostaje kod oferty (np. `/projekty/OF038`), a moduły HRF, zakupy i awizacje są od razu dostępne.
+- **Import arkusza „CRM”** (migracja `20261025163030_crm_import`): 24 oferty OF14–OF37 z kodami bez zmian i 18 firm (zdeduplikowanych). Etapy według ustalonego mapowania; pierwotny status z arkusza jest w notatce importu. OF14 jest powiązany z projektem PIT-RADWAR (OF14).
+- API `/crm/*` (moduł uprawnień `crm`), zmiany w audit logu (`crm.*`, `project.create_from_opportunity`). Migracja `20261025163006_crm`: tabele `companies`, `contacts`, `opportunities`, `crm_activities`, `opportunity_code_seq`.
+- **Testy:** 770 (Vitest), w tym 16 nowych dla CRM: import, numeracja, NIP, etapy, „brak odpowiedzi”, zakładanie projektu, dostęp.
+
 ## R0 — Envcheck Hub: platforma wieloprojektowa (25.10.2026)
 
 - **Nowa nazwa: Envcheck Hub** (tytuł strony, nagłówek, eksporty XLSX/PDF, OpenAPI). Wydawca kodów 2FA w aplikacjach uwierzytelniających zostaje „Envcheck PMO”, żeby nie mylić istniejących wpisów.

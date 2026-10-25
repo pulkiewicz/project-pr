@@ -31,7 +31,9 @@
     "daysShort": "{{count}} dni",
     "build": "build {{date}}{{commit}}",
     "collapseMenu": "Zwiń menu",
-    "expandMenu": "Rozwiń menu"
+    "expandMenu": "Rozwiń menu",
+    "edit": "Edytuj",
+    "delete": "Usuń"
   },
   "auth": {
     "loginTitle": "Logowanie",
@@ -297,7 +299,17 @@
     "assignee_not_allowed": "Wybrana osoba nie ma dostępu do zadań wewnętrznych.",
     "hrf_parent_not_found": "Zadanie formalne HRF nie istnieje lub zostało usunięte.",
     "staff_only_module": "Moduły sprzedaży są dostępne wyłącznie dla pracowników Envcheck",
-    "unknown_project": "Wskazano nieistniejący projekt"
+    "unknown_project": "Wskazano nieistniejący projekt",
+    "company_nip_exists": "Firma z tym NIP już istnieje: {{detail}}",
+    "company_not_found": "Nie znaleziono firmy",
+    "contact_not_in_company": "Kontakt nie należy do wybranej firmy",
+    "owner_not_allowed": "Opiekunem może być tylko aktywny pracownik Envcheck",
+    "company_has_opportunities": "Firma ma szanse — najpierw je usuń lub przenieś",
+    "nip_not_found": "Brak podmiotu o tym NIP w wykazie VAT",
+    "nip_lookup_failed": "Wykaz VAT jest chwilowo niedostępny — uzupełnij dane ręcznie",
+    "opportunity_not_won": "Projekt można utworzyć tylko z wygranej szansy",
+    "opportunity_has_project": "Szansa ma już projekt",
+    "project_code_exists": "Projekt o kodzie {{detail}} już istnieje"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -310,7 +322,9 @@
     "date": "Niepoprawna data",
     "subcontractor": "Wybierz podwykonawcę",
     "passwordTooShort": "Hasło musi mieć co najmniej 12 znaków",
-    "httpUrl": "Podaj adres zaczynający się od http:// lub https://"
+    "httpUrl": "Podaj adres zaczynający się od http:// lub https://",
+    "nip": "Nieprawidłowy NIP",
+    "lossReasonRequired": "Podaj powód przegranej"
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -738,6 +752,115 @@
       "crm": "Szanse, firmy i kontakty — lista i kanban",
       "quotes": "Wyceny komór klimatycznych krok po kroku",
       "quoteKnowledge": "Profile wyceny, katalog komponentów, lista specyfikacyjna"
-    }
+    },
+    "reminders_one": "Do przypomnienia: {{count}} szansa",
+    "reminders_few": "Do przypomnienia: {{count}} szanse",
+    "reminders_many": "Do przypomnienia: {{count}} szans",
+    "reminders_other": "Do przypomnienia: {{count}} szansy",
+    "remindersMore": "i {{count}} więcej w CRM"
+  },
+  "crm": {
+    "title": "CRM",
+    "tabs": {
+      "opportunities": "Szanse",
+      "companies": "Firmy i kontakty"
+    },
+    "view": {
+      "list": "Lista",
+      "kanban": "Kanban"
+    },
+    "stage": {
+      "new": "Nowe",
+      "quoting": "W wycenie",
+      "submitted": "Złożona oferta",
+      "won": "Wygrane",
+      "lost": "Przegrane",
+      "on_hold": "Zawieszone"
+    },
+    "type": {
+      "public_tender": "Przetarg publiczny",
+      "private_inquiry": "Zapytanie prywatne",
+      "modernization": "Modernizacja",
+      "service": "Serwis",
+      "other": "Inne"
+    },
+    "activity": {
+      "note": "Notatka",
+      "call": "Telefon",
+      "email": "E-mail",
+      "meeting": "Spotkanie",
+      "stage_change": "Zmiana etapu"
+    },
+    "noResponse": "brak odpowiedzi",
+    "noResponseHint": "Złożona oferta bez aktywności od {{days}} dni",
+    "onlyNoResponse": "Tylko bez odpowiedzi",
+    "addOpportunity": "Nowa szansa",
+    "addCompany": "Nowa firma",
+    "addContact": "Dodaj kontakt",
+    "export": "Eksport XLSX",
+    "search": "Szukaj (kod, nazwa, firma)",
+    "stageLabel": "Etap",
+    "owner": "Opiekun",
+    "company": "Firma",
+    "contact": "Kontakt",
+    "year": "Rok",
+    "code": "Kod",
+    "name": "Nazwa",
+    "value": "Wartość netto (PLN)",
+    "typeLabel": "Typ postępowania",
+    "source": "Źródło",
+    "submissionDeadline": "Termin złożenia",
+    "decisionDate": "Termin decyzji",
+    "nextStep": "Dalsze działania",
+    "nextStepDate": "Data kolejnego kroku",
+    "link": "Link (folder, dokument)",
+    "notes": "Notatki",
+    "lossReason": "Powód przegranej",
+    "lossReasonPrompt": "Podaj powód przegranej",
+    "project": "Projekt",
+    "createProject": "Utwórz projekt",
+    "openProject": "Otwórz projekt",
+    "projectCreated": "Projekt {{code}} utworzony",
+    "createProjectHint": "Kod projektu = kod oferty ({{code}}). Moduły HRF, zakupy i awizacje będą dostępne od razu.",
+    "contractNo": "Nr umowy",
+    "procurementNo": "Nr postępowania",
+    "contractValue": "Wartość umowy (PLN)",
+    "contractEndDate": "Termin umowny",
+    "client": "Zamawiający",
+    "activities": "Historia",
+    "addActivity": "Dodaj wpis",
+    "activityBody": "Treść",
+    "stageChange": "{{from}} → {{to}}",
+    "details": "Szczegóły",
+    "codeAuto": "Kod nadany automatycznie po zapisie (np. OF038).",
+    "moveTo": "Przenieś do",
+    "nip": "NIP",
+    "nipLookup": "Pobierz z białej listy VAT",
+    "nipFound": "Dane pobrane z białej listy VAT",
+    "nipExisting": "Firma z tym NIP już jest w CRM",
+    "regon": "REGON",
+    "address": "Adres",
+    "website": "Strona www",
+    "industry": "Branża",
+    "position": "Stanowisko",
+    "email": "E-mail",
+    "phone": "Telefon",
+    "contacts": "Kontakty",
+    "opportunities": "Szanse",
+    "opportunityCount": "Szanse (otwarte)",
+    "noContacts": "Brak kontaktów",
+    "noOpportunities": "Brak szans",
+    "deleteConfirm": "Usunąć „{{name}}”?",
+    "deleted": "Usunięto",
+    "empty": "Brak szans spełniających filtry",
+    "sum": "Suma",
+    "sourceSuggestions": [
+      "Platforma przetargowa",
+      "Zapytanie e-mail",
+      "Polecenie",
+      "Stały klient",
+      "Strona www",
+      "Targi"
+    ]
   }
 }

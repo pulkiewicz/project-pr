@@ -9,7 +9,8 @@ export function errorMessage(e: unknown): string {
       if (i18n.exists(key)) {
         const issues = e.problem.issues as { path: string; message: string }[] | undefined
         const detail = e.code === 'validation_failed' && issues?.length ? `: ${issues.map((i) => i.path).join(', ')}` : ''
-        return i18n.t(key) + detail
+        // `{{detail}}` w tłumaczeniu — szczegół z odpowiedzi API (np. nazwa firmy z tym samym NIP).
+        return i18n.t(key, { detail: e.problem.detail ?? '' }) + detail
       }
     }
     return i18n.t('errors.unknown', { status: e.status, code: e.code ?? '' })

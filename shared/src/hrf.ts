@@ -61,7 +61,7 @@ export interface HrfTasksResponse {
 }
 
 /** Link do pliku (http/https) — zadania formalne i wewnętrzne. */
-const httpUrl = z
+export const httpUrl = z
   .string()
   .trim()
   .max(2000)

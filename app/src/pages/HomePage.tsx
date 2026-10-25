@@ -1,10 +1,59 @@
-import { Alert, Badge, Button, Card, Group, SimpleGrid, Stack, Text, Title } from '@mantine/core'
+import { Alert, Anchor, Badge, Button, Card, Group, SimpleGrid, Stack, Text, Title } from '@mantine/core'
 import { IconArrowRight } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth, useMe } from '../auth/AuthProvider'
-import { daysUntil, formatDate } from '../lib/format'
+import { NoResponseBadge } from '../features/crm/stage'
+import { useOpportunities } from '../features/crm/api'
+import { daysUntil, formatDate, todayWarsaw } from '../lib/format'
 import { SALES_NAV, projectHomePath } from '../nav'
+
+/** Przypomnienia CRM: moje (lub bez opiekuna) oferty bez odpowiedzi i zaległe „dalsze działania”. */
+function CrmReminders() {
+  const { t } = useTranslation()
+  const me = useMe()
+  const q = useOpportunities()
+  const today = todayWarsaw()
+  const items = (q.data ?? []).filter(
+    (o) =>
+      (o.ownerId === me.user.id || !o.ownerId) &&
+      !['won', 'lost', 'on_hold'].includes(o.stage) &&
+      (o.noResponse || (o.nextStepDate !== null && o.nextStepDate <= today)),
+  )
+  if (!items.length) return null
+  return (
+    <Card withBorder data-testid="crm-reminders">
+      <Text fw={600} mb="xs">
+        {t('home.reminders', { count: items.length })}
+      </Text>
+      <Stack gap={4}>
+        {items.slice(0, 10).map((o) => (
+          <Group key={o.id} gap="xs" wrap="nowrap">
+            <Anchor component={Link} to={`/crm?szansa=${o.id}`} size="sm" fw={600} style={{ flexShrink: 0 }}>
+              {o.code}
+            </Anchor>
+            <Text size="sm" truncate>
+              {o.name}
+              {o.companyName ? ` · ${o.companyName}` : ''}
+            </Text>
+            {o.noResponse ? (
+              <NoResponseBadge />
+            ) : (
+              <Badge size="xs" color="red" variant="outline" style={{ flexShrink: 0 }}>
+                {formatDate(o.nextStepDate)}
+              </Badge>
+            )}
+          </Group>
+        ))}
+      </Stack>
+      {items.length > 10 && (
+        <Anchor component={Link} to="/crm" size="sm" mt="xs">
+          {t('home.remindersMore', { count: items.length - 10 })}
+        </Anchor>
+      )}
+    </Card>
+  )
+}
 
 /** Pulpit Envcheck Hub: projekty użytkownika i (dla pracowników Envcheck) sprzedaż. */
 export function HomePage() {
@@ -54,12 +103,17 @@ export function HomePage() {
           <Title order={4} mt="md">
             {t('nav.sales')}
           </Title>
+          {can('crm', 'view') && <CrmReminders />}
           <SimpleGrid cols={{ base: 1, md: 3 }}>
             {sales.map((n) => (
               <Card key={n.module} withBorder component={Link} to={n.path}>
                 <Group justify="space-between" wrap="nowrap">
                   <Text fw={600}>{t(`nav.${n.module}`)}</Text>
-                  {!n.ready && <Badge color="gray" variant="light">{n.stage}</Badge>}
+                  {!n.ready && (
+                    <Badge color="gray" variant="light" style={{ flexShrink: 0 }}>
+                      {n.stage}
+                    </Badge>
+                  )}
                 </Group>
                 <Text size="sm" c="dimmed" mt={4}>
                   {t(`home.salesHint.${n.module}`)}

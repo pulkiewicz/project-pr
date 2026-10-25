@@ -35,7 +35,7 @@ export const PROJECT_NAV: NavItem[] = [
 
 /** Moduły firmy: sprzedaż i baza wiedzy wycen (tylko pracownicy Envcheck). */
 export const SALES_NAV: NavItem[] = [
-  { module: 'crm', path: '/crm', stage: 'R1', ready: false },
+  { module: 'crm', path: '/crm', stage: 'R1', ready: true },
   { module: 'quotes', path: '/wyceny', stage: 'R2', ready: false },
   { module: 'quoteKnowledge', path: '/baza-wiedzy', stage: 'R2', ready: false },
 ]

@@ -18,7 +18,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { AVIZATION_STATUSES, DEPENDENCY_TYPES, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
+import { ACTIVITY_KINDS, AVIZATION_STATUSES, DEPENDENCY_TYPES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -544,3 +544,98 @@ export const jobRuns = pgTable(
   },
   (t) => [primaryKey({ columns: [t.job, t.runKey] })],
 )
+
+// ---------------- R1: CRM (Envcheck Hub) ----------------
+export const opportunityStageEnum = pgEnum('opportunity_stage', OPPORTUNITY_STAGES)
+export const opportunityTypeEnum = pgEnum('opportunity_type', OPPORTUNITY_TYPES)
+export const crmActivityKindEnum = pgEnum('crm_activity_kind', ACTIVITY_KINDS)
+
+export const companies = pgTable(
+  'companies',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    name: text('name').notNull(),
+    /** Same cyfry (10), unikalny wśród nieusuniętych. */
+    nip: text('nip'),
+    regon: text('regon'),
+    address: text('address'),
+    website: text('website'),
+    industry: text('industry'),
+    notes: text('notes'),
+    ownerId: uuid('owner_id').references(() => users.id),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [uniqueIndex('companies_nip_uq').on(t.nip).where(sql`${t.deletedAt} IS NULL AND ${t.nip} IS NOT NULL`), index('companies_name_idx').on(sql`lower(${t.name})`)],
+)
+
+export const contacts = pgTable(
+  'contacts',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    companyId: uuid('company_id').notNull().references(() => companies.id),
+    name: text('name').notNull(),
+    position: text('position'),
+    email: text('email'),
+    phone: text('phone'),
+    notes: text('notes'),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [index('contacts_company_idx').on(t.companyId)],
+)
+
+export const opportunities = pgTable(
+  'opportunities',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    /** Kod oferty (OF038, OG001; historyczne bez zmian, np. OF015_S) — unikalny bez względu na wielkość liter. */
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    stage: opportunityStageEnum('stage').notNull().default('new'),
+    companyId: uuid('company_id').references(() => companies.id),
+    contactId: uuid('contact_id').references(() => contacts.id),
+    ownerId: uuid('owner_id').references(() => users.id),
+    type: opportunityTypeEnum('type'),
+    source: text('source'),
+    value: numeric('value', { precision: 14, scale: 2, mode: 'number' }),
+    submissionDeadline: date('submission_deadline', { mode: 'string' }),
+    decisionDate: date('decision_date', { mode: 'string' }),
+    nextStep: text('next_step'),
+    nextStepDate: date('next_step_date', { mode: 'string' }),
+    link: text('link'),
+    notes: text('notes'),
+    lossReason: text('loss_reason'),
+    projectId: uuid('project_id').references(() => projects.id),
+    /** Wejście w bieżący etap; null = nieznane (import) — liczone jak dawno. */
+    stageChangedAt: ts('stage_changed_at'),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [
+    uniqueIndex('opportunities_code_uq').on(sql`lower(${t.code})`),
+    index('opportunities_stage_idx').on(t.stage),
+    index('opportunities_company_idx').on(t.companyId),
+  ],
+)
+
+export const crmActivities = pgTable(
+  'crm_activities',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    opportunityId: uuid('opportunity_id').notNull().references(() => opportunities.id),
+    kind: crmActivityKindEnum('kind').notNull(),
+    body: text('body').notNull(),
+    meta: jsonb('meta').$type<Record<string, unknown>>(),
+    occurredAt: ts('occurred_at').notNull().defaultNow(),
+    userId: uuid('user_id').references(() => users.id),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('crm_activities_opportunity_idx').on(t.opportunityId, t.occurredAt)],
+)
+
+/** Licznik kodów ofert per prefiks roku (OF, OG, …) — nadawanie atomowe przez UPSERT … RETURNING. */
+export const opportunityCodeSeq = pgTable('opportunity_code_seq', {
+  prefix: text('prefix').primaryKey(),
+  last: integer('last').notNull(),
+})
