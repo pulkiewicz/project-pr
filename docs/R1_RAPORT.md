@@ -1,6 +1,6 @@
 # Raport z etapu R1 — CRM
 
-Stan: R1 gotowy na gałęzi `claude/project-files-547b06`, do akceptacji przed R2 (wyceny — rdzeń). Zakres: [PLAN_ERP_CRM_WYCENY.md](PLAN_ERP_CRM_WYCENY.md) §2 i §10. Szczegóły: [CHANGELOG.md](CHANGELOG.md).
+Stan: R1 **zaakceptowany** przez Admina 25.10.2026 (gałąź `claude/project-files-547b06`). Zakres: [PLAN_ERP_CRM_WYCENY.md](PLAN_ERP_CRM_WYCENY.md) §2 i §10. Szczegóły: [CHANGELOG.md](CHANGELOG.md).
 
 ## Co działa
 
@@ -14,7 +14,7 @@ Sprawdzone w przeglądarce na kopii lokalnej bazy: kanban z 24 zaimportowanymi o
 
 ## Założenia z importu do potwierdzenia
 
-1. **Opiekun szans z arkusza:** arkusz nie ma opiekunów, więc wszystkie 24 oferty są bez opiekuna. Przypomnienia „bez opiekuna” widzi każdy pracownik Envcheck (dziś 11 ofert bez odpowiedzi). Czy przypisać wszystkie zaimportowane oferty Tobie?
+1. ~~Opiekun szans z arkusza~~ — **decyzja Admina: wszystkie zaimportowane oferty przypisane Adminowi** (pierwsze konto Administratora, z `BOOTSTRAP_ADMIN_EMAIL`).
 2. **OF37 Uniwersytet Jagielloński:** w arkuszu bez statusu, ale z dopiskiem „zaproponowałem 257k netto”. Przyjąłem etap „Złożona oferta” i wartość 257 000 zł.
 3. **OF26 „PITRADWAR urządzenia do kalibracji” (aktywny projekt):** oznaczony jako wygrany, ale niepowiązany z projektem. Czy to część realizacji OF14, czy osobny projekt do założenia?
 4. **OF027:** w arkuszu bez nazwy i firmy, zaimportowany jako „Do uzupełnienia (OF027)”, etap „Nowe”.
@@ -28,6 +28,6 @@ Sprawdzone w przeglądarce na kopii lokalnej bazy: kanban z 24 zaimportowanymi o
 
 ## Następne kroki
 
-- Akceptacja R1 i odpowiedzi na założenia 1 i 3.
+- Odpowiedź na założenie 3 (OF26).
 - Przed R2: konto serwisowe Google i ID Shared Drive (folder szansy i materiały wejściowe).
 - R2: wyceny bez AI — rewizje, urządzenia i warianty, sekcje (edytowalne) i pozycje, profile z OF033/OF036, kopiowanie poprzedniej wyceny, podsumowanie (marża, rezerwa, ryzyko), import historycznych arkuszy, eksport XLSX.

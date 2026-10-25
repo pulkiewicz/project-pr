@@ -4,6 +4,7 @@
 -- „nie składaliśmy” → Zawieszone; bez statusu → Nowe (OF37 z propozycją ceny → Złożona oferta).
 -- stage_changed_at = NULL („brak odpowiedzi” od razu) dla ofert złożonych bez odzewu; now() dla „czekamy na wynik”.
 -- Pierwotny status z arkusza zostaje w notatce importu. Ponowne uruchomienie nie dubluje firm ani ofert.
+-- Opiekun wszystkich ofert: pierwszy Administrator (konto z BOOTSTRAP_ADMIN_EMAIL) — decyzja Admina; brak Admina → bez opiekuna.
 WITH src (name, nip) AS (
   VALUES
     ('PIT-RADWAR S.A.', NULL), ('CLAIO', NULL), ('PK', NULL), ('RCKIK Kalisz', NULL), ('ENVIBRA sp. z o.o.', NULL),
@@ -43,9 +44,10 @@ WITH src (code, name, company, stage, stage_known, sheet_status, value, next_ste
     ('OF37', 'Uniwersytet Jagielloński', 'Uniwersytet Jagielloński', 'submitted', true, '(brak)', 257000, 'zaproponowałem 257k netto', NULL, NULL, NULL)
 ),
 ins AS (
-  INSERT INTO opportunities (code, name, stage, company_id, value, next_step, notes, loss_reason, project_id, stage_changed_at)
+  INSERT INTO opportunities (code, name, stage, company_id, owner_id, value, next_step, notes, loss_reason, project_id, stage_changed_at)
   SELECT s.code, s.name, s.stage::opportunity_stage,
     (SELECT c.id FROM companies c WHERE lower(c.name) = lower(s.company) AND c.deleted_at IS NULL ORDER BY c.created_at LIMIT 1),
+    (SELECT u.id FROM users u WHERE u.role = 'Admin' AND u.is_active AND u.deleted_at IS NULL ORDER BY u.created_at LIMIT 1),
     s.value, s.next_step, s.notes, s.loss_reason,
     (SELECT p.id FROM projects p WHERE p.id = s.project_id),
     CASE WHEN s.stage_known THEN now() END
