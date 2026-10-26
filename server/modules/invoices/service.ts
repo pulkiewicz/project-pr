@@ -9,24 +9,44 @@ export const LAST_SYNC_KEY = 'invoices.lastSync'
 
 const status = (c: InfaktCost, group: string) => c.statuses?.find((s) => s.group === group)?.symbol ?? null
 
-/** Pola kopiowane z inFakt (nadpisywane przy każdej synchronizacji). */
+// inFakt w polach plików zwraca czasem "" zamiast null (np. termin płatności) — Postgres nie przyjmie "" jako daty.
+const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : typeof v === 'number' ? String(v) : null)
+const day = (v: unknown) => {
+  const s = text(v)?.slice(0, 10)
+  return s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) ? s : null
+}
+const instant = (v: unknown) => {
+  const s = text(v)
+  return s && !Number.isNaN(Date.parse(s)) ? s : null
+}
+/** Kwota w groszach; liczba albo tekst z liczbą całkowitą. */
+const cents = (v: unknown) => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN
+  return Number.isFinite(n) ? Math.round(n) : null
+}
+const currency = (v: unknown) => {
+  const s = text(v)?.toUpperCase()
+  return s && /^[A-Z]{3}$/.test(s) ? s : 'PLN'
+}
+
+/** Pola kopiowane z inFakt (nadpisywane przy każdej synchronizacji), znormalizowane. */
 export function mapCost(c: InfaktCost) {
   return {
     infaktUuid: c.uuid,
     kind: c.kind,
-    number: c.number ?? null,
-    sellerName: c.seller_name ?? null,
-    description: c.description ?? null,
-    category: c.category ?? null,
-    issueDate: c.issue_date ?? null,
-    dueDate: c.due_date ?? null,
-    currency: c.currency || 'PLN',
-    netPrice: c.net_price ?? null,
-    grossPrice: c.gross_price ?? null,
-    taxPrice: c.tax_price ?? null,
+    number: text(c.number),
+    sellerName: text(c.seller_name),
+    description: text(c.description),
+    category: text(c.category),
+    issueDate: day(c.issue_date),
+    dueDate: day(c.due_date),
+    currency: currency(c.currency),
+    netPrice: cents(c.net_price),
+    grossPrice: cents(c.gross_price),
+    taxPrice: cents(c.tax_price),
     paymentStatus: status(c, 'payment'),
     accountingStatus: status(c, 'cost_accounting'),
-    infaktCreatedAt: c.created_at ?? null,
+    infaktCreatedAt: instant(c.created_at),
   }
 }
 type Mapped = ReturnType<typeof mapCost>

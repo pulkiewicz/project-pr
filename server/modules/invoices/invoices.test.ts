@@ -52,14 +52,16 @@ describe('synchronizacja z inFakt', () => {
   it('pobiera pliki i koszty dodane od daty z ustawień (pliki nie mają daty wystawienia), pomija składki ZUS; bez duplikatów', async () => {
     const res = await req(h, 'POST', '/api/invoices/sync', ania.headers)
     expect(res.status).toBe(200)
-    // 7 w atrapie: jeden dodany przed 01.10.2026 (poza zakresem), składka ZUS pominięta.
-    expect((await res.json()) as InvoiceSyncResult).toMatchObject({ fetched: 6, created: 5, updated: 0, skipped: 1 })
+    // 8 w atrapie: jeden dodany przed 01.10.2026 (poza zakresem), składka ZUS pominięta.
+    expect((await res.json()) as InvoiceSyncResult).toMatchObject({ fetched: 7, created: 6, updated: 0, skipped: 1 })
     expect(h.infakt.calls).toContain('list:2026-10-01')
     const again = (await (await req(h, 'POST', '/api/invoices/sync', ania.headers)).json()) as InvoiceSyncResult
     expect(again).toMatchObject({ created: 0, updated: 0 })
     const l = await list(ania)
-    expect(l.items).toHaveLength(5)
-    expect(l.items.filter((i) => i.kind === 'document_scan')).toHaveLength(4)
+    expect(l.items).toHaveLength(6)
+    expect(l.items.filter((i) => i.kind === 'document_scan')).toHaveLength(5)
+    // Puste napisy z inFakt (prod 26.10.2026: "" w dacie → błąd Postgresa) zapisane jako null; kwota z tekstu.
+    expect(l.items.find((i) => i.infaktUuid.endsWith('000000000008'))).toMatchObject({ number: null, sellerName: null, issueDate: null, dueDate: null, currency: 'PLN', netPrice: 12345 })
     expect(l.lastSync?.by).toBe('EnvcheckInternal 2')
     expect(l.items.every((i) => i.status === 'new')).toBe(true)
     const fv1 = l.items.find((i) => i.number === 'FV/1/10/2026')!
@@ -71,7 +73,7 @@ describe('synchronizacja z inFakt', () => {
     const res = await req(h, 'POST', '/api/invoices/sync', ania.headers)
     h.infakt.fail = false
     expect(res.status).toBe(502)
-    expect((await list(ania)).items).toHaveLength(5)
+    expect((await list(ania)).items).toHaveLength(6)
   })
 })
 

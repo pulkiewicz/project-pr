@@ -34,6 +34,8 @@ export class FakeInfaktClient implements InfaktClient {
     cost(5, { kind: 'health_fee_evidence', seller_name: null, description: 'Składka zdrowotna' }),
     cost(6, { kind: 'cost', issue_date: '2026-10-06', category: 'Zakup towarów' }),
     cost(7, { created_at: '2025-12-30T10:00:00.000+01:00' }),
+    // Jak w prawdziwym inFakt: puste napisy zamiast null, kwota jako tekst.
+    cost(8, { number: '', seller_name: ' ', due_date: '', issue_date: '', currency: '', net_price: '12345' as unknown as number, gross_price: null, tax_price: null }),
   ]
   calls: string[] = []
   fail = false

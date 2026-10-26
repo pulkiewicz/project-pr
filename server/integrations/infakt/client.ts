@@ -4,6 +4,7 @@ const BASE = 'https://api.infakt.pl/api/v3'
 const PAGE = 100
 /** Zabezpieczenie przed pętlą (10 000 dokumentów na jedną synchronizację). */
 const MAX_PAGES = 100
+const PARALLEL = 5
 
 export class HttpInfaktClient implements InfaktClient {
   readonly fake = false
@@ -24,17 +25,32 @@ export class HttpInfaktClient implements InfaktClient {
     return (await res.json()) as T
   }
 
+  private page(addedFrom: string, page: number) {
+    const q = new URLSearchParams({ limit: String(PAGE), offset: String(page * PAGE), order: 'created_at desc', 'q[created_at_gteq]': addedFrom })
+    return this.get<{ entities?: InfaktCost[]; metainfo?: { total_count?: number } }>(`/documents/costs.json?${q}`)
+  }
+
+  /** Pierwsza strona podaje `total_count`; pozostałe pobierane równolegle (limit czasu funkcji Netlify ~10 s). */
   async listCosts(addedFrom: string): Promise<InfaktCost[]> {
-    const out: InfaktCost[] = []
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const q = new URLSearchParams({ limit: String(PAGE), offset: String(page * PAGE), order: 'created_at desc', 'q[created_at_gteq]': addedFrom })
-      const body = await this.get<{ entities?: InfaktCost[]; metainfo?: { total_count?: number } }>(`/documents/costs.json?${q}`)
-      const batch = body.entities ?? []
-      out.push(...batch)
-      const total = body.metainfo?.total_count
-      if (batch.length < PAGE || (total !== undefined && out.length >= total)) break
+    const first = await this.page(addedFrom, 0)
+    const out = [...(first.entities ?? [])]
+    const total = first.metainfo?.total_count
+    if (total === undefined) {
+      // Bez licznika: stronicowanie po kolei, aż do niepełnej strony.
+      for (let page = 1, last = out.length; last === PAGE && page < MAX_PAGES; page++) {
+        const batch = (await this.page(addedFrom, page)).entities ?? []
+        out.push(...batch)
+        last = batch.length
+      }
+      return out
     }
-    return out
+    const pages = Math.min(Math.ceil(total / PAGE), MAX_PAGES)
+    for (let start = 1; start < pages; start += PARALLEL) {
+      const chunk = Array.from({ length: Math.min(PARALLEL, pages - start) }, (_, i) => this.page(addedFrom, start + i))
+      for (const body of await Promise.all(chunk)) out.push(...(body.entities ?? []))
+    }
+    // Dokument dodany w trakcie pobierania może przesunąć stronicowanie — bez duplikatów.
+    return [...new Map(out.map((c) => [c.uuid, c])).values()]
   }
 
   async costAttachments(uuid: string): Promise<InfaktAttachment[]> {
