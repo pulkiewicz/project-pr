@@ -21,6 +21,8 @@
     "yes": "Tak",
     "no": "Nie",
     "refresh": "Odśwież",
+    "errorTitle": "Nie udało się wyświetlić tej strony",
+    "errorHint": "Odśwież stronę. Jeśli błąd się powtarza, przekaż poniższy komunikat administratorowi.",
     "filter": "Filtruj",
     "clear": "Wyczyść",
     "exportCsv": "Eksport CSV",

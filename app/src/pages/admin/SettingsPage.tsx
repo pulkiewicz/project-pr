@@ -4,12 +4,15 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Role } from '#shared'
+import { useMe } from '../../auth/AuthProvider'
 import { api } from '../../lib/api'
+import { ProjectContext } from '../../lib/project'
 import { AvizationSettingsCard } from '../../features/avizations/AvizationSettingsCard'
 import { errorMessage } from '../../lib/errors'
 
 export function SettingsPage() {
   const { t } = useTranslation()
+  const me = useMe()
   const mfa = useQuery({ queryKey: ['admin', 'settings', 'mfa'], queryFn: () => api<{ requiredRoles: Role[]; allRoles: Role[] }>('/admin/settings/mfa') })
   const [roles, setRoles] = useState<string[]>([])
   useEffect(() => {
@@ -43,7 +46,12 @@ export function SettingsPage() {
           </Group>
         </Stack>
       </Card>
-      <AvizationSettingsCard />
+      {/* Ustawienia awizacji są per projekt — karta dostaje projekt wprost, bo ta strona jest poza `/projekty/…`. */}
+      {me.projects.map((p) => (
+        <ProjectContext.Provider key={p.id} value={p}>
+          <AvizationSettingsCard project={`${p.code} — ${p.name}`} />
+        </ProjectContext.Provider>
+      ))}
     </Stack>
   )
 }

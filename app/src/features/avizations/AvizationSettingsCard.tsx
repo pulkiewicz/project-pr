@@ -8,7 +8,7 @@ import { errorMessage } from '../../lib/errors'
 import { useAvizationMutations, useAvizationSettings, useEntryPoints } from './api'
 
 /** Ustawienia M5 (Admin): wyprzedzenie zgłoszenia, bramy, szablon listy dla ochrony. */
-export function AvizationSettingsCard() {
+export function AvizationSettingsCard({ project }: { project?: string }) {
   const { t } = useTranslation()
   const q = useAvizationSettings()
   const entry = useEntryPoints()
@@ -30,7 +30,10 @@ export function AvizationSettingsCard() {
   return (
     <Card withBorder maw={820}>
       <Stack>
-        <Text fw={600}>{t('avizations.settings.title')}</Text>
+        <Text fw={600}>
+          {t('avizations.settings.title')}
+          {project ? ` · ${project}` : ''}
+        </Text>
         <NumberInput w={360} label={t('avizations.settings.minLead')} min={0} max={30} value={s.minLeadWorkingDays} onChange={(v) => setS({ ...s, minLeadWorkingDays: Number(v) || 0 })} />
 
         <Text fw={500} size="sm">{t('avizations.settings.entryPoints')}</Text>

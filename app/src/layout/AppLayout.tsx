@@ -42,6 +42,7 @@ import { daysUntil, formatDate } from '../lib/format'
 import { projectPath, useCurrentProject } from '../lib/project'
 import { PROJECT_NAV, SALES_NAV, isInternal, projectHomePath } from '../nav'
 import { BuildInfo } from './BuildInfo'
+import { ErrorBoundary } from './ErrorBoundary'
 
 const ICONS: Partial<Record<ModuleKey, typeof IconGauge>> = {
   dashboard: IconGauge,
@@ -274,7 +275,9 @@ export function AppLayout() {
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Outlet />
+        <ErrorBoundary resetKey={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </AppShell.Main>
     </AppShell>
   )

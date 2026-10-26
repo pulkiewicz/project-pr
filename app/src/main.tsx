@@ -19,6 +19,15 @@ import { AuthProvider } from './auth/AuthProvider'
 import { ApiError } from './lib/api'
 import { theme } from './theme'
 
+// Po nowym deployu stare pliki leniwie ładowanych stron znikają — przeładuj raz zamiast pokazywać błąd.
+window.addEventListener('vite:preloadError', (e) => {
+  const last = Number(sessionStorage.getItem('chunk_reload_at') ?? 0)
+  if (Date.now() - last < 60_000) return
+  sessionStorage.setItem('chunk_reload_at', String(Date.now()))
+  e.preventDefault()
+  window.location.reload()
+})
+
 // Wpisywanie dat w polach DateInput w formacie DD.MM.YYYY.
 dayjs.extend(customParseFormat)
 

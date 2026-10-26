@@ -1,3 +1,4 @@
+import { createContext, useContext } from 'react'
 import { useMatch } from 'react-router-dom'
 import type { ProjectSummary } from '#shared'
 import { useMe } from '../auth/AuthProvider'
@@ -14,8 +15,13 @@ export function findProject(projects: readonly ProjectSummary[], code: string | 
   return c ? (projects.find((p) => p.code.toLowerCase() === c) ?? null) : null
 }
 
-/** Projekt z bieżącego adresu `/projekty/{code}/…`; null poza projektem albo dla nieznanego kodu. */
+/** Projekt podany wprost (np. ustawienia projektu na stronie admina, poza adresem `/projekty/…`). */
+export const ProjectContext = createContext<ProjectSummary | null>(null)
+
+/** Projekt z `ProjectContext` albo z bieżącego adresu `/projekty/{code}/…`; null poza projektem albo dla nieznanego kodu. */
 export function useCurrentProject(): ProjectSummary | null {
+  const forced = useContext(ProjectContext)
   const match = useMatch(`${PROJECTS_BASE}/:code/*`)
-  return findProject(useMe().projects, match?.params.code)
+  const fromUrl = findProject(useMe().projects, match?.params.code)
+  return forced ?? fromUrl
 }

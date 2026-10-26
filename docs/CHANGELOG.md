@@ -1,5 +1,10 @@
 # Changelog
 
+## Poprawka po R4 (26.10.2026)
+
+- **Administracja → Ustawienia** pokazywała białą stronę: karta ustawień awizacji szukała projektu w adresie, którego od R0 tam nie ma. Teraz jest osobna karta dla każdego projektu (np. „Awizacje · OF14”).
+- Błąd na stronie pokazuje komunikat z przyciskiem „Odśwież” zamiast białego ekranu. Po nowym deployu aplikacja sama przeładowuje się raz, gdy nie znajdzie plików starej wersji.
+
 ## R4 — AI w wycenach (Claude) i materiały na Google Drive (25.10.2026)
 
 - **Dysk współdzielony i folder szansy (C4, G3):** przywrócona integracja Google Drive (konto serwisowe). Administrator wpisuje ID dysku w Bazie wiedzy → Ustawienia; aplikacja sprawdza dostęp. Każda nowa szansa dostaje folder „OF038 — nazwa”; dla istniejących jest przycisk „Utwórz folder na Drive” w karcie szansy.
