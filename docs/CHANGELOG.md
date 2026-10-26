@@ -2,6 +2,8 @@
 
 ## Faktury kosztowe z inFakt → projekty (26.10.2026)
 
+- **Przypisanie z listy:** w kolumnie „Projekty” wybierasz projekt bezpośrednio w wierszu (100% na jeden projekt; wyczyszczenie = koszty ogólne). Podział na kilka projektów i faktury po wysłaniu do akceptacji — w karcie faktury.
+
 - **Pliki zamiast zaksięgowanych kosztów:** w Envcheck faktury są w inFakt jako pliki (`document_scan`), a księgowanie odbywa się poza inFakt. Pliki zwykle nie mają daty wystawienia, więc synchronizacja filtruje teraz po **dacie dodania do inFakt** (ustawienie „Pobieraj pliki dodane do inFakt od”). Lista sortuje i pokazuje datę dodania (szarą), gdy brak daty wystawienia.
 - **Uzupełnianie danych:** gdy inFakt nie odczytał z pliku numeru, sprzedawcy, dat albo kwot, można je wpisać w karcie faktury („Uzupełnij dane” / „Popraw dane”). Pola uzupełnione ręcznie mają znacznik „ręcznie” i synchronizacja ich nie nadpisuje; wyczyszczenie pola przywraca wartość z inFakt. Filtr „Brak danych” pokazuje pliki do uzupełnienia. Fakturę bez kwoty netto nie można wysłać do akceptacji.
 

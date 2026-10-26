@@ -6,16 +6,69 @@ import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mj
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { INVOICE_STATUSES, type InvoiceDto } from '#shared'
+import { INVOICE_EDITABLE, INVOICE_STATUSES, type InvoiceDto } from '#shared'
 import { useAuth, useMe } from '../../auth/AuthProvider'
 import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime } from '../../lib/format'
-import { useInvoices, useSyncInvoices } from './api'
+import { useInvoices, useSaveAllocation, useSyncInvoices } from './api'
 import { InvoiceDrawer } from './InvoiceDrawer'
 import { InvoiceStatusBadge, formatMoney } from './status'
 
 const norm = (s: string | null | undefined) => (s ?? '').toLocaleLowerCase('pl')
+
+function AllocationBadges({ inv }: { inv: InvoiceDto }) {
+  const { t } = useTranslation()
+  return (
+    <Group gap={4}>
+      {inv.allocations.map((a) => (
+        <Badge key={a.projectId} variant="light" title={a.projectName}>
+          {a.projectCode} {a.share.toLocaleString('pl-PL')}%
+        </Badge>
+      ))}
+      {inv.allocatedShare < 100 && inv.allocatedShare > 0 && (
+        <Badge variant="outline" color="gray">
+          {t('invoices.general')} {(Math.round((100 - inv.allocatedShare) * 100) / 100).toLocaleString('pl-PL')}%
+        </Badge>
+      )}
+    </Group>
+  )
+}
+
+/**
+ * Przypisanie z listy: jeden projekt = 100% (najczęstszy przypadek). Podział na kilka projektów
+ * i faktury po wysłaniu do akceptacji — tylko odznaki; edycja w karcie faktury.
+ */
+function ProjectCell({ inv, options }: { inv: InvoiceDto; options: { value: string; label: string }[] }) {
+  const { t } = useTranslation()
+  const { can } = useAuth()
+  const save = useSaveAllocation()
+  const split = inv.allocations.length > 1 || (inv.allocations.length === 1 && inv.allocations[0]!.share !== 100)
+  if (!INVOICE_EDITABLE.includes(inv.status) || !can('invoices', 'edit') || split) return <AllocationBadges inv={inv} />
+  return (
+    // Zdarzenia z listy rozwijanej (portal) wędrują w drzewie Reacta do wiersza — bez tego kliknięcie otwierałoby kartę.
+    <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} style={{ width: '100%' }}>
+      <Select
+        size="xs"
+        searchable
+        clearable
+        placeholder={t('invoices.assignProject')}
+        aria-label={t('invoices.project')}
+        data={options}
+        value={inv.allocations[0]?.projectId ?? null}
+        disabled={save.isPending}
+        rightSection={save.isPending ? <Loader size={12} /> : undefined}
+        comboboxProps={{ withinPortal: true }}
+        onChange={(v) =>
+          save.mutate(
+            { id: inv.id, data: { allocations: v ? [{ projectId: v, share: 100 }] : [], version: inv.version } },
+            { onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }) },
+          )
+        }
+      />
+    </div>
+  )
+}
 
 function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) => void }) {
   const { t } = useTranslation()
@@ -38,6 +91,8 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
     )
   }, [items, search, statuses, project, mine, missing, me.user.id])
 
+  const projectOptions = useMemo(() => me.projects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })), [me.projects])
+
   const columns = useMemo<MRT_ColumnDef<InvoiceDto>[]>(
     () => [
       {
@@ -59,7 +114,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
         id: 'number',
         accessorFn: (r) => r.number ?? r.description ?? '',
         header: t('invoices.number'),
-        size: 170,
+        size: 150,
         Cell: ({ row }) =>
           row.original.number ?? (
             <Text size="sm" c="dimmed" fs="italic">
@@ -67,44 +122,31 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
             </Text>
           ),
       },
-      { accessorKey: 'sellerName', header: t('invoices.seller'), size: 220, grow: true },
+      { accessorKey: 'sellerName', header: t('invoices.seller'), size: 180, grow: true },
       {
         accessorKey: 'netPrice',
         header: t('invoices.net'),
-        size: 130,
+        size: 115,
         mantineTableBodyCellProps: { align: 'right' },
         Cell: ({ row }) => formatMoney(row.original.netPrice, row.original.currency),
       },
       {
         accessorKey: 'grossPrice',
         header: t('invoices.gross'),
-        size: 130,
+        size: 115,
         mantineTableBodyCellProps: { align: 'right' },
         Cell: ({ row }) => formatMoney(row.original.grossPrice, row.original.currency),
       },
       {
         id: 'projects',
         header: t('invoices.projects'),
-        size: 220,
+        size: 250,
         enableSorting: false,
-        Cell: ({ row }) => (
-          <Group gap={4}>
-            {row.original.allocations.map((a) => (
-              <Badge key={a.projectId} variant="light" title={a.projectName}>
-                {a.projectCode} {a.share.toLocaleString('pl-PL')}%
-              </Badge>
-            ))}
-            {row.original.allocatedShare < 100 && row.original.allocatedShare > 0 && (
-              <Badge variant="outline" color="gray">
-                {t('invoices.general')} {(Math.round((100 - row.original.allocatedShare) * 100) / 100).toLocaleString('pl-PL')}%
-              </Badge>
-            )}
-          </Group>
-        ),
+        Cell: ({ row }) => <ProjectCell inv={row.original} options={projectOptions} />,
       },
-      { accessorKey: 'status', header: t('invoices.statusLabel'), size: 165, Cell: ({ row }) => <InvoiceStatusBadge status={row.original.status} /> },
+      { accessorKey: 'status', header: t('invoices.statusLabel'), size: 150, Cell: ({ row }) => <InvoiceStatusBadge status={row.original.status} /> },
     ],
-    [t],
+    [t, projectOptions],
   )
 
   const table = useMantineReactTable({

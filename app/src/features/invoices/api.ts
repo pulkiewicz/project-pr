@@ -15,10 +15,14 @@ function useInvalidate() {
   return () => void qc.invalidateQueries({ queryKey: ['invoices'] })
 }
 
-/** Odpowiedź zmiany to aktualna karta faktury — szuflada pokazuje ją od razu, lista odświeża się w tle. */
+/** Odpowiedź zmiany to aktualna karta faktury — szuflada i wiersz listy pokazują ją od razu, lista odświeża się w tle. */
 function useSetDetail() {
   const qc = useQueryClient()
-  return (d: InvoiceDetailDto) => qc.setQueryData(['invoices', 'one', d.id], d)
+  return (d: InvoiceDetailDto) => {
+    qc.setQueryData(['invoices', 'one', d.id], d)
+    const { events: _events, ...item } = d
+    qc.setQueryData<InvoiceListResponse>(['invoices', 'list'], (old) => old && { ...old, items: old.items.map((i) => (i.id === d.id ? item : i)) })
+  }
 }
 
 export function useSyncInvoices() {

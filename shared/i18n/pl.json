@@ -1404,6 +1404,7 @@
     "fillIn": "Uzupełnij dane",
     "editData": "Popraw dane",
     "editHint": "Puste pole = wartość z inFakt. Wpisane dane mają pierwszeństwo i synchronizacja ich nie nadpisze.",
-    "onlyMissing": "Brak danych"
+    "onlyMissing": "Brak danych",
+    "assignProject": "Przypisz projekt…"
   }
 }
