@@ -139,7 +139,7 @@ export async function listInvoices(db: Database, where?: SQL): Promise<InvoiceDt
     .orderBy(sql`coalesce(${costInvoices.manual}->>'issueDate', ${costInvoices.issueDate}::text, (${costInvoices.infaktCreatedAt} AT TIME ZONE 'Europe/Warsaw')::date::text) DESC NULLS LAST`, desc(costInvoices.createdAt))
   if (!rows.length) return []
   const allocs = await db
-    .select({ invoiceId: costInvoiceAllocations.invoiceId, projectId: costInvoiceAllocations.projectId, share: costInvoiceAllocations.share, code: projects.code, name: projects.name })
+    .select({ invoiceId: costInvoiceAllocations.invoiceId, projectId: costInvoiceAllocations.projectId, share: costInvoiceAllocations.share, description: costInvoiceAllocations.description, code: projects.code, name: projects.name })
     .from(costInvoiceAllocations)
     .innerJoin(projects, eq(projects.id, costInvoiceAllocations.projectId))
     .where(where ? inArray(costInvoiceAllocations.invoiceId, rows.map((r) => r.inv.id)) : undefined)
@@ -175,6 +175,7 @@ export async function listInvoices(db: Database, where?: SQL): Promise<InvoiceDt
         projectCode: a.code,
         projectName: a.name,
         share: a.share,
+        description: a.description,
         netAmount: inv.netPrice == null ? null : shareAmount(inv.netPrice, a.share),
       })),
       allocatedShare: Math.round(list.reduce((s, a) => s + a.share * 100, 0)) / 100,

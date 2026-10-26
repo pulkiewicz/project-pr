@@ -3,7 +3,7 @@ import { notifications } from '@mantine/notifications'
 import { IconDownload, IconRefresh, IconSearch } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable, type MRT_ColumnDef } from 'mantine-react-table'
 import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mjs'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { INVOICE_EDITABLE, INVOICE_STATUSES, type InvoiceDto } from '#shared'
@@ -35,6 +35,56 @@ function AllocationBadges({ inv }: { inv: InvoiceDto }) {
   )
 }
 
+/** Edycja w wierszu: faktura do przypisania / odrzucona, bez podziału na kilka projektów. */
+function inlineEditable(inv: InvoiceDto, canEdit: boolean) {
+  const split = inv.allocations.length > 1 || (inv.allocations.length === 1 && inv.allocations[0]!.share !== 100)
+  return canEdit && INVOICE_EDITABLE.includes(inv.status) && !split
+}
+
+/** Opis kosztu w projekcie — w wierszu, zapis po wyjściu z pola lub Enterze. Bez projektu (koszty ogólne) nieaktywny. */
+function DescriptionCell({ inv }: { inv: InvoiceDto }) {
+  const { t } = useTranslation()
+  const { can } = useAuth()
+  const save = useSaveAllocation()
+  const current = inv.allocations.map((a) => a.description).filter(Boolean).join('; ')
+  const [value, setValue] = useState(current)
+  useEffect(() => setValue(current), [current])
+  if (!inlineEditable(inv, can('invoices', 'edit'))) {
+    return (
+      <Text size="sm" lineClamp={2} title={current}>
+        {current}
+      </Text>
+    )
+  }
+  const alloc = inv.allocations[0]
+  const commit = () => {
+    if (!alloc || value.trim() === current) return
+    save.mutate(
+      { id: inv.id, data: { allocations: [{ projectId: alloc.projectId, share: 100, description: value.trim() || null }], version: inv.version } },
+      { onError: (e) => (setValue(current), notifications.show({ color: 'red', message: errorMessage(e) })) },
+    )
+  }
+  return (
+    <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} style={{ width: '100%' }}>
+      <TextInput
+        size="xs"
+        maxLength={500}
+        disabled={!alloc || save.isPending}
+        placeholder={alloc ? t('invoices.allocationDescription') : t('invoices.descriptionNeedsProject')}
+        aria-label={t('invoices.allocationDescription')}
+        value={value}
+        onChange={(e) => setValue(e.currentTarget.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+          if (e.key === 'Escape') setValue(current)
+        }}
+        rightSection={save.isPending ? <Loader size={12} /> : undefined}
+      />
+    </div>
+  )
+}
+
 /**
  * Przypisanie z listy: jeden projekt = 100% (najczęstszy przypadek). Podział na kilka projektów
  * i faktury po wysłaniu do akceptacji — tylko odznaki; edycja w karcie faktury.
@@ -43,8 +93,8 @@ function ProjectCell({ inv, options }: { inv: InvoiceDto; options: { value: stri
   const { t } = useTranslation()
   const { can } = useAuth()
   const save = useSaveAllocation()
-  const split = inv.allocations.length > 1 || (inv.allocations.length === 1 && inv.allocations[0]!.share !== 100)
-  if (!INVOICE_EDITABLE.includes(inv.status) || !can('invoices', 'edit') || split) return <AllocationBadges inv={inv} />
+  if (!inlineEditable(inv, can('invoices', 'edit'))) return <AllocationBadges inv={inv} />
+  const description = inv.allocations[0]?.description ?? null
   return (
     // Zdarzenia z listy rozwijanej (portal) wędrują w drzewie Reacta do wiersza — bez tego kliknięcie otwierałoby kartę.
     <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} style={{ width: '100%' }}>
@@ -61,7 +111,7 @@ function ProjectCell({ inv, options }: { inv: InvoiceDto; options: { value: stri
         comboboxProps={{ withinPortal: true }}
         onChange={(v) =>
           save.mutate(
-            { id: inv.id, data: { allocations: v ? [{ projectId: v, share: 100 }] : [], version: inv.version } },
+            { id: inv.id, data: { allocations: v ? [{ projectId: v, share: 100, description }] : [], version: inv.version } },
             { onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }) },
           )
         }
@@ -83,7 +133,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
     const s = norm(search.trim())
     return items.filter(
       (i) =>
-        (!s || norm(i.number).includes(s) || norm(i.sellerName).includes(s) || norm(i.description).includes(s) || norm(i.category).includes(s)) &&
+        (!s || [i.number, i.sellerName, i.description, i.category, ...i.allocations.map((a) => a.description)].some((x) => norm(x).includes(s))) &&
         (!missing || i.netPrice == null || !i.number || !i.sellerName) &&
         (!statuses.length || statuses.includes(i.status)) &&
         (!project || (project === 'general' ? i.allocatedShare < 100 : i.allocations.some((a) => a.projectId === project))) &&
@@ -122,7 +172,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
             </Text>
           ),
       },
-      { accessorKey: 'sellerName', header: t('invoices.seller'), size: 180, grow: true },
+      { accessorKey: 'sellerName', header: t('invoices.seller'), size: 160, grow: true },
       {
         accessorKey: 'netPrice',
         header: t('invoices.net'),
@@ -140,9 +190,17 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
       {
         id: 'projects',
         header: t('invoices.projects'),
-        size: 250,
+        size: 230,
         enableSorting: false,
         Cell: ({ row }) => <ProjectCell inv={row.original} options={projectOptions} />,
+      },
+      {
+        id: 'description',
+        accessorFn: (r) => r.allocations.map((a) => a.description).filter(Boolean).join('; '),
+        header: t('invoices.allocationDescription'),
+        size: 220,
+        enableSorting: false,
+        Cell: ({ row }) => <DescriptionCell inv={row.original} />,
       },
       { accessorKey: 'status', header: t('invoices.statusLabel'), size: 150, Cell: ({ row }) => <InvoiceStatusBadge status={row.original.status} /> },
     ],
@@ -156,7 +214,8 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
     layoutMode: 'grid',
     enableColumnActions: false,
     enableGlobalFilter: false,
-    initialState: { density: 'xs' },
+    // Brutto domyślnie ukryte (miejsce na projekt i opis); do włączenia w menu kolumn.
+    initialState: { density: 'xs', columnVisibility: { grossPrice: false } },
     enablePagination: false,
     enableStickyHeader: true,
     mantineTableContainerProps: { style: { maxHeight: 'calc(100vh - 330px)' } },

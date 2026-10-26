@@ -83,7 +83,7 @@ describe('przypisanie i akceptacja', () => {
     const res = await req(h, 'PUT', `/api/invoices/${inv.id}/allocation`, ania.headers, {
       allocations: [
         { projectId: SEED_PROJECT_ID, share: 60 },
-        { projectId: project2, share: 25.5 },
+        { projectId: project2, share: 25.5, description: '  sprężarki do komory  ' },
       ],
       note: 'sprężarki',
       version: inv.version,
@@ -91,7 +91,8 @@ describe('przypisanie i akceptacja', () => {
     expect(res.status).toBe(200)
     const d = (await res.json()) as InvoiceDetailDto
     expect(d.allocatedShare).toBe(85.5)
-    expect(d.allocations.find((a) => a.projectId === project2)).toMatchObject({ share: 25.5, netAmount: shareAmount(201234, 25.5) })
+    expect(d.allocations.find((a) => a.projectId === project2)).toMatchObject({ share: 25.5, netAmount: shareAmount(201234, 25.5), description: 'sprężarki do komory' })
+    expect(d.allocations.find((a) => a.projectId === SEED_PROJECT_ID)?.description).toBeNull()
     expect(shareAmount(201234, 25.5)).toBe(51315)
     expect(d.events.map((e) => e.kind)).toEqual(['allocated', 'imported'])
   })
@@ -102,6 +103,7 @@ describe('przypisanie i akceptacja', () => {
     expect((await put({ allocations: [{ projectId: SEED_PROJECT_ID, share: 80 }, { projectId: project2, share: 30 }], version: inv.version })).status).toBe(422)
     expect((await put({ allocations: [{ projectId: project2, share: 10 }, { projectId: project2, share: 10 }], version: inv.version })).status).toBe(422)
     expect((await put({ allocations: [{ projectId: crypto.randomUUID(), share: 10 }], version: inv.version })).status).toBe(422)
+    expect((await put({ allocations: [{ projectId: project2, share: 10, description: 'x'.repeat(501) }], version: inv.version })).status).toBe(422)
     expect((await put({ allocations: [], version: inv.version - 1 })).status).toBe(409)
   })
 

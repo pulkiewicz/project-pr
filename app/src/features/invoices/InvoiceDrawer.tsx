@@ -1,4 +1,4 @@
-import { ActionIcon, Alert, Anchor, Button, Divider, Drawer, Group, Loader, Modal, NumberInput, Select, Stack, Table, Text, Textarea, Timeline } from '@mantine/core'
+import { ActionIcon, Alert, Anchor, Button, Divider, Drawer, Group, Loader, Modal, NumberInput, Select, Stack, Table, Text, TextInput, Textarea, Timeline } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconCheck, IconExternalLink, IconPlus, IconTrash, IconX } from '@tabler/icons-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -14,9 +14,11 @@ import { InvoiceStatusBadge, formatMoney } from './status'
 interface Row {
   projectId: string | null
   share: number | string
+  description: string
 }
 
-const toRows = (d: InvoiceDetailDto): Row[] => d.allocations.map((a) => ({ projectId: a.projectId, share: a.share }))
+const toRows = (d: InvoiceDetailDto): Row[] => d.allocations.map((a) => ({ projectId: a.projectId, share: a.share, description: a.description ?? '' }))
+const rowKey = (r: Row) => [r.projectId, num(r.share), r.description.trim()]
 const num = (v: number | string) => (typeof v === 'number' ? v : Number(v.replace(',', '.')) || 0)
 const round2 = (v: number) => Math.round(v * 100) / 100
 
@@ -70,7 +72,7 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
   const projectOptions = useMemo(() => me.projects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })), [me.projects])
   const total = round2(rows.reduce((s, r) => s + num(r.share), 0))
   const rest = round2(100 - total)
-  const dirty = !!d && (JSON.stringify(rows.map((r) => [r.projectId, num(r.share)])) !== JSON.stringify(toRows(d).map((r) => [r.projectId, num(r.share)])) || note !== (d.note ?? ''))
+  const dirty = !!d && (JSON.stringify(rows.map(rowKey)) !== JSON.stringify(toRows(d).map(rowKey)) || note !== (d.note ?? ''))
   const invalid = total > 100 || rows.some((r) => !r.projectId || num(r.share) <= 0) || new Set(rows.map((r) => r.projectId)).size !== rows.length
   const allocatedCents = d?.netPrice == null ? 0 : rows.reduce((s, r) => s + shareAmount(d.netPrice!, num(r.share)), 0)
 
@@ -79,7 +81,7 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
   const saveAllocation = () =>
     d &&
     save.mutate(
-      { id: d.id, data: { allocations: rows.map((r) => ({ projectId: r.projectId!, share: num(r.share) })), note: note.trim() || null, version: d.version } },
+      { id: d.id, data: { allocations: rows.map((r) => ({ projectId: r.projectId!, share: num(r.share), description: r.description.trim() || null })), note: note.trim() || null, version: d.version } },
       { onSuccess: () => notifications.show({ color: 'green', message: t('app.saved') }), onError },
     )
 
@@ -148,6 +150,26 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
                       onChange={(v) => setRows(rows.map((x, j) => (j === i ? { ...x, projectId: v } : x)))}
                       aria-label={t('invoices.project')}
                     />
+                    {editable ? (
+                      <TextInput
+                        mt={4}
+                        size="xs"
+                        placeholder={t('invoices.allocationDescriptionHint')}
+                        aria-label={t('invoices.allocationDescription')}
+                        maxLength={500}
+                        value={r.description}
+                        onChange={(e) => {
+                          const description = e.currentTarget.value
+                          setRows(rows.map((x, j) => (j === i ? { ...x, description } : x)))
+                        }}
+                      />
+                    ) : (
+                      r.description && (
+                        <Text size="xs" c="dimmed" mt={2}>
+                          {r.description}
+                        </Text>
+                      )
+                    )}
                   </Table.Td>
                   <Table.Td>
                     <NumberInput size="xs" disabled={!editable} min={0.01} max={100} decimalScale={2} decimalSeparator="," suffix=" %" value={r.share} onChange={(v) => setRows(rows.map((x, j) => (j === i ? { ...x, share: v } : x)))} aria-label={t('invoices.share')} />
@@ -185,7 +207,7 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
           {editable && (
             <>
               <Group gap="xs">
-                <Button size="xs" variant="subtle" leftSection={<IconPlus size={14} />} disabled={rows.length >= projectOptions.length} onClick={() => setRows([...rows, { projectId: null, share: rows.length ? 0 : 100 }])}>
+                <Button size="xs" variant="subtle" leftSection={<IconPlus size={14} />} disabled={rows.length >= projectOptions.length} onClick={() => setRows([...rows, { projectId: null, share: rows.length ? 0 : 100, description: '' }])}>
                   {t('invoices.addProject')}
                 </Button>
                 {rows.length > 1 && (

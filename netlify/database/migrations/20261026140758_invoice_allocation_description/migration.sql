@@ -1,0 +1,1 @@
+ALTER TABLE "cost_invoice_allocations" ADD COLUMN "description" text;

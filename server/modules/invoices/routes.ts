@@ -132,6 +132,7 @@ invoicesRouter.openapi(
       { header: 'Projekt', key: 'project', width: 14 },
       { header: 'Udział %', key: 'share', width: 10 },
       { header: 'Netto udziału', key: 'shareNet', width: 14, style: { numFmt: money } },
+      { header: 'Opis', key: 'description', width: 36 },
       { header: 'Status', key: 'status', width: 16 },
       { header: 'Zaakceptował', key: 'decidedBy', width: 18 },
     ]
@@ -150,14 +151,14 @@ invoicesRouter.openapi(
         status: STATUS[i.status],
         decidedBy: i.status === 'approved' ? (i.decidedByName ?? '') : '',
       }
-      for (const a of i.allocations) ws.addRow({ ...base, project: a.projectCode, share: a.share, shareNet: pln(a.netAmount) })
+      for (const a of i.allocations) ws.addRow({ ...base, project: a.projectCode, share: a.share, shareNet: pln(a.netAmount), description: a.description ?? '' })
       const rest = Math.round((100 - i.allocatedShare) * 100) / 100
       if (rest > 0) {
         const restNet = i.netPrice == null ? null : i.netPrice - i.allocations.reduce((s, a) => s + (a.netAmount ?? 0), 0)
         ws.addRow({ ...base, project: 'Ogólne', share: rest, shareNet: pln(restNet) })
       }
     }
-    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 12 } }
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 13 } }
     await writeAudit(c, { action: 'invoices.export_xlsx', entity: 'cost_invoices', changes: { invoices: items.length } })
     return c.body((await wb.xlsx.writeBuffer()) as ArrayBuffer, 200, {
       'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -210,7 +211,7 @@ invoicesRouter.openapi(
         .returning({ id: costInvoices.id })
       if (!r) return null
       await tx.delete(costInvoiceAllocations).where(eq(costInvoiceAllocations.invoiceId, id))
-      if (allocations.length) await tx.insert(costInvoiceAllocations).values(allocations.map((a) => ({ invoiceId: id, projectId: a.projectId, share: a.share })))
+      if (allocations.length) await tx.insert(costInvoiceAllocations).values(allocations.map((a) => ({ invoiceId: id, projectId: a.projectId, share: a.share, description: a.description || null })))
       await tx.insert(costInvoiceEvents).values({ invoiceId: id, kind: 'allocated', userId: user.id, meta: { allocations } })
       await writeAudit(c, { action: 'invoices.allocate', entity: 'cost_invoices', entityId: id, changes: { allocations, note } }, tx)
       return r

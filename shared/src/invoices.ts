@@ -60,7 +60,7 @@ const share = z.number().gt(0).max(100).refine((v) => Math.abs(Math.round(v * 10
 export const invoiceAllocationInput = z
   .object({
     allocations: z
-      .array(z.object({ projectId: z.uuid(), share }))
+      .array(z.object({ projectId: z.uuid(), share, description: z.string().trim().max(500).nullable().optional() }))
       .max(50)
       .refine((a) => new Set(a.map((x) => x.projectId)).size === a.length, 'validation.duplicateProject')
       .refine((a) => Math.round(a.reduce((s, x) => s + x.share * 100, 0)) <= 10000, 'validation.sharesOver100'),
@@ -100,6 +100,8 @@ export interface InvoiceAllocationDto {
   projectCode: string
   projectName: string
   share: number
+  /** Opis kosztu w projekcie (np. „sprężarki do komory”). */
+  description: string | null
   /** Netto udziału w groszach (null, gdy inFakt nie podał kwoty). */
   netAmount: number | null
 }

@@ -2,6 +2,8 @@
 
 ## Faktury kosztowe z inFakt → projekty (26.10.2026)
 
+- **Opis przypisania:** każdy udział projektu ma opis (czego dotyczy koszt w projekcie, do 500 znaków). Edycja w karcie faktury (pod projektem) i w wierszu listy (kolumna „Opis”, zapis po Enterze lub wyjściu z pola). Opis jest w eksporcie XLSX i w wyszukiwaniu. Kolumna „Brutto” na liście domyślnie ukryta (menu kolumn). Migracja `20261026140758_invoice_allocation_description`.
+
 - **Przypisanie z listy:** w kolumnie „Projekty” wybierasz projekt bezpośrednio w wierszu (100% na jeden projekt; wyczyszczenie = koszty ogólne). Podział na kilka projektów i faktury po wysłaniu do akceptacji — w karcie faktury.
 
 - **Pliki zamiast zaksięgowanych kosztów:** w Envcheck faktury są w inFakt jako pliki (`document_scan`), a księgowanie odbywa się poza inFakt. Pliki zwykle nie mają daty wystawienia, więc synchronizacja filtruje teraz po **dacie dodania do inFakt** (ustawienie „Pobieraj pliki dodane do inFakt od”). Lista sortuje i pokazuje datę dodania (szarą), gdy brak daty wystawienia.

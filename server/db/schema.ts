@@ -958,6 +958,8 @@ export const costInvoiceAllocations = pgTable(
     invoiceId: uuid('invoice_id').notNull().references(() => costInvoices.id, { onDelete: 'cascade' }),
     projectId: uuid('project_id').notNull().references(() => projects.id),
     share: numeric('share', { precision: 5, scale: 2, mode: 'number' }).notNull(),
+    /** Opis kosztu w tym projekcie. */
+    description: text('description'),
   },
   (t) => [primaryKey({ columns: [t.invoiceId, t.projectId] }), index('cost_invoice_allocations_project_idx').on(t.projectId)],
 )

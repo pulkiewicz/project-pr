@@ -1405,6 +1405,9 @@
     "editData": "Popraw dane",
     "editHint": "Puste pole = wartość z inFakt. Wpisane dane mają pierwszeństwo i synchronizacja ich nie nadpisze.",
     "onlyMissing": "Brak danych",
-    "assignProject": "Przypisz projekt…"
+    "assignProject": "Przypisz projekt…",
+    "allocationDescription": "Opis",
+    "descriptionNeedsProject": "najpierw wybierz projekt",
+    "allocationDescriptionHint": "Opis — czego dotyczy koszt w tym projekcie"
   }
 }
