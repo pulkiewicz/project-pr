@@ -18,7 +18,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { ACTIVITY_KINDS, AI_JOB_KINDS, AI_JOB_STATUSES, INPUT_KINDS, QUESTION_AUDIENCES, QUESTION_STATUSES, SUGGESTION_STATUSES, type SuggestionPayload, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type QuoteInfo, type QuoteParams, HRF_STATUSES, ID_DOC_TYPES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
+import { ACTIVITY_KINDS, AI_JOB_KINDS, AI_JOB_STATUSES, INPUT_KINDS, QUESTION_AUDIENCES, QUESTION_STATUSES, SUGGESTION_STATUSES, type SuggestionPayload, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type QuoteInfo, type QuoteParams, HRF_STATUSES, ID_DOC_TYPES, INVOICE_EVENT_KINDS, INVOICE_STATUSES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -907,4 +907,70 @@ export const quoteQuestions = pgTable(
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [index('quote_questions_quote_idx').on(t.quoteId), index('quote_questions_assignee_idx').on(t.assigneeId, t.status)],
+)
+
+// ---------------- Faktury kosztowe z inFakt → projekty ----------------
+
+export const invoiceStatusEnum = pgEnum('cost_invoice_status', INVOICE_STATUSES)
+export const invoiceEventKindEnum = pgEnum('cost_invoice_event_kind', INVOICE_EVENT_KINDS)
+
+/** Dokument kosztowy z inFakt (kopia pól z API; kwoty w groszach) + stan przypisania i akceptacji. */
+export const costInvoices = pgTable(
+  'cost_invoices',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    infaktUuid: text('infakt_uuid').notNull(),
+    kind: text('kind').notNull(),
+    number: text('number'),
+    sellerName: text('seller_name'),
+    description: text('description'),
+    category: text('category'),
+    issueDate: date('issue_date', { mode: 'string' }),
+    dueDate: date('due_date', { mode: 'string' }),
+    currency: text('currency').notNull().default('PLN'),
+    netPrice: bigint('net_price', { mode: 'number' }),
+    grossPrice: bigint('gross_price', { mode: 'number' }),
+    taxPrice: bigint('tax_price', { mode: 'number' }),
+    paymentStatus: text('payment_status'),
+    accountingStatus: text('accounting_status'),
+    infaktCreatedAt: ts('infakt_created_at'),
+    status: invoiceStatusEnum('status').notNull().default('new'),
+    note: text('note'),
+    submittedBy: uuid('submitted_by').references(() => users.id),
+    submittedAt: ts('submitted_at'),
+    decidedBy: uuid('decided_by').references(() => users.id),
+    decidedAt: ts('decided_at'),
+    syncedAt: ts('synced_at').notNull().defaultNow(),
+    version: integer('version').notNull().default(1),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+    updatedBy: uuid('updated_by'),
+  },
+  (t) => [uniqueIndex('cost_invoices_infakt_uuid_uq').on(t.infaktUuid), index('cost_invoices_status_idx').on(t.status), index('cost_invoices_issue_date_idx').on(t.issueDate)],
+)
+
+/** Udział projektu w fakturze (%). Suma ≤ 100; reszta = koszty ogólne. */
+export const costInvoiceAllocations = pgTable(
+  'cost_invoice_allocations',
+  {
+    invoiceId: uuid('invoice_id').notNull().references(() => costInvoices.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    share: numeric('share', { precision: 5, scale: 2, mode: 'number' }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.invoiceId, t.projectId] }), index('cost_invoice_allocations_project_idx').on(t.projectId)],
+)
+
+/** Historia faktury (import, przypisanie, akceptacja, odrzucenie z komentarzem). */
+export const costInvoiceEvents = pgTable(
+  'cost_invoice_events',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    invoiceId: uuid('invoice_id').notNull().references(() => costInvoices.id, { onDelete: 'cascade' }),
+    kind: invoiceEventKindEnum('kind').notNull(),
+    comment: text('comment'),
+    meta: jsonb('meta').$type<Record<string, unknown>>(),
+    userId: uuid('user_id').references(() => users.id),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('cost_invoice_events_invoice_idx').on(t.invoiceId, t.createdAt)],
 )

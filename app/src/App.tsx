@@ -24,6 +24,7 @@ const AvizationsPage = lazy(() => import('./features/avizations/AvizationsPage')
 const CrmPage = lazy(() => import('./features/crm/CrmPage').then((m) => ({ default: m.CrmPage })))
 const QuotesPage = lazy(() => import('./features/quotes/QuotesPage').then((m) => ({ default: m.QuotesPage })))
 const KnowledgePage = lazy(() => import('./features/quotes/KnowledgePage').then((m) => ({ default: m.KnowledgePage })))
+const InvoicesPage = lazy(() => import('./features/invoices/InvoicesPage').then((m) => ({ default: m.InvoicesPage })))
 const PurchasesPage = lazy(() => import('./features/purchases/PurchasesPage').then((m) => ({ default: m.PurchasesPage })))
 
 /** Ukrywa trasę w UI; właściwa autoryzacja zawsze po stronie API. */
@@ -92,6 +93,7 @@ export function App() {
         <Route path="/wyceny/:id?" element={<Guard module="quotes"><Suspense fallback={<Loader />}><QuotesPage /></Suspense></Guard>} />
         <Route path="/baza-wiedzy" element={<Guard module="quoteKnowledge"><Suspense fallback={<Loader />}><KnowledgePage /></Suspense></Guard>} />
         <Route path="/baza-wiedzy/profile/:id" element={<Guard module="quoteKnowledge"><Suspense fallback={<Loader />}><KnowledgePage /></Suspense></Guard>} />
+        <Route path="/faktury" element={<Guard module="invoices"><Suspense fallback={<Loader />}><InvoicesPage /></Suspense></Guard>} />
         {SALES_NAV.filter((n) => !n.ready).map((n) => (
           <Route key={n.module} path={n.path} element={<Guard module={n.module}><ModulePlaceholder item={n} /></Guard>} />
         ))}

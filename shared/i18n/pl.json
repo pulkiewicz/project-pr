@@ -119,7 +119,9 @@
     "projects": "Projekty",
     "sales": "Sprzedaż",
     "quoteProfile": "Profil wyceny",
-    "quotesCost": "Wyceny — koszty"
+    "quotesCost": "Wyceny — koszty",
+    "invoices": "Faktury kosztowe",
+    "finance": "Finanse"
   },
   "roles": {
     "Admin": "Administrator",
@@ -333,7 +335,14 @@
     "file_too_large_direct": "Plik za duży dla wysyłki przez serwer",
     "upload_mismatch": "Plik na Drive nie zgadza się z wysyłanym",
     "ai_unavailable": "AI niedostępne — brak klucza ANTHROPIC_API_KEY",
-    "ai_job_running": "To zadanie AI już trwa"
+    "ai_job_running": "To zadanie AI już trwa",
+    "infakt_not_configured": "Integracja z inFakt nie jest skonfigurowana (brak klucza API)",
+    "infakt_unauthorized": "inFakt odrzucił klucz API — sprawdź klucz i uprawnienie api:costs:read",
+    "infakt_failed": "Błąd komunikacji z inFakt: {{detail}}",
+    "invoice_wrong_status": "Faktura ma już inny status — odśwież widok",
+    "invoice_not_editable": "Przypisanie można zmieniać tylko w fakturach do przypisania lub odrzuconych",
+    "invoice_self_approval": "Fakturę akceptuje inna osoba niż ta, która wysłała ją do akceptacji",
+    "invoice_user_not_staff": "Dostęp do faktur można nadać tylko pracownikom Envcheck"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -351,7 +360,10 @@
     "lossReasonRequired": "Podaj powód przegranej",
     "opportunityRequired": "Wybierz szansę",
     "profileNameRequired": "Podaj nazwę profilu",
-    "specKeysUnique": "Klucze parametrów muszą być unikalne"
+    "specKeysUnique": "Klucze parametrów muszą być unikalne",
+    "share": "Udział: maks. 2 miejsca po przecinku",
+    "duplicateProject": "Projekt wybrany więcej niż raz",
+    "sharesOver100": "Suma udziałów przekracza 100%"
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -1286,5 +1298,91 @@
     "unavailable": "Brak konta serwisowego (GOOGLE_SA_EMAIL, GOOGLE_SA_PRIVATE_KEY).",
     "fake": "atrapa Drive (lokalnie)",
     "createFolder": "Utwórz folder na Drive"
+  },
+  "invoices": {
+    "title": "Faktury kosztowe (inFakt)",
+    "sync": "Synchronizuj z inFakt",
+    "synced": "Pobrano z inFakt: {{fetched}}, nowe: {{created}}, zmienione: {{updated}}",
+    "lastSync": "Ostatnia synchronizacja: {{at}}{{by}}",
+    "neverSynced": "Jeszcze nie synchronizowano",
+    "notConfigured": "Brak klucza API inFakt (zmienna INFAKT_API_KEY) — synchronizacja niedostępna.",
+    "export": "Eksport XLSX",
+    "search": "Numer, sprzedawca, opis…",
+    "status": {
+      "new": "Do przypisania",
+      "pending": "Do akceptacji",
+      "approved": "Zaakceptowana",
+      "rejected": "Odrzucona"
+    },
+    "event": {
+      "imported": "Pobrano z inFakt",
+      "allocated": "Zmieniono przypisanie",
+      "submitted": "Wysłano do akceptacji",
+      "approved": "Zaakceptowano",
+      "rejected": "Odrzucono",
+      "reopened": "Przywrócono do przypisania",
+      "changed_in_infakt": "Zmiana w inFakt — wymaga ponownej akceptacji"
+    },
+    "tabs": {
+      "list": "Faktury",
+      "projects": "Koszty per projekt"
+    },
+    "onlyMine": "Do mojej akceptacji",
+    "number": "Numer",
+    "seller": "Sprzedawca",
+    "issueDate": "Wystawiona",
+    "dueDate": "Termin płatności",
+    "net": "Netto",
+    "gross": "Brutto",
+    "vat": "VAT",
+    "category": "Kategoria",
+    "projects": "Projekty",
+    "statusLabel": "Status",
+    "payment": "Płatność",
+    "paymentStatus": {
+      "paid": "zapłacona",
+      "unpaid": "niezapłacona",
+      "partial_payment": "częściowo",
+      "payment_not_applicable": "nie dotyczy"
+    },
+    "general": "Ogólne",
+    "generalHint": "Koszty ogólne firmy (bez projektu)",
+    "allocation": "Przypisanie do projektów",
+    "addProject": "Dodaj projekt",
+    "project": "Projekt",
+    "share": "Udział %",
+    "amount": "Netto udziału",
+    "splitEven": "Podziel równo",
+    "rest": "Pozostało na koszty ogólne: {{share}}% ({{amount}})",
+    "note": "Notatka",
+    "save": "Zapisz przypisanie",
+    "submit": "Wyślij do akceptacji",
+    "approve": "Akceptuj",
+    "reject": "Odrzuć",
+    "reopen": "Przywróć do przypisania",
+    "withdraw": "Wycofaj z akceptacji",
+    "rejectReason": "Powód odrzucenia",
+    "comment": "Komentarz (opcjonalnie)",
+    "selfApproval": "Ta faktura została wysłana przez Ciebie — zaakceptować musi inna osoba z dostępem.",
+    "submittedBy": "Wysłał(a): {{name}}, {{at}}",
+    "decidedBy": "Decyzja: {{name}}, {{at}}",
+    "history": "Historia",
+    "attachments": "Pliki w inFakt",
+    "noAttachments": "Brak plików",
+    "noAmount": "Skan bez kwot — uzupełnij koszt w inFakt",
+    "unsaved": "Masz niezapisane zmiany przypisania — zapisz je przed wysłaniem.",
+    "perProject": {
+      "hint": "Netto udziałów w walucie faktury. „W toku” — faktury przypisane, wysłane do akceptacji lub odrzucone.",
+      "approved": "Zaakceptowane",
+      "other": "W toku",
+      "count": "Faktur"
+    },
+    "settings": {
+      "title": "Faktury kosztowe (inFakt)",
+      "users": "Osoby z dostępem do modułu",
+      "usersHint": "Moduł widzą tylko wybrane osoby. Akceptuje inna osoba z tej listy niż wysyłająca.",
+      "syncFrom": "Pobieraj koszty wystawione od",
+      "keyMissing": "Brak klucza INFAKT_API_KEY w zmiennych środowiskowych Netlify."
+    }
   }
 }

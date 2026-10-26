@@ -1,5 +1,5 @@
 import { and, eq, isNull, sql } from 'drizzle-orm'
-import { ROLES, defaultPartyForRole, isStaffOnlyModule, isStaffRole, type Action, type ModuleKey, type Role } from '#shared'
+import { DEFAULT_INVOICE_SYNC_FROM, ROLES, defaultPartyForRole, type InvoiceSettings, isStaffOnlyModule, isStaffRole, type Action, type ModuleKey, type Role } from '#shared'
 import type { Database } from '../db/client.ts'
 import { appSettings, auditLog, permissions, projectMembers, projects, users } from '../db/schema.ts'
 import type { IdentityClaims } from './identity.ts'
@@ -48,6 +48,20 @@ export async function canAccessProject(db: Database, user: Pick<UserRow, 'id' | 
 }
 
 export const MFA_SETTING_KEY = 'mfa.requiredRoles'
+export const INVOICES_SETTING_KEY = 'invoices.access'
+
+/** Moduł Faktury: lista osób z dostępem (decyzja 26.10.2026 — wybrane osoby, niezależnie od roli). */
+export async function invoiceSettings(db: Database): Promise<InvoiceSettings> {
+  const [row] = await db.select().from(appSettings).where(eq(appSettings.key, INVOICES_SETTING_KEY))
+  const v = (row?.value ?? {}) as Partial<InvoiceSettings>
+  return { userIds: Array.isArray(v.userIds) ? v.userIds : [], syncFrom: typeof v.syncFrom === 'string' ? v.syncFrom : DEFAULT_INVOICE_SYNC_FROM }
+}
+
+/** Uprawnienia `invoices:*` z roli obowiązują tylko osoby z listy `invoices.access`. */
+export function restrictInvoicePermissions(perms: Set<`${ModuleKey}:${Action}`>, userId: string, settings: InvoiceSettings) {
+  if (settings.userIds.includes(userId)) return perms
+  return new Set([...perms].filter((p) => !p.startsWith('invoices:')))
+}
 
 export async function mfaRequiredRoles(db: Database): Promise<Role[]> {
   const [row] = await db.select().from(appSettings).where(eq(appSettings.key, MFA_SETTING_KEY))

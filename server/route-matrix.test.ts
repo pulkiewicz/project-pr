@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DEFAULT_LEVELS, ROLES, defaultPermissionEntries, type Role } from '#shared'
 import { ROUTE_POLICIES } from './app.ts'
-import { createUser, req, startHarness, type Harness, type TestUser } from './test/harness.ts'
+import { INVOICES_SETTING_KEY } from './auth/access.ts'
+import { createUser, req, schema, startHarness, type Harness, type TestUser } from './test/harness.ts'
 
 /**
  * Test macierzy ról (sekcja 10): KAŻDY zarejestrowany endpoint × KAŻDA rola.
@@ -13,6 +14,8 @@ const users = {} as Record<Role, TestUser>
 beforeAll(async () => {
   h = await startHarness()
   for (const role of ROLES) users[role] = await createUser(h, role)
+  // Moduł Faktury: dostęp z roli działa tylko dla osób z listy — tu wszyscy, by sprawdzić samą macierz.
+  await h.db.insert(schema.appSettings).values({ key: INVOICES_SETTING_KEY, value: { userIds: Object.values(users).map((u) => u.id), syncFrom: '2026-01-01' } })
 })
 afterAll(() => h.stop())
 

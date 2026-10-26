@@ -8,6 +8,9 @@ import type { AiClient } from './integrations/ai/types.ts'
 import { FakeDrive } from './integrations/drive/fake.ts'
 import { GoogleDriveClient } from './integrations/drive/google.ts'
 import type { DriveClient } from './integrations/drive/types.ts'
+import { HttpInfaktClient } from './integrations/infakt/client.ts'
+import { FakeInfaktClient } from './integrations/infakt/fake.ts'
+import type { InfaktClient } from './integrations/infakt/types.ts'
 import { requireEnv, env } from './lib/env.ts'
 import { parseKeyring } from './lib/field-crypto.ts'
 
@@ -43,6 +46,13 @@ function aiClient(): AiClient | null {
   return null
 }
 
+function infaktClient(): InfaktClient | null {
+  // Lokalnie atrapa na jawne żądanie ma pierwszeństwo przed kluczem.
+  if (localDev() && env('DEV_FAKE_INFAKT') === '1') return new FakeInfaktClient()
+  const key = env('INFAKT_API_KEY')
+  return key ? new HttpInfaktClient(key) : null
+}
+
 /** Zadanie AI wykonuje funkcja w tle (do 15 min) — tutaj tylko zlecenie z jednorazowym tokenem. */
 async function dispatchJob(jobId: string, token: string, origin: string) {
   const res = await fetch(`${origin}/.netlify/functions/ai-job-background`, {
@@ -68,6 +78,7 @@ export function runtimeDeps(): AppDeps {
     },
     drive: driveClient(),
     ai: aiClient(),
+    infakt: infaktClient(),
     dispatchJob,
   }
   return deps

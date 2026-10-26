@@ -42,6 +42,18 @@ npm run secrets:generate -- adres@firmy.pl        # wypisuje gotowe polecenia ne
 
 **Nie ustawiaj** `DEV_AUTH` w Netlify (logowanie deweloperskie; i tak działa wyłącznie pod lokalnym `netlify dev`).
 
+### Faktury kosztowe z inFakt
+
+| Zmienna | Opis |
+|---|---|
+| `INFAKT_API_KEY` | klucz API inFakt (tylko odczyt kosztów) |
+
+1. https://app.infakt.pl → **Ustawienia → Inne opcje → API** → wygeneruj klucz z uprawnieniem **`api:costs:read`** (żadnych innych zakresów nie potrzeba).
+2. `netlify env:set INFAKT_API_KEY "…" --secret --scope functions`, potem redeploy.
+3. W aplikacji: **Administracja → Ustawienia → Faktury kosztowe** — zaznacz osoby z dostępem (np. Krzysztof, Ania, Kamil) i datę, od której pobierać koszty.
+
+Synchronizacja: przycisk „Synchronizuj z inFakt” w module oraz codziennie o 05:00 UTC (funkcja `infakt-sync`). Lokalnie `DEV_FAKE_INFAKT=1` włącza atrapę (5 przykładowych kosztów).
+
 ### Envcheck Hub — zmienne dla wycen z AI i Google Drive (etapy R4–R5)
 
 | Zmienna | Opis |

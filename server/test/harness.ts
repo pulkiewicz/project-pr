@@ -7,6 +7,7 @@ import { defaultPartyForRole, isStaffRole, type Role } from '#shared'
 import { createApp } from '../app.ts'
 import { FakeAiClient } from '../integrations/ai/fake.ts'
 import { FakeDrive } from '../integrations/drive/fake.ts'
+import { FakeInfaktClient } from '../integrations/infakt/fake.ts'
 import { runAiJob } from '../modules/ai/ops.ts'
 import { signMfaSession, MFA_COOKIE } from '../auth/mfa-session.ts'
 import { IdentityError, type IdentityAdmin, type IdentityVerifier } from '../auth/identity.ts'
@@ -56,6 +57,7 @@ export interface Harness {
   pg: NetlifyDB
   drive: FakeDrive
   ai: FakeAiClient
+  infakt: FakeInfaktClient
   db: Database
   deps: AppDeps
   app: ReturnType<typeof createApp>
@@ -87,6 +89,7 @@ export async function startHarness(): Promise<Harness> {
     now: () => clock.now,
     drive: new FakeDrive(),
     ai: new FakeAiClient(),
+    infakt: new FakeInfaktClient(),
   }
   // Zadania AI wykonywane od razu (bez funkcji w tle).
   deps.dispatchJob = async (jobId, token) => {
@@ -97,6 +100,7 @@ export async function startHarness(): Promise<Harness> {
     pg,
     drive: deps.drive as FakeDrive,
     ai: deps.ai as FakeAiClient,
+    infakt: deps.infakt as FakeInfaktClient,
     db,
     deps,
     app,

@@ -8,6 +8,7 @@ import { useMe } from '../../auth/AuthProvider'
 import { api } from '../../lib/api'
 import { ProjectContext } from '../../lib/project'
 import { AvizationSettingsCard } from '../../features/avizations/AvizationSettingsCard'
+import { InvoiceSettingsCard } from '../../features/invoices/InvoiceSettingsCard'
 import { errorMessage } from '../../lib/errors'
 
 export function SettingsPage() {
@@ -46,6 +47,7 @@ export function SettingsPage() {
           </Group>
         </Stack>
       </Card>
+      <InvoiceSettingsCard />
       {/* Ustawienia awizacji są per projekt — karta dostaje projekt wprost, bo ta strona jest poza `/projekty/…`. */}
       {me.projects.map((p) => (
         <ProjectContext.Provider key={p.id} value={p}>

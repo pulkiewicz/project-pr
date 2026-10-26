@@ -19,6 +19,8 @@ export const MODULES = {
   /** Marża, rezerwa, ryzyko, cena netto/brutto, ustawienia wycen. */
   quotesPricing: { internal: true, staffOnly: true, scope: 'global' },
   quoteKnowledge: { internal: true, staffOnly: true, scope: 'global' },
+  /** Faktury kosztowe z inFakt → projekty. Dostęp dodatkowo zawężony do osób z ustawienia `invoices.access`. */
+  invoices: { internal: true, staffOnly: true, scope: 'global' },
   dashboardInternal: { internal: true },
   hrf: { internal: false },
   hrfInternal: { internal: true },
@@ -83,6 +85,8 @@ export const DEFAULT_LEVELS: Record<ModuleKey, Row> = {
   quotesCost: row('P', 'E', '-', '-', '-'),
   quotesPricing: row('P', '-', '-', '-', '-'),
   quoteKnowledge: row('P', 'E', '-', '-', '-'),
+  // Faktury: rola tylko otwiera możliwość — o dostępie decyduje lista osób w Ustawieniach (Admin).
+  invoices: row('P', 'P', '-', '-', '-'),
   dashboardInternal: row('P', 'O', '-', '-', '-'),
   hrf: row('P', 'E', 'E', 'O', '-'),
   // Zadania wewnętrzne doprecyzowujące HRF — niewidoczne dla Zamawiającego i podwykonawców.

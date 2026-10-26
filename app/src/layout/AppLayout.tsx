@@ -33,6 +33,7 @@ import {
   IconAddressBook,
   IconCalculator,
   IconBooks,
+  IconReceipt,
 } from '@tabler/icons-react'
 import type { ModuleKey } from '#shared'
 import { NavLink as RouterLink, Outlet, useLocation } from 'react-router-dom'
@@ -40,7 +41,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { daysUntil, formatDate } from '../lib/format'
 import { projectPath, useCurrentProject } from '../lib/project'
-import { PROJECT_NAV, SALES_NAV, isInternal, projectHomePath } from '../nav'
+import { FINANCE_NAV, PROJECT_NAV, SALES_NAV, isInternal, projectHomePath } from '../nav'
 import { BuildInfo } from './BuildInfo'
 import { ErrorBoundary } from './ErrorBoundary'
 
@@ -66,6 +67,7 @@ const ICONS: Partial<Record<ModuleKey, typeof IconGauge>> = {
   crm: IconAddressBook,
   quotes: IconCalculator,
   quoteKnowledge: IconBooks,
+  invoices: IconReceipt,
 }
 
 function Countdown() {
@@ -108,6 +110,7 @@ export function AppLayout() {
   const internal = visible.filter((n) => isInternal(n.module))
   // Sprzedaż: także moduły zapowiedziane (z etapem), żeby było widać docelową strukturę.
   const sales = SALES_NAV.filter((n) => can(n.module, 'view'))
+  const finance = FINANCE_NAV.filter((n) => can(n.module, 'view'))
   const norm = (p: string) => p.replace(/\/+$/, '') || '/'
   const isActive = (path: string, exact = false) => (path === '/' || exact ? norm(location.pathname) === norm(path) : location.pathname.startsWith(path))
 
@@ -258,6 +261,12 @@ export function AppLayout() {
             <>
               {section(t('nav.sales'))}
               {sales.map((n) => item(n.module, n.path, t(`nav.${n.module}`), ICONS[n.module] ?? IconFileText, false, { badge: n.ready ? undefined : n.stage }))}
+            </>
+          )}
+          {finance.length > 0 && (
+            <>
+              {section(t('nav.finance'))}
+              {finance.map((n) => item(n.module, n.path, t(`nav.${n.module}`), ICONS[n.module] ?? IconFileText))}
             </>
           )}
           {can('admin', 'view') && (
