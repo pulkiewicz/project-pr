@@ -1,7 +1,7 @@
 import { Alert, Badge, Button, Group, Loader, MultiSelect, Select, Stack, Switch, Table, Tabs, Text, TextInput, Title } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconDownload, IconRefresh, IconSearch } from '@tabler/icons-react'
-import { MantineReactTable, useMantineReactTable, type MRT_ColumnDef } from 'mantine-react-table'
+import { MantineReactTable, useMantineReactTable, type MRT_ColumnDef, type MRT_RowSelectionState } from 'mantine-react-table'
 import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mjs'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -11,7 +11,7 @@ import { useAuth, useMe } from '../../auth/AuthProvider'
 import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime } from '../../lib/format'
-import { useInvoices, useSaveAllocation, useSyncInvoices } from './api'
+import { useBulkAllocation, useInvoices, useSaveAllocation, useSyncInvoices } from './api'
 import { InvoiceDrawer } from './InvoiceDrawer'
 import { InvoiceStatusBadge, formatMoney } from './status'
 
@@ -120,9 +120,64 @@ function ProjectCell({ inv, options }: { inv: InvoiceDto; options: { value: stri
   )
 }
 
+const GENERAL = '__general'
+
+/** Zbiorcza zmiana przypisania zaznaczonych faktur: jeden projekt (100%) albo koszty ogólne. */
+function BulkBar({ ids, options, onDone }: { ids: string[]; options: { value: string; label: string }[]; onDone: () => void }) {
+  const { t } = useTranslation()
+  const bulk = useBulkAllocation()
+  const [project, setProject] = useState<string | null>(null)
+  const [description, setDescription] = useState('')
+  return (
+    <Group gap="xs" px="xs" py={4} bg="var(--mantine-color-blue-light)" style={{ borderRadius: 'var(--mantine-radius-sm)' }} wrap="nowrap">
+      <Text size="sm" fw={600} style={{ whiteSpace: 'nowrap' }}>
+        {t('invoices.bulk.selected', { count: ids.length })}
+      </Text>
+      <Select
+        w={240}
+        size="xs"
+        searchable
+        aria-label={t('invoices.bulk.project')}
+        placeholder={t('invoices.bulk.project')}
+        data={[{ value: GENERAL, label: t('invoices.generalHint') }, ...options]}
+        value={project}
+        onChange={setProject}
+      />
+      <TextInput w={220} size="xs" aria-label={t('invoices.allocationDescription')} placeholder={t('invoices.bulk.descriptionKeep')} maxLength={500} value={description} onChange={(e) => setDescription(e.currentTarget.value)} disabled={project === GENERAL} />
+      <Button
+        size="xs"
+        disabled={!project}
+        loading={bulk.isPending}
+        onClick={() =>
+          bulk.mutate(
+            { ids, projectId: project === GENERAL ? null : project, ...(description.trim() ? { description: description.trim() } : {}) },
+            {
+              onSuccess: (r) => {
+                notifications.show({ color: r.skipped ? 'yellow' : 'green', message: t('invoices.bulk.done', { updated: r.updated, skipped: r.skipped }) })
+                setProject(null)
+                setDescription('')
+                onDone()
+              },
+              onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+            },
+          )
+        }
+      >
+        {t('invoices.bulk.apply')}
+      </Button>
+      <Button size="xs" variant="subtle" onClick={onDone}>
+        {t('invoices.bulk.clear')}
+      </Button>
+    </Group>
+  )
+}
+
 function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) => void }) {
   const { t } = useTranslation()
+  const { can } = useAuth()
+  const canEdit = can('invoices', 'edit')
   const me = useMe()
+  const [selection, setSelection] = useState<MRT_RowSelectionState>({})
   const [search, setSearch] = useState('')
   const [statuses, setStatuses] = useState<string[]>(['new', 'pending', 'rejected'])
   const [project, setProject] = useState<string | null>(null)
@@ -150,7 +205,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
         id: 'date',
         accessorFn: (r) => r.issueDate ?? r.infaktCreatedAt?.slice(0, 10) ?? '',
         header: t('invoices.date'),
-        size: 110,
+        size: 100,
         Cell: ({ row }) =>
           row.original.issueDate ? (
             formatDate(row.original.issueDate)
@@ -164,7 +219,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
         id: 'number',
         accessorFn: (r) => r.number ?? r.description ?? '',
         header: t('invoices.number'),
-        size: 150,
+        size: 140,
         Cell: ({ row }) =>
           row.original.number ?? (
             <Text size="sm" c="dimmed" fs="italic">
@@ -190,7 +245,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
       {
         id: 'projects',
         header: t('invoices.projects'),
-        size: 230,
+        size: 210,
         enableSorting: false,
         Cell: ({ row }) => <ProjectCell inv={row.original} options={projectOptions} />,
       },
@@ -198,7 +253,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
         id: 'description',
         accessorFn: (r) => r.allocations.map((a) => a.description).filter(Boolean).join('; '),
         header: t('invoices.allocationDescription'),
-        size: 220,
+        size: 190,
         enableSorting: false,
         Cell: ({ row }) => <DescriptionCell inv={row.original} />,
       },
@@ -206,6 +261,9 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
     ],
     [t, projectOptions],
   )
+
+  // Zaznaczone i nadal widoczne po filtrach.
+  const selectedIds = filtered.filter((i) => selection[i.id]).map((i) => i.id)
 
   const table = useMantineReactTable({
     columns,
@@ -221,6 +279,24 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
     mantineTableContainerProps: { style: { maxHeight: 'calc(100vh - 330px)' } },
     mantineTableBodyRowProps: ({ row }) => ({ onClick: () => onOpen(row.original.id), style: { cursor: 'pointer' } }),
     getRowId: (r) => r.id,
+    // Zaznaczać można faktury, których przypisanie da się zmienić (do przypisania / odrzucone).
+    enableRowSelection: (row) => canEdit && INVOICE_EDITABLE.includes(row.original.status),
+    enableSelectAll: canEdit,
+    onRowSelectionChange: setSelection,
+    state: { rowSelection: selection },
+    mantineSelectCheckboxProps: { onClick: (e) => e.stopPropagation() },
+    // Pasek zbiorczy w pasku narzędzi tabeli (stała wysokość — zaznaczenie nie przesuwa wierszy).
+    positionToolbarAlertBanner: 'none',
+    renderTopToolbarCustomActions: () =>
+      selectedIds.length > 0 ? (
+        <BulkBar ids={selectedIds} options={projectOptions} onDone={() => setSelection({})} />
+      ) : (
+        canEdit && (
+          <Text size="xs" c="dimmed" mt={6}>
+            {t('invoices.bulk.hint')}
+          </Text>
+        )
+      ),
   })
 
   return (

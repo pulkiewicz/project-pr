@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { InvoiceAllocationInput, InvoiceDetailDto, InvoiceDetailsInput, InvoiceListResponse, InvoiceSettings, InvoiceSyncResult, InvoiceUserOption } from '#shared'
+import type { InvoiceAllocationInput, InvoiceBulkAllocationInput, InvoiceBulkResult, InvoiceDetailDto, InvoiceDetailsInput, InvoiceListResponse, InvoiceSettings, InvoiceSyncResult, InvoiceUserOption } from '#shared'
 import { api } from '../../lib/api'
 
 export const useInvoices = () => useQuery({ queryKey: ['invoices', 'list'], queryFn: () => api<InvoiceListResponse>('/invoices') })
@@ -46,6 +46,14 @@ export function useSaveDetails() {
   return useMutation({
     mutationFn: (v: { id: string; data: InvoiceDetailsInput }) => api<InvoiceDetailDto>(`/invoices/${v.id}/details`, { method: 'PATCH', json: v.data }),
     onSuccess: setDetail,
+    onSettled: invalidate,
+  })
+}
+
+export function useBulkAllocation() {
+  const invalidate = useInvalidate()
+  return useMutation({
+    mutationFn: (data: InvoiceBulkAllocationInput) => api<InvoiceBulkResult>('/invoices/bulk-allocation', { method: 'POST', json: data }),
     onSettled: invalidate,
   })
 }

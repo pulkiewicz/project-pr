@@ -121,7 +121,8 @@
     "quoteProfile": "Profil wyceny",
     "quotesCost": "Wyceny — koszty",
     "invoices": "Faktury kosztowe",
-    "finance": "Finanse"
+    "finance": "Finanse",
+    "adminProjects": "Projekty"
   },
   "roles": {
     "Admin": "Administrator",
@@ -365,7 +366,8 @@
     "share": "Udział: maks. 2 miejsca po przecinku",
     "duplicateProject": "Projekt wybrany więcej niż raz",
     "sharesOver100": "Suma udziałów przekracza 100%",
-    "currency": "Kod waluty: 3 wielkie litery, np. PLN"
+    "currency": "Kod waluty: 3 wielkie litery, np. PLN",
+    "projectCode": "Kod: 2–30 znaków, litery, cyfry, - i _ (np. WEW-BIURO)"
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -1408,6 +1410,42 @@
     "assignProject": "Przypisz projekt…",
     "allocationDescription": "Opis",
     "descriptionNeedsProject": "najpierw wybierz projekt",
-    "allocationDescriptionHint": "Opis — czego dotyczy koszt w tym projekcie"
+    "allocationDescriptionHint": "Opis — czego dotyczy koszt w tym projekcie",
+    "bulk": {
+      "selected_one": "Zaznaczono {{count}} fakturę",
+      "selected_few": "Zaznaczono {{count}} faktury",
+      "selected_many": "Zaznaczono {{count}} faktur",
+      "selected_other": "Zaznaczono {{count}} faktury",
+      "project": "Przypisz do projektu…",
+      "descriptionKeep": "Opis (puste = bez zmian)",
+      "apply": "Zmień przypisanie",
+      "clear": "Odznacz",
+      "done": "Zmieniono przypisanie: {{updated}}; pominięto (w akceptacji / zaakceptowane): {{skipped}}",
+      "hint": "Zaznacz faktury, by zmienić przypisanie kilku naraz."
+    }
+  },
+  "projectsAdmin": {
+    "title": "Projekty",
+    "add": "Nowy projekt",
+    "edit": "Edycja projektu {{code}}",
+    "hint": "Projekty z wygranych szans zakłada się w CRM („Utwórz projekt”). Tutaj możesz dodać projekt bez szansy (np. wewnętrzny), poprawić dane albo zarchiwizować projekt — zniknie z menu i list wyboru, a jego dane i przypisane faktury zostaną.",
+    "code": "Kod",
+    "codeHint": "W adresach i na listach wyboru, np. WEW-BIURO. Nie można go później zmienić.",
+    "codeFixed": "Kodu nie można zmienić",
+    "name": "Nazwa",
+    "client": "Klient / zleceniodawca",
+    "contractNo": "Nr umowy",
+    "procurementNo": "Nr postępowania",
+    "value": "Wartość umowy (netto)",
+    "endDate": "Termin umowy",
+    "source": "Źródło",
+    "fromCrm": "CRM ({{code}})",
+    "manual": "ręcznie",
+    "archive": "Archiwizuj",
+    "restore": "Przywróć",
+    "archived": "archiwum",
+    "showArchived": "Pokaż zarchiwizowane",
+    "archiveTitle": "Zarchiwizować projekt {{code}}?",
+    "archiveHint": "Projekt zniknie z menu, list wyboru i dostępu użytkowników zewnętrznych. Dane (HRF, zakupy, awizacje, przypisane faktury) zostają; projekt można przywrócić."
   }
 }

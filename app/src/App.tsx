@@ -14,6 +14,7 @@ import { HomePage } from './pages/HomePage'
 import { ForbiddenPage, ModulePlaceholder, NotFoundPage } from './pages/ModulePlaceholder'
 import { AuditPage } from './pages/admin/AuditPage'
 import { PermissionsPage } from './pages/admin/PermissionsPage'
+import { ProjectsPage } from './pages/admin/ProjectsPage'
 import { SettingsPage } from './pages/admin/SettingsPage'
 import { UsersPage } from './pages/admin/UsersPage'
 
@@ -101,6 +102,7 @@ export function App() {
           <Route key={path} path={`/${path}`} element={<LegacyProjectRedirect path={path} />} />
         ))}
         <Route path="/admin/users" element={<Guard module="admin"><UsersPage /></Guard>} />
+        <Route path="/admin/projects" element={<Guard module="admin"><ProjectsPage /></Guard>} />
         <Route path="/admin/permissions" element={<Guard module="admin"><PermissionsPage /></Guard>} />
         <Route path="/admin/settings" element={<Guard module="admin"><SettingsPage /></Guard>} />
         <Route path="/admin/audit" element={<Guard module="auditLog"><AuditPage /></Guard>} />

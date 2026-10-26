@@ -184,6 +184,31 @@ describe('przypisanie i akceptacja', () => {
     expect(restored.manualFields).not.toContain('netPrice')
   })
 
+  it('zbiorcza zmiana przypisania: tylko faktury do przypisania / odrzucone, opis zachowany lub nowy, null = ogólne', async () => {
+    const toSubmit = (await list(ania)).items.find((i) => i.status === 'new' && i.netPrice != null)!
+    await req(h, 'POST', `/api/invoices/${toSubmit.id}/submit`, ania.headers, { version: toSubmit.version })
+    const items = (await list(ania)).items
+    const pending = items.find((i) => i.id === toSubmit.id && i.status === 'pending')!
+    const editable = items.filter((i) => i.status === 'new' || i.status === 'rejected')
+    const ids = [...editable.map((i) => i.id), pending.id]
+    const r = await req(h, 'POST', '/api/invoices/bulk-allocation', kamil.headers, { ids, projectId: project2, description: 'zakupy OF038' })
+    expect(r.status).toBe(200)
+    expect(await r.json()).toEqual({ updated: editable.length, skipped: 1 })
+    const after = (await list(ania)).items
+    for (const e of editable) expect(after.find((i) => i.id === e.id)).toMatchObject({ allocatedShare: 100, allocations: [{ projectId: project2, share: 100, description: 'zakupy OF038' }] })
+    expect(after.find((i) => i.id === pending.id)?.allocations).toEqual(pending.allocations)
+    // Bez opisu w żądaniu — opis zostaje.
+    await req(h, 'POST', '/api/invoices/bulk-allocation', kamil.headers, { ids: [editable[0]!.id], projectId: SEED_PROJECT_ID })
+    const kept = (await (await req(h, 'GET', `/api/invoices/${editable[0]!.id}`, ania.headers)).json()) as InvoiceDetailDto
+    expect(kept.allocations).toMatchObject([{ projectId: SEED_PROJECT_ID, description: 'zakupy OF038' }])
+    expect(kept.events[0]).toMatchObject({ kind: 'allocated', meta: { bulk: true } })
+    // null = koszty ogólne.
+    await req(h, 'POST', '/api/invoices/bulk-allocation', kamil.headers, { ids: [editable[0]!.id], projectId: null })
+    expect(((await (await req(h, 'GET', `/api/invoices/${editable[0]!.id}`, ania.headers)).json()) as InvoiceDetailDto).allocations).toEqual([])
+    expect((await req(h, 'POST', '/api/invoices/bulk-allocation', kamil.headers, { ids, projectId: crypto.randomUUID() })).status).toBe(422)
+    expect((await req(h, 'POST', '/api/invoices/bulk-allocation', outsider.headers, { ids, projectId: null })).status).toBe(403)
+  })
+
   it('eksport XLSX i załączniki z inFakt', async () => {
     const x = await req(h, 'GET', '/api/invoices/export.xlsx', ania.headers)
     expect(x.status).toBe(200)

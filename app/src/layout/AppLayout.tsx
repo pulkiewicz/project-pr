@@ -273,6 +273,7 @@ export function AppLayout() {
             <>
               {section(t('nav.admin'))}
               {item('admin-users', '/admin/users', t('nav.adminUsers'), IconUsers)}
+              {item('admin-projects', '/admin/projects', t('nav.adminProjects'), IconFolder)}
               {item('admin-permissions', '/admin/permissions', t('nav.adminPermissions'), IconKey)}
               {item('admin-settings', '/admin/settings', t('nav.adminSettings'), IconSettings)}
             </>

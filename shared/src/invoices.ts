@@ -84,6 +84,20 @@ export const invoiceDetailsInput = z.object({
 })
 export type InvoiceDetailsInput = z.input<typeof invoiceDetailsInput>
 
+/** Zbiorcze przypisanie: zaznaczone faktury → jeden projekt (100%) albo koszty ogólne (`projectId: null`). */
+export const invoiceBulkAllocationInput = z.object({
+  ids: z.array(z.uuid()).min(1).max(500),
+  projectId: z.uuid().nullable(),
+  /** Pominięte — opis bez zmian (gdy projekt ten sam) / pusty; `null` lub "" — bez opisu. */
+  description: z.string().trim().max(500).nullable().optional(),
+})
+export type InvoiceBulkAllocationInput = z.input<typeof invoiceBulkAllocationInput>
+export interface InvoiceBulkResult {
+  updated: number
+  /** Faktury pominięte: wysłane do akceptacji lub zaakceptowane (nie można zmieniać przypisania). */
+  skipped: number
+}
+
 export const invoiceTransitionInput = z.object({
   comment: z.string().trim().max(2000).nullable().optional(),
   version: z.number().int(),

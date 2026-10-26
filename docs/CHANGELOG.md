@@ -1,6 +1,12 @@
 # Changelog
 
+## Administracja → Projekty (26.10.2026)
+
+- Nowa strona **Administracja → Projekty** (tylko Admin): lista wszystkich projektów ze źródłem (CRM z kodem oferty albo „ręcznie”), **zakładanie projektu bez szansy w CRM** (np. wewnętrzny `WEW-BIURO`), edycja danych (nazwa, klient, nr umowy i postępowania, wartość, termin) z kontrolą wersji oraz **archiwizacja / przywracanie**. Zarchiwizowany projekt znika z menu, list wyboru i dostępu ról zewnętrznych; dane i przypisane faktury zostają. Kod projektu jest stały i unikalny (także wśród zarchiwizowanych).
+
 ## Faktury kosztowe z inFakt → projekty (26.10.2026)
+
+- **Zbiorcza zmiana przypisania:** zaznacz faktury na liście (checkboxy przy fakturach do przypisania i odrzuconych) i w pasku nad tabelą wybierz projekt (100%) albo „koszty ogólne”, opcjonalnie z opisem (puste = opis bez zmian). Faktury w akceptacji i zaakceptowane są pomijane i liczone w komunikacie. Każda zmiana ma wpis w historii faktury.
 
 - **Opis przypisania:** każdy udział projektu ma opis (czego dotyczy koszt w projekcie, do 500 znaków). Edycja w karcie faktury (pod projektem) i w wierszu listy (kolumna „Opis”, zapis po Enterze lub wyjściu z pola). Opis jest w eksporcie XLSX i w wyszukiwaniu. Kolumna „Brutto” na liście domyślnie ukryta (menu kolumn). Migracja `20261026140758_invoice_allocation_description`.
 

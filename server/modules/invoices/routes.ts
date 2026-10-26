@@ -9,6 +9,8 @@ import {
   type InvoiceManual,
   STAFF_ROLES,
   invoiceAllocationInput,
+  invoiceBulkAllocationInput,
+  type InvoiceBulkResult,
   invoiceRejectInput,
   invoiceSettingsInput,
   invoiceTransitionInput,
@@ -258,6 +260,54 @@ invoicesRouter.openapi(
     })
     if (!updated) throw conflict(await getInvoice(deps.db, id))
     return c.json(await detail(c, id), 200)
+  },
+)
+
+/**
+ * Zbiorcza zmiana przypisania (zaznaczone na liście): każda faktura → 100% na jeden projekt albo koszty ogólne.
+ * Pomija faktury wysłane do akceptacji i zaakceptowane. Bez kontroli wersji (świadoma operacja zbiorcza),
+ * każda zmiana ma wpis w historii faktury i jeden wpis w audit logu.
+ */
+invoicesRouter.openapi(
+  route({ method: 'post', path: '/invoices/bulk-allocation', request: { body: body(invoiceBulkAllocationInput) }, responses: ok }, 'edit'),
+  async (c) => {
+    const { ids, projectId, description } = c.req.valid('json')
+    const deps = c.get('deps')
+    const user = c.get('user')
+    if (projectId) {
+      const [p] = await deps.db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+      if (!p) throw new HttpProblem(422, 'project_not_found')
+    }
+    const result = await deps.db.transaction(async (tx) => {
+      const rows = await tx
+        .select({ id: costInvoices.id, status: costInvoices.status })
+        .from(costInvoices)
+        .where(inArray(costInvoices.id, [...new Set(ids)]))
+      const target = rows.filter((r) => INVOICE_EDITABLE.includes(r.status)).map((r) => r.id)
+      if (target.length) {
+        // Opis pominięty: zachowaj dotychczasowy opis, jeśli faktura miała już jeden projekt.
+        const keep =
+          description === undefined && projectId
+            ? new Map(
+                (await tx.select().from(costInvoiceAllocations).where(inArray(costInvoiceAllocations.invoiceId, target))).map((a) => [a.invoiceId, a.description] as const),
+              )
+            : new Map<string, string | null>()
+        const allocations = projectId ? target.map((invoiceId) => ({ invoiceId, projectId, share: 100, description: description === undefined ? (keep.get(invoiceId) ?? null) : description || null })) : []
+        await tx.delete(costInvoiceAllocations).where(inArray(costInvoiceAllocations.invoiceId, target))
+        if (allocations.length) await tx.insert(costInvoiceAllocations).values(allocations)
+        await tx
+          .update(costInvoices)
+          .set({ version: sql`${costInvoices.version} + 1`, updatedAt: sql`now()`, updatedBy: user.id })
+          .where(inArray(costInvoices.id, target))
+        await tx.insert(costInvoiceEvents).values(
+          target.map((invoiceId) => ({ invoiceId, kind: 'allocated' as const, userId: user.id, meta: { bulk: true, allocations: projectId ? [{ projectId, share: 100, description: allocations.find((a) => a.invoiceId === invoiceId)?.description ?? null }] : [] } })),
+        )
+      }
+      const res: InvoiceBulkResult = { updated: target.length, skipped: new Set(ids).size - target.length }
+      await writeAudit(c, { action: 'invoices.bulk_allocate', entity: 'cost_invoices', changes: { ids: target, projectId, description, ...res } }, tx)
+      return res
+    })
+    return c.json(result, 200)
   },
 )
 

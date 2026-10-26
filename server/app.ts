@@ -3,6 +3,7 @@ import { authenticate } from './auth/middleware.ts'
 import type { AppDeps } from './context.ts'
 import { HttpProblem, problemResponse } from './lib/problem.ts'
 import { adminPermissionsRouter } from './modules/admin/permissions.ts'
+import { adminProjectsRouter } from './modules/admin/projects.ts'
 import { adminUsersRouter } from './modules/admin/users.ts'
 import { auditRouter } from './modules/audit/routes.ts'
 import { crmRouter } from './modules/crm/routes.ts'
@@ -48,6 +49,7 @@ export function createApp(deps: AppDeps) {
   app.route('/admin', adminUsersRouter)
   app.route('/admin', adminPermissionsRouter)
   app.route('/admin', auditRouter)
+  app.route('/', adminProjectsRouter)
   app.route('/', hrfRouter)
   app.route('/', hrfInternalRouter)
   app.route('/', dashboardRouter)
