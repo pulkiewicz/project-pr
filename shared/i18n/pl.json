@@ -342,7 +342,8 @@
     "invoice_wrong_status": "Faktura ma już inny status — odśwież widok",
     "invoice_not_editable": "Przypisanie można zmieniać tylko w fakturach do przypisania lub odrzuconych",
     "invoice_self_approval": "Fakturę akceptuje inna osoba niż ta, która wysłała ją do akceptacji",
-    "invoice_user_not_staff": "Dostęp do faktur można nadać tylko pracownikom Envcheck"
+    "invoice_user_not_staff": "Dostęp do faktur można nadać tylko pracownikom Envcheck",
+    "invoice_amount_missing": "Uzupełnij kwotę netto faktury przed wysłaniem do akceptacji"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -363,7 +364,8 @@
     "specKeysUnique": "Klucze parametrów muszą być unikalne",
     "share": "Udział: maks. 2 miejsca po przecinku",
     "duplicateProject": "Projekt wybrany więcej niż raz",
-    "sharesOver100": "Suma udziałów przekracza 100%"
+    "sharesOver100": "Suma udziałów przekracza 100%",
+    "currency": "Kod waluty: 3 wielkie litery, np. PLN"
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -1300,7 +1302,7 @@
     "createFolder": "Utwórz folder na Drive"
   },
   "invoices": {
-    "title": "Faktury kosztowe (inFakt)",
+    "title": "Faktury kosztowe (pliki z inFakt)",
     "sync": "Synchronizuj z inFakt",
     "synced": "Pobrano z inFakt: {{fetched}}, nowe: {{created}}, zmienione: {{updated}}",
     "lastSync": "Ostatnia synchronizacja: {{at}}{{by}}",
@@ -1316,6 +1318,7 @@
     },
     "event": {
       "imported": "Pobrano z inFakt",
+      "edited": "Uzupełniono / poprawiono dane",
       "allocated": "Zmieniono przypisanie",
       "submitted": "Wysłano do akceptacji",
       "approved": "Zaakceptowano",
@@ -1369,7 +1372,7 @@
     "history": "Historia",
     "attachments": "Pliki w inFakt",
     "noAttachments": "Brak plików",
-    "noAmount": "Skan bez kwot — uzupełnij koszt w inFakt",
+    "noAmount": "inFakt nie odczytał wszystkich danych z pliku. Uzupełnij przynajmniej kwotę netto — bez niej nie można wysłać faktury do akceptacji.",
     "unsaved": "Masz niezapisane zmiany przypisania — zapisz je przed wysłaniem.",
     "perProject": {
       "hint": "Netto udziałów w walucie faktury. „W toku” — faktury przypisane, wysłane do akceptacji lub odrzucone.",
@@ -1381,8 +1384,26 @@
       "title": "Faktury kosztowe (inFakt)",
       "users": "Osoby z dostępem do modułu",
       "usersHint": "Moduł widzą tylko wybrane osoby. Akceptuje inna osoba z tej listy niż wysyłająca.",
-      "syncFrom": "Pobieraj koszty wystawione od",
+      "syncFrom": "Pobieraj pliki dodane do inFakt od",
       "keyMissing": "Brak klucza INFAKT_API_KEY w zmiennych środowiskowych Netlify."
-    }
+    },
+    "date": "Data",
+    "addedAt": "Dodano do inFakt",
+    "currency": "Waluta",
+    "description": "Opis",
+    "kindLabel": "Rodzaj w inFakt",
+    "kind": {
+      "document_scan": "plik (skan / PDF)",
+      "cost": "koszt zaksięgowany",
+      "internal_evidence": "dowód wewnętrzny"
+    },
+    "manual": "ręcznie",
+    "manualHint": "Uzupełnione ręcznie w Envcheck Hub — synchronizacja z inFakt tego nie nadpisze",
+    "fileNoData": "plik bez odczytanych danych",
+    "noAmountReadOnly": "inFakt nie odczytał wszystkich danych z pliku.",
+    "fillIn": "Uzupełnij dane",
+    "editData": "Popraw dane",
+    "editHint": "Puste pole = wartość z inFakt. Wpisane dane mają pierwszeństwo i synchronizacja ich nie nadpisze.",
+    "onlyMissing": "Brak danych"
   }
 }

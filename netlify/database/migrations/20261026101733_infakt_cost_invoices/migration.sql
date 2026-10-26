@@ -1,4 +1,4 @@
-CREATE TYPE "cost_invoice_event_kind" AS ENUM('imported', 'allocated', 'submitted', 'approved', 'rejected', 'reopened', 'changed_in_infakt');--> statement-breakpoint
+CREATE TYPE "cost_invoice_event_kind" AS ENUM('imported', 'edited', 'allocated', 'submitted', 'approved', 'rejected', 'reopened', 'changed_in_infakt');--> statement-breakpoint
 CREATE TYPE "cost_invoice_status" AS ENUM('new', 'pending', 'approved', 'rejected');--> statement-breakpoint
 CREATE TABLE "cost_invoice_allocations" (
 	"invoice_id" uuid,
@@ -34,6 +34,7 @@ CREATE TABLE "cost_invoices" (
 	"payment_status" text,
 	"accounting_status" text,
 	"infakt_created_at" timestamp with time zone,
+	"manual" jsonb DEFAULT '{}' NOT NULL,
 	"status" "cost_invoice_status" DEFAULT 'new'::"cost_invoice_status" NOT NULL,
 	"note" text,
 	"submitted_by" uuid,
@@ -52,6 +53,7 @@ CREATE INDEX "cost_invoice_events_invoice_idx" ON "cost_invoice_events" ("invoic
 CREATE UNIQUE INDEX "cost_invoices_infakt_uuid_uq" ON "cost_invoices" ("infakt_uuid");--> statement-breakpoint
 CREATE INDEX "cost_invoices_status_idx" ON "cost_invoices" ("status");--> statement-breakpoint
 CREATE INDEX "cost_invoices_issue_date_idx" ON "cost_invoices" ("issue_date");--> statement-breakpoint
+CREATE INDEX "cost_invoices_infakt_created_idx" ON "cost_invoices" ("infakt_created_at");--> statement-breakpoint
 ALTER TABLE "cost_invoice_allocations" ADD CONSTRAINT "cost_invoice_allocations_invoice_id_cost_invoices_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "cost_invoices"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "cost_invoice_allocations" ADD CONSTRAINT "cost_invoice_allocations_project_id_projects_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects"("id");--> statement-breakpoint
 ALTER TABLE "cost_invoice_events" ADD CONSTRAINT "cost_invoice_events_invoice_id_cost_invoices_id_fkey" FOREIGN KEY ("invoice_id") REFERENCES "cost_invoices"("id") ON DELETE CASCADE;--> statement-breakpoint

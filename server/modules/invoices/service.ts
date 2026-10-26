@@ -1,6 +1,6 @@
 import { asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
-import { INFAKT_COST_KINDS, shareAmount, type InvoiceDto, type InvoiceEventDto, type InvoiceSettings, type InvoiceSyncResult } from '#shared'
+import { INFAKT_COST_KINDS, INVOICE_MANUAL_FIELDS, shareAmount, type InvoiceDto, type InvoiceManualField, type InvoiceEventDto, type InvoiceSettings, type InvoiceSyncResult } from '#shared'
 import type { Database } from '../../db/client.ts'
 import { appSettings, costInvoiceAllocations, costInvoiceEvents, costInvoices, projects, users } from '../../db/schema.ts'
 import type { InfaktClient, InfaktCost } from '../../integrations/infakt/types.ts'
@@ -34,9 +34,20 @@ const COMPARED = ['kind', 'number', 'sellerName', 'description', 'category', 'is
 /** Zmiana tych pól cofa zaakceptowaną / wysłaną fakturę do ponownego przypisania. */
 const MATERIAL = ['netPrice', 'grossPrice', 'currency'] as const
 
+type InvoiceRow = typeof costInvoices.$inferSelect
+
+/** Wartości efektywne: dane uzupełnione ręcznie mają pierwszeństwo przed danymi z inFakt. */
+export function effective(row: InvoiceRow) {
+  const m = row.manual ?? {}
+  const out = { ...row }
+  for (const k of INVOICE_MANUAL_FIELDS) if (m[k] !== undefined) (out as Record<string, unknown>)[k] = m[k]
+  return out
+}
+
 /**
- * Pobiera koszty z inFakt (od `settings.syncFrom`) i zapisuje nowe / zmienione.
- * Zmiana kwoty lub waluty w fakturze wysłanej lub zaakceptowanej cofa ją do „do przypisania” (udziały % zostają).
+ * Pobiera dokumenty kosztowe z inFakt (dodane od `settings.syncFrom`) i zapisuje nowe / zmienione.
+ * Zmiana kwoty lub waluty w fakturze wysłanej lub zaakceptowanej cofa ją do „do przypisania” (udziały % zostają) —
+ * chyba że to pole jest uzupełnione ręcznie (wtedy obowiązuje wartość ręczna).
  */
 export async function syncInvoices(db: Database, client: InfaktClient, settings: InvoiceSettings, userId: string | null, now: Date): Promise<InvoiceSyncResult> {
   const all = await client.listCosts(settings.syncFrom)
@@ -59,7 +70,7 @@ export async function syncInvoices(db: Database, client: InfaktClient, settings:
       }
       const changed = COMPARED.filter((k) => cur[k] !== m[k])
       if (!changed.length) continue
-      const material = MATERIAL.some((k) => changed.includes(k as (typeof COMPARED)[number]))
+      const material = MATERIAL.some((k) => changed.includes(k) && cur.manual?.[k] === undefined)
       const revert = material && (cur.status === 'pending' || cur.status === 'approved')
       await tx
         .update(costInvoices)
@@ -104,7 +115,8 @@ export async function listInvoices(db: Database, where?: SQL): Promise<InvoiceDt
     .leftJoin(submitter, eq(submitter.id, costInvoices.submittedBy))
     .leftJoin(decider, eq(decider.id, costInvoices.decidedBy))
     .where(where)
-    .orderBy(sql`${costInvoices.issueDate} DESC NULLS LAST`, desc(costInvoices.createdAt))
+    // Pliki bez daty wystawienia — według daty dodania do inFakt.
+    .orderBy(sql`coalesce(${costInvoices.manual}->>'issueDate', ${costInvoices.issueDate}::text, (${costInvoices.infaktCreatedAt} AT TIME ZONE 'Europe/Warsaw')::date::text) DESC NULLS LAST`, desc(costInvoices.createdAt))
   if (!rows.length) return []
   const allocs = await db
     .select({ invoiceId: costInvoiceAllocations.invoiceId, projectId: costInvoiceAllocations.projectId, share: costInvoiceAllocations.share, code: projects.code, name: projects.name })
@@ -115,7 +127,8 @@ export async function listInvoices(db: Database, where?: SQL): Promise<InvoiceDt
   const byInvoice = new Map<string, typeof allocs>()
   for (const a of allocs) byInvoice.set(a.invoiceId, [...(byInvoice.get(a.invoiceId) ?? []), a])
 
-  return rows.map(({ inv, submittedByName, decidedByName }) => {
+  return rows.map(({ inv: raw, submittedByName, decidedByName }) => {
+    const inv = effective(raw)
     const list = byInvoice.get(inv.id) ?? []
     return {
       id: inv.id,
@@ -133,6 +146,8 @@ export async function listInvoices(db: Database, where?: SQL): Promise<InvoiceDt
       taxPrice: inv.taxPrice,
       paymentStatus: inv.paymentStatus,
       accountingStatus: inv.accountingStatus,
+      infaktCreatedAt: inv.infaktCreatedAt,
+      manualFields: INVOICE_MANUAL_FIELDS.filter((k): k is InvoiceManualField => raw.manual?.[k] !== undefined),
       status: inv.status,
       note: inv.note,
       allocations: list.map((a) => ({

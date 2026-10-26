@@ -18,7 +18,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { ACTIVITY_KINDS, AI_JOB_KINDS, AI_JOB_STATUSES, INPUT_KINDS, QUESTION_AUDIENCES, QUESTION_STATUSES, SUGGESTION_STATUSES, type SuggestionPayload, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type QuoteInfo, type QuoteParams, HRF_STATUSES, ID_DOC_TYPES, INVOICE_EVENT_KINDS, INVOICE_STATUSES, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
+import { ACTIVITY_KINDS, AI_JOB_KINDS, AI_JOB_STATUSES, INPUT_KINDS, QUESTION_AUDIENCES, QUESTION_STATUSES, SUGGESTION_STATUSES, type SuggestionPayload, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type QuoteInfo, type QuoteParams, HRF_STATUSES, ID_DOC_TYPES, INVOICE_EVENT_KINDS, INVOICE_STATUSES, type InvoiceManual, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -934,6 +934,8 @@ export const costInvoices = pgTable(
     paymentStatus: text('payment_status'),
     accountingStatus: text('accounting_status'),
     infaktCreatedAt: ts('infakt_created_at'),
+    /** Dane uzupełnione ręcznie (pierwszeństwo przed inFakt, synchronizacja ich nie nadpisuje). */
+    manual: jsonb('manual').$type<InvoiceManual>().notNull().default({}),
     status: invoiceStatusEnum('status').notNull().default('new'),
     note: text('note'),
     submittedBy: uuid('submitted_by').references(() => users.id),
@@ -946,7 +948,7 @@ export const costInvoices = pgTable(
     updatedAt: ts('updated_at').notNull().defaultNow(),
     updatedBy: uuid('updated_by'),
   },
-  (t) => [uniqueIndex('cost_invoices_infakt_uuid_uq').on(t.infaktUuid), index('cost_invoices_status_idx').on(t.status), index('cost_invoices_issue_date_idx').on(t.issueDate)],
+  (t) => [uniqueIndex('cost_invoices_infakt_uuid_uq').on(t.infaktUuid), index('cost_invoices_status_idx').on(t.status), index('cost_invoices_issue_date_idx').on(t.issueDate), index('cost_invoices_infakt_created_idx').on(t.infaktCreatedAt)],
 )
 
 /** Udział projektu w fakturze (%). Suma ≤ 100; reszta = koszty ogólne. */

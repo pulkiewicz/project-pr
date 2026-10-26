@@ -24,10 +24,10 @@ export class HttpInfaktClient implements InfaktClient {
     return (await res.json()) as T
   }
 
-  async listCosts(issueDateFrom: string): Promise<InfaktCost[]> {
+  async listCosts(addedFrom: string): Promise<InfaktCost[]> {
     const out: InfaktCost[] = []
     for (let page = 0; page < MAX_PAGES; page++) {
-      const q = new URLSearchParams({ limit: String(PAGE), offset: String(page * PAGE), order: 'issue_date desc', 'q[issue_date_gteq]': issueDateFrom })
+      const q = new URLSearchParams({ limit: String(PAGE), offset: String(page * PAGE), order: 'created_at desc', 'q[created_at_gteq]': addedFrom })
       const body = await this.get<{ entities?: InfaktCost[]; metainfo?: { total_count?: number } }>(`/documents/costs.json?${q}`)
       const batch = body.entities ?? []
       out.push(...batch)

@@ -24,22 +24,49 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
   const [statuses, setStatuses] = useState<string[]>(['new', 'pending', 'rejected'])
   const [project, setProject] = useState<string | null>(null)
   const [mine, setMine] = useState(false)
+  const [missing, setMissing] = useState(false)
 
   const filtered = useMemo(() => {
     const s = norm(search.trim())
     return items.filter(
       (i) =>
         (!s || norm(i.number).includes(s) || norm(i.sellerName).includes(s) || norm(i.description).includes(s) || norm(i.category).includes(s)) &&
+        (!missing || i.netPrice == null || !i.number || !i.sellerName) &&
         (!statuses.length || statuses.includes(i.status)) &&
         (!project || (project === 'general' ? i.allocatedShare < 100 : i.allocations.some((a) => a.projectId === project))) &&
         (!mine || (i.status === 'pending' && i.submittedBy !== me.user.id)),
     )
-  }, [items, search, statuses, project, mine, me.user.id])
+  }, [items, search, statuses, project, mine, missing, me.user.id])
 
   const columns = useMemo<MRT_ColumnDef<InvoiceDto>[]>(
     () => [
-      { accessorKey: 'issueDate', header: t('invoices.issueDate'), size: 105, Cell: ({ cell }) => formatDate(cell.getValue<string | null>()) },
-      { id: 'number', accessorFn: (r) => r.number ?? r.description ?? '', header: t('invoices.number'), size: 170 },
+      {
+        // Pliki bez daty wystawienia — data dodania do inFakt (szara).
+        id: 'date',
+        accessorFn: (r) => r.issueDate ?? r.infaktCreatedAt?.slice(0, 10) ?? '',
+        header: t('invoices.date'),
+        size: 110,
+        Cell: ({ row }) =>
+          row.original.issueDate ? (
+            formatDate(row.original.issueDate)
+          ) : (
+            <Text size="sm" c="dimmed" title={t('invoices.addedAt')}>
+              {formatDate(row.original.infaktCreatedAt)}
+            </Text>
+          ),
+      },
+      {
+        id: 'number',
+        accessorFn: (r) => r.number ?? r.description ?? '',
+        header: t('invoices.number'),
+        size: 170,
+        Cell: ({ row }) =>
+          row.original.number ?? (
+            <Text size="sm" c="dimmed" fs="italic">
+              {row.original.description ?? t('invoices.fileNoData')}
+            </Text>
+          ),
+      },
       { accessorKey: 'sellerName', header: t('invoices.seller'), size: 220, grow: true },
       {
         accessorKey: 'netPrice',
@@ -110,6 +137,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
           onChange={setProject}
         />
         <Switch label={t('invoices.onlyMine')} checked={mine} onChange={(e) => setMine(e.currentTarget.checked)} />
+        <Switch label={t('invoices.onlyMissing')} checked={missing} onChange={(e) => setMissing(e.currentTarget.checked)} />
       </Group>
       <MantineReactTable table={table} />
     </Stack>

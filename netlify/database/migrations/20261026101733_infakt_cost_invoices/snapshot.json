@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "c7abf016-00ae-4ce6-8998-a829a2094d82",
+  "id": "c4897513-43da-4582-92a9-2031b13d51ac",
   "prevIds": [
     "f69ef36d-3c40-4683-b6ce-3753204212c6"
   ],
@@ -158,6 +158,7 @@
     {
       "values": [
         "imported",
+        "edited",
         "allocated",
         "submitted",
         "approved",
@@ -2733,6 +2734,19 @@
       "generated": null,
       "identity": null,
       "name": "infakt_created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "cost_invoices"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "name": "manual",
       "entityType": "columns",
       "schema": "public",
       "table": "cost_invoices"
@@ -8969,6 +8983,27 @@
       "method": "btree",
       "concurrently": false,
       "name": "cost_invoices_issue_date_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "cost_invoices"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "infakt_created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "cost_invoices_infakt_created_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "cost_invoices"

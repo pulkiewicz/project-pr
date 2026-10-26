@@ -4,6 +4,9 @@ import ExcelJS from 'exceljs'
 import type { Context } from 'hono'
 import {
   INVOICE_EDITABLE,
+  INVOICE_MANUAL_FIELDS,
+  invoiceDetailsInput,
+  type InvoiceManual,
   STAFF_ROLES,
   invoiceAllocationInput,
   invoiceRejectInput,
@@ -22,7 +25,7 @@ import { InfaktError } from '../../integrations/infakt/types.ts'
 import { HttpProblem, conflict, forbidden, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
 import { writeAudit } from '../audit/service.ts'
-import { getInvoice, lastSync, listEvents, listInvoices, syncInvoices } from './service.ts'
+import { effective, getInvoice, lastSync, listEvents, listInvoices, syncInvoices } from './service.ts'
 
 export const invoicesRouter = newRouter()
 
@@ -122,6 +125,7 @@ invoicesRouter.openapi(
       { header: 'Numer', key: 'number', width: 22 },
       { header: 'Sprzedawca', key: 'seller', width: 30 },
       { header: 'Data wystawienia', key: 'issueDate', width: 14, style: { numFmt: 'dd.mm.yyyy' } },
+      { header: 'Dodano do inFakt', key: 'addedAt', width: 14, style: { numFmt: 'dd.mm.yyyy' } },
       { header: 'Waluta', key: 'currency', width: 8 },
       { header: 'Netto faktury', key: 'net', width: 14, style: { numFmt: money } },
       { header: 'Brutto faktury', key: 'gross', width: 14, style: { numFmt: money } },
@@ -139,6 +143,7 @@ invoicesRouter.openapi(
         number: i.number ?? i.description ?? '',
         seller: i.sellerName ?? '',
         issueDate: i.issueDate ? new Date(`${i.issueDate}T00:00:00Z`) : null,
+        addedAt: i.infaktCreatedAt ? new Date(`${i.infaktCreatedAt.slice(0, 10)}T00:00:00Z`) : null,
         currency: i.currency,
         net: pln(i.netPrice),
         gross: pln(i.grossPrice),
@@ -152,7 +157,7 @@ invoicesRouter.openapi(
         ws.addRow({ ...base, project: 'Ogólne', share: rest, shareNet: pln(restNet) })
       }
     }
-    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 11 } }
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 12 } }
     await writeAudit(c, { action: 'invoices.export_xlsx', entity: 'cost_invoices', changes: { invoices: items.length } })
     return c.body((await wb.xlsx.writeBuffer()) as ArrayBuffer, 200, {
       'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -215,13 +220,56 @@ invoicesRouter.openapi(
   },
 )
 
+/** Uzupełnienie / poprawa danych, których inFakt nie odczytał z pliku (numer, sprzedawca, daty, kwoty). */
+invoicesRouter.openapi(
+  route({ method: 'patch', path: '/invoices/{id}/details', request: { params: idParam, body: body(invoiceDetailsInput) }, responses: ok }, 'edit'),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const { version, ...patch } = c.req.valid('json')
+    const deps = c.get('deps')
+    const user = c.get('user')
+    const [cur] = await deps.db.select().from(costInvoices).where(eq(costInvoices.id, id))
+    if (!cur) throw notFound()
+    if (!INVOICE_EDITABLE.includes(cur.status)) throw new HttpProblem(409, 'invoice_not_editable', cur.status)
+    const manual: InvoiceManual = { ...cur.manual }
+    const changes: Record<string, { old: unknown; new: unknown }> = {}
+    for (const k of INVOICE_MANUAL_FIELDS) {
+      const v = patch[k]
+      if (v === undefined) continue
+      // Wartość równa danym z inFakt nie jest „ręczna” — synchronizacja dalej ją aktualizuje.
+      const next = v === null || v === cur[k] ? undefined : v
+      if (next === manual[k]) continue
+      changes[k] = { old: effective(cur)[k], new: next ?? cur[k] }
+      if (next === undefined) delete manual[k]
+      else (manual as Record<string, unknown>)[k] = next
+    }
+    if (!Object.keys(changes).length) return c.json(await detail(c, id), 200)
+    const updated = await deps.db.transaction(async (tx) => {
+      const [r] = await tx
+        .update(costInvoices)
+        .set({ manual, version: sql`${costInvoices.version} + 1`, updatedAt: sql`now()`, updatedBy: user.id })
+        .where(and(eq(costInvoices.id, id), eq(costInvoices.version, version)))
+        .returning({ id: costInvoices.id })
+      if (!r) return null
+      await tx.insert(costInvoiceEvents).values({ invoiceId: id, kind: 'edited', userId: user.id, meta: changes })
+      await writeAudit(c, { action: 'invoices.edit_details', entity: 'cost_invoices', entityId: id, changes }, tx)
+      return r
+    })
+    if (!updated) throw conflict(await getInvoice(deps.db, id))
+    return c.json(await detail(c, id), 200)
+  },
+)
+
 // ---------------- Akceptacja ----------------
 
 invoicesRouter.openapi(
   route({ method: 'post', path: '/invoices/{id}/submit', request: { params: idParam, body: body(invoiceTransitionInput) }, responses: ok }, 'edit'),
   async (c) => {
     const { comment, version } = c.req.valid('json')
-    return transition(c, c.req.valid('param').id, version, INVOICE_EDITABLE, 'pending', { kind: 'submitted', comment })
+    // Bez kwoty netto podział % nie daje kosztów projektów — trzeba ją uzupełnić (plik bez odczytanych kwot).
+    return transition(c, c.req.valid('param').id, version, INVOICE_EDITABLE, 'pending', { kind: 'submitted', comment }, (cur) => {
+      if (effective(cur).netPrice == null) throw new HttpProblem(422, 'invoice_amount_missing')
+    })
   },
 )
 

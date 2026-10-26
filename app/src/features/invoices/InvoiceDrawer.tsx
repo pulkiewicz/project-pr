@@ -1,13 +1,14 @@
-import { ActionIcon, Alert, Anchor, Button, Divider, Drawer, Group, Loader, Modal, NumberInput, Select, SimpleGrid, Stack, Table, Text, Textarea, Timeline } from '@mantine/core'
+import { ActionIcon, Alert, Anchor, Button, Divider, Drawer, Group, Loader, Modal, NumberInput, Select, Stack, Table, Text, Textarea, Timeline } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconCheck, IconExternalLink, IconPlus, IconTrash, IconX } from '@tabler/icons-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { INVOICE_EDITABLE, shareAmount, type InvoiceDetailDto } from '#shared'
 import { useAuth, useMe } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
-import { formatDate, formatDateTime } from '../../lib/format'
+import { formatDateTime } from '../../lib/format'
 import { useInvoice, useInvoiceAttachments, useInvoiceTransition, useSaveAllocation, type InvoiceAction } from './api'
+import { InvoiceDetails } from './InvoiceDetails'
 import { InvoiceStatusBadge, formatMoney } from './status'
 
 interface Row {
@@ -18,17 +19,6 @@ interface Row {
 const toRows = (d: InvoiceDetailDto): Row[] => d.allocations.map((a) => ({ projectId: a.projectId, share: a.share }))
 const num = (v: number | string) => (typeof v === 'number' ? v : Number(v.replace(',', '.')) || 0)
 const round2 = (v: number) => Math.round(v * 100) / 100
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <Text size="xs" c="dimmed">
-        {label}
-      </Text>
-      <Text size="sm">{children}</Text>
-    </div>
-  )
-}
 
 /** Komentarz do decyzji: przy odrzuceniu obowiązkowy. */
 function CommentModal({ action, onClose, onConfirm, loading }: { action: InvoiceAction | null; onClose: () => void; onConfirm: (comment: string) => void; loading: boolean }) {
@@ -106,7 +96,7 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
   const ownSubmission = d?.status === 'pending' && d.submittedBy === me.user.id
 
   return (
-    <Drawer opened={!!id} onClose={onClose} position="right" size="xl" title={d ? `${d.number ?? d.description ?? t('invoices.title')} · ${d.sellerName ?? ''}` : ''}>
+    <Drawer opened={!!id} onClose={onClose} position="right" size="xl" title={d ? [d.number ?? d.description ?? t('invoices.fileNoData'), d.sellerName].filter(Boolean).join(' · ') : ''}>
       {q.isLoading || !d ? (
         <Loader />
       ) : (
@@ -131,17 +121,7 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
             </Stack>
           )}
 
-          <SimpleGrid cols={3} spacing="xs">
-            <Field label={t('invoices.issueDate')}>{formatDate(d.issueDate)}</Field>
-            <Field label={t('invoices.dueDate')}>{formatDate(d.dueDate)}</Field>
-            <Field label={t('invoices.payment')}>{d.paymentStatus ? t(`invoices.paymentStatus.${d.paymentStatus}`, { defaultValue: d.paymentStatus }) : '—'}</Field>
-            <Field label={t('invoices.net')}>{formatMoney(d.netPrice, d.currency)}</Field>
-            <Field label={t('invoices.vat')}>{formatMoney(d.taxPrice, d.currency)}</Field>
-            <Field label={t('invoices.gross')}>{formatMoney(d.grossPrice, d.currency)}</Field>
-            <Field label={t('invoices.category')}>{d.category ?? '—'}</Field>
-            {d.description && <Field label={t('invoices.note')}>{d.description}</Field>}
-          </SimpleGrid>
-          {d.netPrice == null && <Alert color="yellow">{t('invoices.noAmount')}</Alert>}
+          <InvoiceDetails key={d.version} d={d} editable={editable} />
 
           <Divider label={t('invoices.allocation')} labelPosition="left" />
           <Table fz="sm" verticalSpacing={4}>
@@ -219,7 +199,7 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
                 <Button variant="light" disabled={!dirty || invalid} loading={save.isPending} onClick={saveAllocation}>
                   {t('invoices.save')}
                 </Button>
-                <Button disabled={dirty || invalid} onClick={() => setAction('submit')}>
+                <Button disabled={dirty || invalid || d.netPrice == null} onClick={() => setAction('submit')}>
                   {t('invoices.submit')}
                 </Button>
               </Group>

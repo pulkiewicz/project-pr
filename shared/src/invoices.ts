@@ -12,16 +12,37 @@ export type InvoiceStatus = (typeof INVOICE_STATUSES)[number]
 /** Statusy, w których można zmieniać przypisanie. */
 export const INVOICE_EDITABLE: readonly InvoiceStatus[] = ['new', 'rejected']
 
-export const INVOICE_EVENT_KINDS = ['imported', 'allocated', 'submitted', 'approved', 'rejected', 'reopened', 'changed_in_infakt'] as const
+export const INVOICE_EVENT_KINDS = ['imported', 'edited', 'allocated', 'submitted', 'approved', 'rejected', 'reopened', 'changed_in_infakt'] as const
 export type InvoiceEventKind = (typeof INVOICE_EVENT_KINDS)[number]
 
-/** Rodzaje dokumentów kosztowych inFakt pobierane do przypisania (bez dowodów wewnętrznych za składki ZUS). */
-export const INFAKT_COST_KINDS = ['cost', 'document_scan', 'internal_evidence'] as const
+/**
+ * Rodzaje dokumentów kosztowych inFakt pobierane do przypisania (bez dowodów wewnętrznych za składki ZUS).
+ * W Envcheck faktury są w inFakt jako pliki (`document_scan`) — księgowanie odbywa się poza inFakt.
+ */
+export const INFAKT_COST_KINDS = ['document_scan', 'cost', 'internal_evidence'] as const
+
+/**
+ * Dane faktury, które można uzupełnić / poprawić ręcznie, gdy inFakt ich nie odczytał z pliku.
+ * Wartość ręczna ma pierwszeństwo i nie jest nadpisywana przez synchronizację; `null` w zapisie przywraca dane z inFakt.
+ */
+export const INVOICE_MANUAL_FIELDS = ['number', 'sellerName', 'issueDate', 'dueDate', 'currency', 'netPrice', 'taxPrice', 'grossPrice'] as const
+export type InvoiceManualField = (typeof INVOICE_MANUAL_FIELDS)[number]
+export interface InvoiceManual {
+  number?: string
+  sellerName?: string
+  issueDate?: string
+  dueDate?: string
+  currency?: string
+  /** Grosze. */
+  netPrice?: number
+  taxPrice?: number
+  grossPrice?: number
+}
 
 /** Ustawienie `invoices.access`: kto ma dostęp do modułu (niezależnie od roli) i od kiedy synchronizować. */
 export interface InvoiceSettings {
   userIds: string[]
-  /** Data wystawienia (yyyy-MM-dd), od której pobierane są koszty z inFakt. */
+  /** Data dodania do inFakt (yyyy-MM-dd), od której pobierane są dokumenty kosztowe. */
   syncFrom: string
 }
 export const DEFAULT_INVOICE_SYNC_FROM = '2026-01-01'
@@ -47,6 +68,21 @@ export const invoiceAllocationInput = z
     version: z.number().int(),
   })
 export type InvoiceAllocationInput = z.input<typeof invoiceAllocationInput>
+
+const cents = z.number().int().min(-10_000_000_000).max(10_000_000_000)
+/** Pola pominięte — bez zmian; `null` — usuń wartość ręczną (wróć do danych z inFakt). */
+export const invoiceDetailsInput = z.object({
+  number: z.string().trim().min(1).max(200).nullable().optional(),
+  sellerName: z.string().trim().min(1).max(300).nullable().optional(),
+  issueDate: isoDate.nullable().optional(),
+  dueDate: isoDate.nullable().optional(),
+  currency: z.string().trim().regex(/^[A-Z]{3}$/, 'validation.currency').nullable().optional(),
+  netPrice: cents.nullable().optional(),
+  taxPrice: cents.nullable().optional(),
+  grossPrice: cents.nullable().optional(),
+  version: z.number().int(),
+})
+export type InvoiceDetailsInput = z.input<typeof invoiceDetailsInput>
 
 export const invoiceTransitionInput = z.object({
   comment: z.string().trim().max(2000).nullable().optional(),
@@ -85,6 +121,10 @@ export interface InvoiceDto {
   taxPrice: number | null
   paymentStatus: string | null
   accountingStatus: string | null
+  /** Data dodania do inFakt (dla plików bez daty wystawienia). */
+  infaktCreatedAt: string | null
+  /** Pola uzupełnione / poprawione ręcznie (wartości w polach DTO już je uwzględniają). */
+  manualFields: InvoiceManualField[]
   status: InvoiceStatus
   note: string | null
   allocations: InvoiceAllocationDto[]

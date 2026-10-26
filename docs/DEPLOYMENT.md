@@ -50,9 +50,9 @@ npm run secrets:generate -- adres@firmy.pl        # wypisuje gotowe polecenia ne
 
 1. https://app.infakt.pl → **Ustawienia → Inne opcje → API** → wygeneruj klucz z uprawnieniem **`api:costs:read`** (żadnych innych zakresów nie potrzeba).
 2. `netlify env:set INFAKT_API_KEY "…" --secret --scope functions`, potem redeploy.
-3. W aplikacji: **Administracja → Ustawienia → Faktury kosztowe** — zaznacz osoby z dostępem (np. Krzysztof, Ania, Kamil) i datę, od której pobierać koszty.
+3. W aplikacji: **Administracja → Ustawienia → Faktury kosztowe** — zaznacz osoby z dostępem (np. Krzysztof, Ania, Kamil) i datę, od której pobierać pliki (data dodania do inFakt).
 
-Synchronizacja: przycisk „Synchronizuj z inFakt” w module oraz codziennie o 05:00 UTC (funkcja `infakt-sync`). Lokalnie `DEV_FAKE_INFAKT=1` włącza atrapę (5 przykładowych kosztów).
+Synchronizacja: przycisk „Synchronizuj z inFakt” w module oraz codziennie o 05:00 UTC (funkcja `infakt-sync`). Lokalnie `DEV_FAKE_INFAKT=1` włącza atrapę (przykładowe pliki kosztowe, w tym jeden bez odczytanych danych).
 
 ### Envcheck Hub — zmienne dla wycen z AI i Google Drive (etapy R4–R5)
 

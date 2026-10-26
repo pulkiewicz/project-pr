@@ -24,8 +24,11 @@ export interface InfaktAttachment {
 /** Operacje inFakt używane przez aplikację (klucz API z uprawnieniem `api:costs:read`). */
 export interface InfaktClient {
   readonly fake: boolean
-  /** Wszystkie koszty wystawione od `issueDateFrom` (yyyy-MM-dd), stronicowanie po stronie klienta. */
-  listCosts(issueDateFrom: string): Promise<InfaktCost[]>
+  /**
+   * Wszystkie dokumenty kosztowe dodane do inFakt od `addedFrom` (yyyy-MM-dd); stronicowanie po stronie klienta.
+   * Filtr po dacie dodania, nie wystawienia — pliki (`document_scan`) zwykle nie mają daty wystawienia.
+   */
+  listCosts(addedFrom: string): Promise<InfaktCost[]>
   costAttachments(uuid: string): Promise<InfaktAttachment[]>
 }
 

@@ -2,13 +2,16 @@
 
 ## Faktury kosztowe z inFakt → projekty (26.10.2026)
 
+- **Pliki zamiast zaksięgowanych kosztów:** w Envcheck faktury są w inFakt jako pliki (`document_scan`), a księgowanie odbywa się poza inFakt. Pliki zwykle nie mają daty wystawienia, więc synchronizacja filtruje teraz po **dacie dodania do inFakt** (ustawienie „Pobieraj pliki dodane do inFakt od”). Lista sortuje i pokazuje datę dodania (szarą), gdy brak daty wystawienia.
+- **Uzupełnianie danych:** gdy inFakt nie odczytał z pliku numeru, sprzedawcy, dat albo kwot, można je wpisać w karcie faktury („Uzupełnij dane” / „Popraw dane”). Pola uzupełnione ręcznie mają znacznik „ręcznie” i synchronizacja ich nie nadpisuje; wyczyszczenie pola przywraca wartość z inFakt. Filtr „Brak danych” pokazuje pliki do uzupełnienia. Fakturę bez kwoty netto nie można wysłać do akceptacji.
+
 - **Nowy moduł „Faktury kosztowe”** (menu: Finanse, adres `/faktury`). Pobiera dokumenty kosztowe z inFakt (`/documents/costs`): koszty, skany i dowody wewnętrzne; pomija dowody za składki ZUS. Synchronizacja przyciskiem i codziennie o 05:00 UTC. Ponowna synchronizacja nie tworzy duplikatów (klucz: UUID z inFakt).
 - **Przypisanie do projektów proporcjonalnie (%)**, z dokładnością do 0,01%. Kwota udziału liczona z netto. Suma może być mniejsza niż 100% — reszta to **koszty ogólne**. Do faktury można dodać notatkę.
 - **Akceptacja**: do przypisania → do akceptacji → zaakceptowana / odrzucona. Akceptuje lub odrzuca **inna osoba z dostępem niż wysyłająca** (zasada czterech oczu). Odrzucenie wymaga komentarza, a odrzucona faktura wraca do poprawy. Wysyłający może wycofać fakturę z akceptacji, a zaakceptowaną można przywrócić do przypisania. Jeśli w inFakt zmieni się kwota albo waluta faktury wysłanej lub zaakceptowanej, wraca ona do przypisania (udziały zostają). Pełna historia jest w karcie faktury i w audit logu.
 - **Widoki**: lista z filtrami (status, projekt / ogólne, „do mojej akceptacji”); zakładka „Koszty per projekt” (netto zaakceptowane i w toku, osobno dla każdej waluty); eksport XLSX z wierszem na każdy udział; linki do plików faktury w inFakt.
 - **Dostęp**: tylko osoby wskazane przez Admina w **Ustawieniach → Faktury kosztowe**, niezależnie od roli (lista może zawierać tylko pracowników Envcheck). Moduł `invoices` w macierzy: Admin i Envcheck wewnętrzny P, role zewnętrzne zablokowane.
-- Migracja `20261026094117_infakt_cost_invoices`: tabele `cost_invoices`, `cost_invoice_allocations`, `cost_invoice_events` i uprawnienia modułu. Nowa funkcja `netlify/functions/infakt-sync.mts`, zmienna `INFAKT_API_KEY` (opis w `DEPLOYMENT.md`).
-- **Testy:** 11 nowych (dostęp z listy, synchronizacja i błąd inFakt, podział %, walidacje, cztery oczy, odrzucenie i poprawka, zmiana kwoty w inFakt, wycofanie, eksport). Macierz ról obejmuje nowe endpointy.
+- Migracja `20261026101733_infakt_cost_invoices`: tabele `cost_invoices`, `cost_invoice_allocations`, `cost_invoice_events` i uprawnienia modułu. Nowa funkcja `netlify/functions/infakt-sync.mts`, zmienna `INFAKT_API_KEY` (opis w `DEPLOYMENT.md`).
+- **Testy:** 12 nowych (dostęp z listy, synchronizacja i błąd inFakt, podział %, walidacje, cztery oczy, odrzucenie i poprawka, zmiana kwoty w inFakt, uzupełnianie danych pliku, wycofanie, eksport). Macierz ról obejmuje nowe endpointy.
 
 ## Poprawka po R4 (26.10.2026)
 
