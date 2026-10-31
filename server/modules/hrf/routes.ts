@@ -38,6 +38,7 @@ import {
   listTasks,
   recomputeCriticalPath,
   recomputePlannedDates,
+  responsibleOptions,
   toTaskDto,
 } from './service.ts'
 
@@ -76,6 +77,16 @@ hrfRouter.openapi(
   },
 )
 
+hrfRouter.openapi(
+  route({ method: 'get', path: `${BASE}/responsible-options`, request: { params: projectParam }, responses: ok }, { module: 'hrf', action: 'view' }),
+  async (c) => {
+    const { projectId } = c.req.valid('param')
+    const db = c.get('deps').db
+    await getProject(db, projectId)
+    return c.json(await responsibleOptions(db, projectId), 200)
+  },
+)
+
 // ---------- edycja zadania ----------
 hrfRouter.openapi(
   route(
@@ -107,6 +118,10 @@ hrfRouter.openapi(
     const dates =
       patch.startOffsetDays !== undefined || patch.durationDays !== undefined ? plannedDates(project.dayZeroDate, offset, duration) : {}
     if (patch.actualStart && patch.actualEnd && patch.actualEnd < patch.actualStart) throw new HttpProblem(422, 'actual_end_before_start')
+    if (patch.responsibleUserId && patch.responsibleUserId !== current.responsibleUserId) {
+      const allowed = await responsibleOptions(deps.db, projectId)
+      if (!allowed.some((o) => o.id === patch.responsibleUserId)) throw new HttpProblem(422, 'responsible_not_allowed')
+    }
 
     const updated = await deps.db.transaction(async (tx) => {
       const [row] = await tx

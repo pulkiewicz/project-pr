@@ -1,7 +1,7 @@
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
-import type { HrfDependencyDto, HrfTaskDto } from '#shared'
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
+import { STAFF_ROLES, type HrfDependencyDto, type HrfResponsibleOption, type HrfTaskDto } from '#shared'
 import type { Database } from '../../db/client.ts'
-import { hrfDependencies, hrfTasks, projects } from '../../db/schema.ts'
+import { hrfDependencies, hrfTasks, permissions, projectMembers, projects, users } from '../../db/schema.ts'
 import { notFound } from '../../lib/problem.ts'
 import { computeCpm } from './cpm.ts'
 import type { ParsedTask } from './import.ts'
@@ -13,6 +13,20 @@ export async function getProject(db: Database, projectId: string) {
   const [p] = await db.select().from(projects).where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
   if (!p) throw notFound('project_not_found')
   return p
+}
+
+/** Osoby, które można wskazać jako odpowiedzialne za zadanie formalne: aktywne, z `hrf:view` i dostępem do projektu. */
+export async function responsibleOptions(db: Database, projectId: string): Promise<HrfResponsibleOption[]> {
+  const roles = db
+    .select({ role: permissions.role })
+    .from(permissions)
+    .where(and(eq(permissions.module, 'hrf'), eq(permissions.action, 'view'), eq(permissions.allowed, true)))
+  const members = db.select({ id: projectMembers.userId }).from(projectMembers).where(eq(projectMembers.projectId, projectId))
+  return db
+    .select({ id: users.id, name: users.name, role: users.role })
+    .from(users)
+    .where(and(isNull(users.deletedAt), eq(users.isActive, true), inArray(users.role, roles), or(inArray(users.role, [...STAFF_ROLES]), inArray(users.id, members))))
+    .orderBy(asc(users.name))
 }
 
 export async function listTasks(db: Database, projectId: string) {

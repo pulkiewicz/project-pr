@@ -56,6 +56,8 @@ export interface UserDto {
   lastLoginAt: string | null
   identityLinked: boolean
   mustChangePassword: boolean
+  /** Codzienne przypomnienie e-mail o przypisanych zadaniach (ustawia Admin). */
+  taskReminders: boolean
   /** Projekty przypisane (dotyczy ról zewnętrznych; pracownicy Envcheck widzą wszystkie). */
   projectIds: string[]
   version: number

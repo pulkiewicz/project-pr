@@ -7,6 +7,9 @@ import { FakeAiClient } from './integrations/ai/fake.ts'
 import type { AiClient } from './integrations/ai/types.ts'
 import { FakeDrive } from './integrations/drive/fake.ts'
 import { GoogleDriveClient } from './integrations/drive/google.ts'
+import { FakeEmailSender } from './integrations/email/fake.ts'
+import { ResendEmailSender } from './integrations/email/resend.ts'
+import type { EmailSender } from './integrations/email/types.ts'
 import type { DriveClient } from './integrations/drive/types.ts'
 import { HttpInfaktClient } from './integrations/infakt/client.ts'
 import { FakeInfaktClient } from './integrations/infakt/fake.ts'
@@ -53,6 +56,14 @@ function infaktClient(): InfaktClient | null {
   return key ? new HttpInfaktClient(key) : null
 }
 
+function emailSender(): EmailSender | null {
+  // Lokalnie atrapa na jawne żądanie ma pierwszeństwo przed kluczem (żadnych maili z `netlify dev`).
+  if (localDev() && env('DEV_FAKE_EMAIL') === '1') return new FakeEmailSender()
+  const key = env('RESEND_API_KEY')
+  const from = env('EMAIL_FROM')
+  return key && from ? new ResendEmailSender(key, from) : null
+}
+
 /** Zadanie AI wykonuje funkcja w tle (do 15 min) — tutaj tylko zlecenie z jednorazowym tokenem. */
 async function dispatchJob(jobId: string, token: string, origin: string) {
   const res = await fetch(`${origin}/.netlify/functions/ai-job-background`, {
@@ -79,6 +90,7 @@ export function runtimeDeps(): AppDeps {
     drive: driveClient(),
     ai: aiClient(),
     infakt: infaktClient(),
+    email: emailSender(),
     dispatchJob,
   }
   return deps

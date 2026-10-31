@@ -75,6 +75,7 @@ export function toUserDto(u: UserRow, projectIds: string[] = []): UserDto {
     lastLoginAt: u.lastLoginAt,
     identityLinked: !!u.identitySub,
     mustChangePassword: u.mustChangePassword,
+    taskReminders: u.taskReminders,
     projectIds,
     version: u.version,
   }
@@ -204,6 +205,7 @@ adminUsersRouter.openapi(
       subcontractorId: role === 'Subcontractor' ? subcontractorId : null,
       party: defaultPartyForRole(role, subcontractorId),
       isActive: input.isActive ?? current.isActive,
+      taskReminders: input.taskReminders ?? current.taskReminders,
     }
 
     const updated = await deps.db.transaction(async (tx) => {

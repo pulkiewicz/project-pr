@@ -8,6 +8,7 @@ import type {
   HrfInternalTaskCreate,
   HrfInternalTaskDto,
   HrfInternalTaskPatch,
+  HrfResponsibleOption,
   HrfTaskDto,
   HrfTaskPatch,
   HrfTasksResponse,
@@ -182,6 +183,16 @@ export function useInternalAssignees(enabled: boolean) {
   return useQuery({
     queryKey: ['hrf', pid, 'internal', 'assignees'],
     queryFn: () => api<HrfInternalAssigneeOption[]>(`${base(pid)}/internal-tasks/assignees`),
+    enabled,
+    staleTime: 60_000,
+  })
+}
+
+export function useResponsibleOptions(enabled: boolean) {
+  const pid = useProjectId()
+  return useQuery({
+    queryKey: ['hrf', pid, 'responsible-options'],
+    queryFn: () => api<HrfResponsibleOption[]>(`${base(pid)}/responsible-options`),
     enabled,
     staleTime: 60_000,
   })

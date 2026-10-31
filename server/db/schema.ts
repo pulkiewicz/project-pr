@@ -70,6 +70,10 @@ export const users = pgTable(
     lastLoginAt: ts('last_login_at'),
     /** Hasło tymczasowe nadane przez Admina — do zmiany przy pierwszym logowaniu. */
     mustChangePassword: boolean('must_change_password').notNull().default(false),
+    /** Codzienne przypomnienie e-mail o przypisanych zadaniach HRF (włącza/wyłącza Admin). */
+    taskReminders: boolean('task_reminders').notNull().default(true),
+    /** Dzień (Europe/Warsaw) ostatniej wysyłki przypomnienia — ponowne uruchomienie tego dnia nic nie wysyła. */
+    taskRemindersSentOn: date('task_reminders_sent_on', { mode: 'string' }),
     version: integer('version').notNull().default(1),
     ...auditColumns,
   },

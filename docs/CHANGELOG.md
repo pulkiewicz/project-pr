@@ -1,5 +1,14 @@
 # Changelog
 
+## HRF: przypomnienia e-mail o przypisanych zadaniach (31.10.2026)
+
+- **Codzienny e-mail o 7:00** (dni robocze, bez świąt) do każdej osoby z przypisanymi zadaniami: zadania **po terminie** i z terminem **w ciągu 7 dni**, pogrupowane wg projektu, z linkiem do HRF projektu. Bez zadań — bez maila. Najwyżej jeden mail dziennie na osobę (także przy ponownym uruchomieniu); nieudana wysyłka jest ponawiana przy kolejnym uruchomieniu tego dnia.
+- Obejmuje **zadania wewnętrzne** (osoba na liście „Osoby”, nieukończone, z terminem) i **zadania formalne HRF**, w których osoba jest **odpowiedzialna** (bez odebranych i gotowych do odbioru). Tylko projekty i moduły, do których osoba ma dostęp; treść bez danych [W].
+- W karcie zadania formalnego nowe pole **„Odpowiedzialny”** (osoby z dostępem do HRF i projektu; API odrzuca inne — `responsible_not_allowed`). Nowy endpoint `GET /projects/{id}/hrf/responsible-options`.
+- Przypomnienia włącza/wyłącza dla osoby wyłącznie **Admin** (Administracja → Użytkownicy → Edytuj); domyślnie włączone, na liście znacznik „bez przypomnień”.
+- Wysyłka przez **Resend** (`RESEND_API_KEY`, `EMAIL_FROM` — patrz DEPLOYMENT.md), funkcja harmonogramu `task-reminders`. Migracja `20261031104239_task_reminders`.
+- Na liście zadań HRF kolumna **Link** z przyciskiem otwarcia w nowej karcie i podglądem po najechaniu (pliki i foldery Google Drive / Docs).
+
 ## Zarząd: Pracownicy i Pojazdy (31.10.2026)
 
 - Nowa sekcja menu **Zarząd** z modułami **Pracownicy** (`/pracownicy`) i **Pojazdy** (`/pojazdy`). Dostęp jak w Fakturach: rola (Admin, Envcheck wewnętrzny) otwiera możliwość, a o dostępie decyduje lista osób w **Administracja → Ustawienia → „Zarząd — pojazdy i pracownicy”** (bez wpisu nawet Admin nie widzi modułów). Role zewnętrzne nigdy.

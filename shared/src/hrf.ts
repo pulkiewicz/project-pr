@@ -309,3 +309,6 @@ export interface HrfInternalAssigneeOption {
   name: string
   role: string
 }
+
+/** Kandydat na osobę odpowiedzialną za zadanie formalne (ta sama postać co osoba do zadania wewnętrznego). */
+export type HrfResponsibleOption = HrfInternalAssigneeOption

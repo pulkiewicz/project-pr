@@ -56,6 +56,7 @@ export const updateUserInput = z.object({
   role: roleSchema.optional(),
   subcontractorId: z.uuid().nullish(),
   isActive: z.boolean().optional(),
+  taskReminders: z.boolean().optional(),
   projectIds: z.array(z.uuid()).max(100).optional(),
   version: z.number().int(),
 })
