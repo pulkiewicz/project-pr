@@ -1,5 +1,5 @@
 import { and, eq, isNull, sql } from 'drizzle-orm'
-import { DEFAULT_INVOICE_SYNC_FROM, ROLES, defaultPartyForRole, type InvoiceSettings, isStaffOnlyModule, isStaffRole, type Action, type ModuleKey, type Role } from '#shared'
+import { DEFAULT_INVOICE_SYNC_FROM, ROLES, defaultPartyForRole, type InvoiceSettings, type ManagementSettings, isStaffOnlyModule, isStaffRole, type Action, type ModuleKey, type Role } from '#shared'
 import type { Database } from '../db/client.ts'
 import { appSettings, auditLog, permissions, projectMembers, projects, users } from '../db/schema.ts'
 import type { IdentityClaims } from './identity.ts'
@@ -61,6 +61,21 @@ export async function invoiceSettings(db: Database): Promise<InvoiceSettings> {
 export function restrictInvoicePermissions(perms: Set<`${ModuleKey}:${Action}`>, userId: string, settings: InvoiceSettings) {
   if (settings.userIds.includes(userId)) return perms
   return new Set([...perms].filter((p) => !p.startsWith('invoices:')))
+}
+
+export const MANAGEMENT_SETTING_KEY = 'management.access'
+/** Moduły Zarządu: uprawnienia z roli obowiązują tylko osoby z listy `management.access`. */
+export const MANAGEMENT_MODULES = ['fleet', 'employees'] as const satisfies readonly ModuleKey[]
+
+export async function managementSettings(db: Database): Promise<ManagementSettings> {
+  const [row] = await db.select().from(appSettings).where(eq(appSettings.key, MANAGEMENT_SETTING_KEY))
+  const v = (row?.value ?? {}) as Partial<ManagementSettings>
+  return { userIds: Array.isArray(v.userIds) ? v.userIds : [] }
+}
+
+export function restrictManagementPermissions(perms: Set<`${ModuleKey}:${Action}`>, userId: string, settings: ManagementSettings) {
+  if (settings.userIds.includes(userId)) return perms
+  return new Set([...perms].filter((p) => !MANAGEMENT_MODULES.some((m) => p.startsWith(`${m}:`))))
 }
 
 export async function mfaRequiredRoles(db: Database): Promise<Role[]> {

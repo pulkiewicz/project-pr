@@ -26,6 +26,8 @@ const CrmPage = lazy(() => import('./features/crm/CrmPage').then((m) => ({ defau
 const QuotesPage = lazy(() => import('./features/quotes/QuotesPage').then((m) => ({ default: m.QuotesPage })))
 const KnowledgePage = lazy(() => import('./features/quotes/KnowledgePage').then((m) => ({ default: m.KnowledgePage })))
 const InvoicesPage = lazy(() => import('./features/invoices/InvoicesPage').then((m) => ({ default: m.InvoicesPage })))
+const EmployeesPage = lazy(() => import('./features/management/EmployeesPage').then((m) => ({ default: m.EmployeesPage })))
+const FleetPage = lazy(() => import('./features/management/FleetPage').then((m) => ({ default: m.FleetPage })))
 const PurchasesPage = lazy(() => import('./features/purchases/PurchasesPage').then((m) => ({ default: m.PurchasesPage })))
 
 /** Ukrywa trasę w UI; właściwa autoryzacja zawsze po stronie API. */
@@ -95,6 +97,8 @@ export function App() {
         <Route path="/baza-wiedzy" element={<Guard module="quoteKnowledge"><Suspense fallback={<Loader />}><KnowledgePage /></Suspense></Guard>} />
         <Route path="/baza-wiedzy/profile/:id" element={<Guard module="quoteKnowledge"><Suspense fallback={<Loader />}><KnowledgePage /></Suspense></Guard>} />
         <Route path="/faktury" element={<Guard module="invoices"><Suspense fallback={<Loader />}><InvoicesPage /></Suspense></Guard>} />
+        <Route path="/pracownicy" element={<Guard module="employees"><Suspense fallback={<Loader />}><EmployeesPage /></Suspense></Guard>} />
+        <Route path="/pojazdy" element={<Guard module="fleet"><Suspense fallback={<Loader />}><FleetPage /></Suspense></Guard>} />
         {SALES_NAV.filter((n) => !n.ready).map((n) => (
           <Route key={n.module} path={n.path} element={<Guard module={n.module}><ModulePlaceholder item={n} /></Guard>} />
         ))}

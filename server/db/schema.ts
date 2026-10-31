@@ -979,3 +979,107 @@ export const costInvoiceEvents = pgTable(
   },
   (t) => [index('cost_invoice_events_invoice_idx').on(t.invoiceId, t.createdAt)],
 )
+
+// ---------------- Zarząd: pracownicy i ewidencja pojazdów (moduły `employees`, `fleet`) ----------------
+
+/** Pracownik Envcheck. PESEL szyfrowany AES-256-GCM (jak dokumenty w awizacjach). */
+export const employees = pgTable(
+  'employees',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    firstName: text('first_name').notNull(),
+    lastName: text('last_name').notNull(),
+    position: text('position'),
+    email: text('email'),
+    phone: text('phone'),
+    birthDate: date('birth_date', { mode: 'string' }),
+    peselEnc: text('pesel_enc'),
+    address: text('address'),
+    emergencyContactName: text('emergency_contact_name'),
+    emergencyContactPhone: text('emergency_contact_phone'),
+    contractType: text('contract_type'),
+    contractStart: date('contract_start', { mode: 'string' }),
+    contractEnd: date('contract_end', { mode: 'string' }),
+    medicalExamValidUntil: date('medical_exam_valid_until', { mode: 'string' }),
+    bhpTrainingValidUntil: date('bhp_training_valid_until', { mode: 'string' }),
+    /** Konto w aplikacji — punkt styku z raportowaniem czasu pracy. */
+    userId: uuid('user_id').references(() => users.id),
+    isActive: boolean('is_active').notNull().default(true),
+    notes: text('notes'),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [index('employees_name_idx').on(t.lastName, t.firstName)],
+)
+
+/** Uprawnienia i certyfikaty pracownika (SEP, F-gaz, UDT…). */
+export const employeeQualifications = pgTable(
+  'employee_qualifications',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    employeeId: uuid('employee_id').notNull().references(() => employees.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    number: text('number'),
+    validUntil: date('valid_until', { mode: 'string' }),
+    documentUrl: text('document_url'),
+    notes: text('notes'),
+    position: integer('position').notNull().default(0),
+  },
+  (t) => [index('employee_qualifications_employee_idx').on(t.employeeId)],
+)
+
+/** Pojazd firmowy (nazwa tabeli odróżnia od pojazdów z awizacji). */
+export const fleetVehicles = pgTable(
+  'fleet_vehicles',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    registrationNumber: text('registration_number').notNull(),
+    make: text('make'),
+    model: text('model'),
+    kind: text('kind').notNull(),
+    vin: text('vin'),
+    productionYear: integer('production_year'),
+    ownership: text('ownership').notNull().default('owned'),
+    financingCompany: text('financing_company'),
+    financingEndDate: date('financing_end_date', { mode: 'string' }),
+    assignedEmployeeId: uuid('assigned_employee_id').references(() => employees.id),
+    isActive: boolean('is_active').notNull().default(true),
+    notes: text('notes'),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [uniqueIndex('fleet_vehicles_registration_uq').on(t.registrationNumber).where(sql`${t.deletedAt} IS NULL`)],
+)
+
+export const fleetInsurances = pgTable(
+  'fleet_insurances',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    vehicleId: uuid('vehicle_id').notNull().references(() => fleetVehicles.id, { onDelete: 'cascade' }),
+    type: text('type').notNull(),
+    insurer: text('insurer'),
+    policyNumber: text('policy_number'),
+    validFrom: date('valid_from', { mode: 'string' }),
+    validTo: date('valid_to', { mode: 'string' }).notNull(),
+    policyUrl: text('policy_url'),
+    notes: text('notes'),
+    position: integer('position').notNull().default(0),
+  },
+  (t) => [index('fleet_insurances_vehicle_idx').on(t.vehicleId)],
+)
+
+/** Badanie techniczne, UDT, przegląd serwisowy, tachograf. */
+export const fleetInspections = pgTable(
+  'fleet_inspections',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    vehicleId: uuid('vehicle_id').notNull().references(() => fleetVehicles.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    performedDate: date('performed_date', { mode: 'string' }),
+    validUntil: date('valid_until', { mode: 'string' }),
+    documentUrl: text('document_url'),
+    notes: text('notes'),
+    position: integer('position').notNull().default(0),
+  },
+  (t) => [index('fleet_inspections_vehicle_idx').on(t.vehicleId)],
+)

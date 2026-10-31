@@ -43,6 +43,12 @@ export const SALES_NAV: NavItem[] = [
 /** Moduły firmy: finanse (dostęp dla osób wskazanych w Ustawieniach). */
 export const FINANCE_NAV: NavItem[] = [{ module: 'invoices', path: '/faktury', stage: '—', ready: true }]
 
+/** Moduły firmy: zarząd (dostęp dla osób wskazanych w Ustawieniach). */
+export const MANAGEMENT_NAV: NavItem[] = [
+  { module: 'employees', path: '/pracownicy', stage: '—', ready: true },
+  { module: 'fleet', path: '/pojazdy', stage: '—', ready: true },
+]
+
 /** Dawne adresy sprzed Envcheck Hub (jeden projekt) → moduł projektu. */
 export const LEGACY_PROJECT_PATHS = PROJECT_NAV.filter((n) => n.path).map((n) => n.path)
 

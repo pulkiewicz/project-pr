@@ -1,5 +1,13 @@
 # Changelog
 
+## Zarząd: Pracownicy i Pojazdy (31.10.2026)
+
+- Nowa sekcja menu **Zarząd** z modułami **Pracownicy** (`/pracownicy`) i **Pojazdy** (`/pojazdy`). Dostęp jak w Fakturach: rola (Admin, Envcheck wewnętrzny) otwiera możliwość, a o dostępie decyduje lista osób w **Administracja → Ustawienia → „Zarząd — pojazdy i pracownicy”** (bez wpisu nawet Admin nie widzi modułów). Role zewnętrzne nigdy.
+- **Pracownicy:** dane kontaktowe, stanowisko; dane osobowe — **PESEL** (zaszyfrowany AES-256-GCM, na liście tylko maska, pełny numer po „Pokaż” z wpisem w audit logu; data urodzenia uzupełniana z PESEL), adres, kontakt awaryjny; **umowa** (rodzaj, od–do, puste „do” = czas nieokreślony); **badania lekarskie** i **szkolenie BHP** (ważne do); **uprawnienia i certyfikaty** (np. SEP, F-gaz, UDT — numer, ważność, link do dokumentu); powiązanie z **kontem w aplikacji** (pod przyszłe połączenie z raportowaniem czasu pracy). Audit log nie zapisuje wartości danych osobowych.
+- **Pojazdy:** nr rejestracyjny (unikalny), marka, model, rodzaj (osobowy, dostawczy, ciężarowy, przyczepa, wózek widłowy, podest/dźwig), VIN, rok, forma (własny / leasing / najem z końcem umowy), użytkownik (pracownik). **Ubezpieczenia** (OC, AC, NNW, Assistance — ubezpieczyciel, nr polisy, okres, **link do polisy**) i **przeglądy** (badanie techniczne, UDT, serwis, tachograf — data wykonania, ważne do, link). Lista pokazuje ostatnie terminy OC, AC, badania technicznego i UDT.
+- **Terminy:** daty po terminie na czerwono, w ciągu 30 dni na pomarańczowo (podpowiedź z liczbą dni); przełącznik „Tylko wymagające uwagi”. Nieaktywnych pracowników i pojazdy (sprzedane, zwolnieni) ukrywa przełącznik „Pokaż nieaktywne”.
+- Migracja `20261031093759_management_fleet_employees`. Testy: dostęp z listy, PESEL (walidacja, szyfrowanie, odczyt z audytem), polisy/przeglądy, unikalny nr rejestracyjny, macierz ról.
+
 ## Plan zakupów: dostawca i kwota netto zamówienia (31.10.2026)
 
 - Na liście zakupów (`/projekty/{kod}/zakupy`) nowe kolumny **Dostawca** i **Netto (PLN)** — łączna kwota netto zamówienia pozycji; w stopce suma dla widocznych (przefiltrowanych) pozycji. Kwotę wpisuje się w karcie komponentu; jest też w eksporcie XLSX.

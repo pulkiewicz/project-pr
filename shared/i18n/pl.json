@@ -123,7 +123,10 @@
     "purchasesCost": "Zakupy — kwoty netto",
     "invoices": "Faktury kosztowe",
     "finance": "Finanse",
-    "adminProjects": "Projekty"
+    "adminProjects": "Projekty",
+    "management": "Zarząd",
+    "fleet": "Pojazdy",
+    "employees": "Pracownicy"
   },
   "roles": {
     "Admin": "Administrator",
@@ -345,6 +348,9 @@
     "invoice_not_editable": "Przypisanie można zmieniać tylko w fakturach do przypisania lub odrzuconych",
     "invoice_self_approval": "Fakturę akceptuje inna osoba niż ta, która wysłała ją do akceptacji",
     "invoice_user_not_staff": "Dostęp do faktur można nadać tylko pracownikom Envcheck",
+    "user_not_staff": "Można wybrać tylko pracowników Envcheck",
+    "employee_not_found": "Nie znaleziono pracownika",
+    "vehicle_registration_exists": "Pojazd o tym numerze rejestracyjnym już istnieje",
     "invoice_amount_missing": "Uzupełnij kwotę netto faktury przed wysłaniem do akceptacji"
   },
   "validation": {
@@ -360,6 +366,7 @@
     "passwordTooShort": "Hasło musi mieć co najmniej 12 znaków",
     "httpUrl": "Podaj adres zaczynający się od http:// lub https://",
     "nip": "Nieprawidłowy NIP",
+    "pesel": "Nieprawidłowy PESEL",
     "lossReasonRequired": "Podaj powód przegranej",
     "opportunityRequired": "Wybierz szansę",
     "profileNameRequired": "Podaj nazwę profilu",
@@ -659,6 +666,143 @@
       "confirmed": "Dostawa",
       "status": "Status"
     }
+  },
+  "deadline": {
+    "expired": "po terminie ({{count}} dni)",
+    "soon": "za {{count}} dni",
+    "ok": "ważne jeszcze {{count}} dni",
+    "today": "kończy się dziś",
+    "attention": "Wymaga uwagi",
+    "onlyAttention": "Tylko wymagające uwagi",
+    "showInactive": "Pokaż nieaktywne",
+    "inactive": "nieaktywny",
+    "openLink": "Otwórz link",
+    "add": "Dodaj",
+    "remove": "Usuń"
+  },
+  "management": {
+    "settings": {
+      "title": "Zarząd — pojazdy i pracownicy",
+      "users": "Osoby z dostępem",
+      "usersHint": "Tylko te osoby (spośród pracowników Envcheck) widzą moduły Pojazdy i Pracownicy — niezależnie od roli."
+    },
+    "deleteConfirm": "Usunąć „{{name}}”? Operacji nie można cofnąć z poziomu aplikacji."
+  },
+  "fleet": {
+    "title": "Ewidencja pojazdów",
+    "add": "Dodaj pojazd",
+    "edit": "Pojazd {{name}}",
+    "registrationNumber": "Nr rejestracyjny",
+    "make": "Marka",
+    "model": "Model",
+    "kindLabel": "Rodzaj",
+    "kind": {
+      "car": "osobowy",
+      "van": "dostawczy",
+      "truck": "ciężarowy",
+      "trailer": "przyczepa",
+      "forklift": "wózek widłowy",
+      "lift": "podest / dźwig",
+      "other": "inny"
+    },
+    "vin": "VIN",
+    "productionYear": "Rok produkcji",
+    "ownershipLabel": "Forma",
+    "ownership": {
+      "owned": "własny",
+      "leasing": "leasing",
+      "rental": "najem"
+    },
+    "financingCompany": "Leasingodawca / wynajmujący",
+    "financingEndDate": "Koniec leasingu / najmu",
+    "assignedEmployee": "Użytkownik",
+    "isActive": "Aktywny (w użyciu)",
+    "notes": "Uwagi",
+    "insurances": "Ubezpieczenia",
+    "inspections": "Przeglądy, UDT, tachograf",
+    "insuranceType": {
+      "OC": "OC",
+      "AC": "AC",
+      "NNW": "NNW",
+      "assistance": "Assistance",
+      "other": "inne"
+    },
+    "inspectionKind": {
+      "technical": "badanie techniczne",
+      "udt": "UDT",
+      "service": "przegląd serwisowy",
+      "tachograph": "tachograf",
+      "other": "inne"
+    },
+    "type": "Rodzaj",
+    "insurer": "Ubezpieczyciel",
+    "policyNumber": "Nr polisy",
+    "validFrom": "Od",
+    "validTo": "Do",
+    "policyUrl": "Link do polisy",
+    "performedDate": "Wykonano",
+    "validUntil": "Ważne do",
+    "documentUrl": "Link do dokumentu",
+    "noInsurances": "Brak polis",
+    "noInspections": "Brak przeglądów",
+    "col": {
+      "vehicle": "Pojazd",
+      "oc": "OC do",
+      "ac": "AC do",
+      "technical": "Badanie tech. do",
+      "udt": "UDT do"
+    },
+    "empty": "Brak pojazdów"
+  },
+  "employees": {
+    "title": "Pracownicy",
+    "add": "Dodaj pracownika",
+    "edit": "Pracownik {{name}}",
+    "firstName": "Imię",
+    "lastName": "Nazwisko",
+    "position": "Stanowisko",
+    "email": "E-mail",
+    "phone": "Telefon",
+    "personal": "Dane osobowe",
+    "birthDate": "Data urodzenia",
+    "pesel": "PESEL",
+    "peselHint": "Zapisywany zaszyfrowany. Puste pole = bez zmian; datę urodzenia uzupełnimy z PESEL.",
+    "peselShow": "Pokaż",
+    "address": "Adres zamieszkania",
+    "emergencyContactName": "Kontakt awaryjny — osoba",
+    "emergencyContactPhone": "Kontakt awaryjny — telefon",
+    "contract": "Umowa",
+    "contractTypeLabel": "Rodzaj umowy",
+    "contractType": {
+      "employment": "umowa o pracę",
+      "mandate": "umowa zlecenie",
+      "specific_task": "umowa o dzieło",
+      "b2b": "B2B",
+      "internship": "staż / praktyka",
+      "other": "inna"
+    },
+    "contractStart": "Od",
+    "contractEnd": "Do (puste = czas nieokreślony)",
+    "indefinite": "czas nieokreślony",
+    "validity": "Badania i szkolenia",
+    "medicalExamValidUntil": "Badania lekarskie ważne do",
+    "bhpTrainingValidUntil": "Szkolenie BHP ważne do",
+    "qualifications": "Uprawnienia i certyfikaty",
+    "qualificationName": "Nazwa (np. SEP E1, F-gaz, UDT)",
+    "qualificationNumber": "Numer",
+    "noQualifications": "Brak uprawnień",
+    "user": "Konto w aplikacji",
+    "userHint": "Do połączenia z raportowaniem czasu pracy.",
+    "isActive": "Aktywny (zatrudniony)",
+    "notes": "Uwagi",
+    "col": {
+      "name": "Pracownik",
+      "contract": "Umowa",
+      "medical": "Badania do",
+      "bhp": "BHP do",
+      "qualifications": "Uprawnienia"
+    },
+    "empty": "Brak pracowników"
   },
   "avizations": {
     "title": "Awizacje osób i pojazdów",

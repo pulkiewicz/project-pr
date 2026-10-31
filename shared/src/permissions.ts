@@ -21,6 +21,9 @@ export const MODULES = {
   quoteKnowledge: { internal: true, staffOnly: true, scope: 'global' },
   /** Faktury kosztowe z inFakt → projekty. Dostęp dodatkowo zawężony do osób z ustawienia `invoices.access`. */
   invoices: { internal: true, staffOnly: true, scope: 'global' },
+  /** Zarząd: ewidencja pojazdów i pracownicy. Dostęp dodatkowo zawężony do osób z ustawienia `management.access`. */
+  fleet: { internal: true, staffOnly: true, scope: 'global' },
+  employees: { internal: true, staffOnly: true, scope: 'global' },
   dashboardInternal: { internal: true },
   hrf: { internal: false },
   hrfInternal: { internal: true },
@@ -89,6 +92,9 @@ export const DEFAULT_LEVELS: Record<ModuleKey, Row> = {
   quoteKnowledge: row('P', 'E', '-', '-', '-'),
   // Faktury: rola tylko otwiera możliwość — o dostępie decyduje lista osób w Ustawieniach (Admin).
   invoices: row('P', 'P', '-', '-', '-'),
+  // Zarząd: jak Faktury — o dostępie decyduje lista osób w Ustawieniach (Admin).
+  fleet: row('P', 'P', '-', '-', '-'),
+  employees: row('P', 'P', '-', '-', '-'),
   dashboardInternal: row('P', 'O', '-', '-', '-'),
   hrf: row('P', 'E', 'E', 'O', '-'),
   // Zadania wewnętrzne doprecyzowujące HRF — niewidoczne dla Zamawiającego i podwykonawców.

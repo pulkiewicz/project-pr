@@ -1,39 +1,41 @@
 import { AppShell, Badge, Box, Burger, Divider, Group, Image, Indicator, Menu, NavLink, ScrollArea, Text, TextInput, Tooltip, UnstyledButton, ActionIcon, Popover } from '@mantine/core'
 import { useDisclosure, useLocalStorage, useMediaQuery } from '@mantine/hooks'
 import {
+  IconAddressBook,
+  IconAlertTriangle,
   IconBell,
+  IconBooks,
   IconBuildingFactory2,
+  IconCalculator,
   IconCalendarWeek,
-  IconTimeline,
+  IconCar,
   IconChecklist,
   IconClipboardCheck,
+  IconCoin,
   IconFileText,
+  IconFolder,
   IconGauge,
   IconHistory,
+  IconHome,
+  IconId,
+  IconKey,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
   IconLock,
   IconLogout,
   IconMail,
+  IconReceipt,
+  IconReplace,
   IconReportAnalytics,
   IconSearch,
   IconSettings,
   IconShieldCheck,
   IconShoppingCart,
+  IconTimeline,
   IconTransfer,
   IconTruck,
-  IconAlertTriangle,
   IconUsers,
   IconUsersGroup,
-  IconReplace,
-  IconCoin,
-  IconKey,
-  IconLayoutSidebarLeftCollapse,
-  IconLayoutSidebarLeftExpand,
-  IconHome,
-  IconFolder,
-  IconAddressBook,
-  IconCalculator,
-  IconBooks,
-  IconReceipt,
 } from '@tabler/icons-react'
 import type { ModuleKey } from '#shared'
 import { NavLink as RouterLink, Outlet, useLocation } from 'react-router-dom'
@@ -41,7 +43,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { daysUntil, formatDate } from '../lib/format'
 import { projectPath, useCurrentProject } from '../lib/project'
-import { FINANCE_NAV, PROJECT_NAV, SALES_NAV, isInternal, projectHomePath } from '../nav'
+import { FINANCE_NAV, MANAGEMENT_NAV, PROJECT_NAV, SALES_NAV, isInternal, projectHomePath } from '../nav'
 import { BuildInfo } from './BuildInfo'
 import { ErrorBoundary } from './ErrorBoundary'
 
@@ -68,6 +70,8 @@ const ICONS: Partial<Record<ModuleKey, typeof IconGauge>> = {
   quotes: IconCalculator,
   quoteKnowledge: IconBooks,
   invoices: IconReceipt,
+  employees: IconId,
+  fleet: IconCar,
 }
 
 function Countdown() {
@@ -111,6 +115,7 @@ export function AppLayout() {
   // Sprzedaż: także moduły zapowiedziane (z etapem), żeby było widać docelową strukturę.
   const sales = SALES_NAV.filter((n) => can(n.module, 'view'))
   const finance = FINANCE_NAV.filter((n) => can(n.module, 'view'))
+  const management = MANAGEMENT_NAV.filter((n) => can(n.module, 'view'))
   const norm = (p: string) => p.replace(/\/+$/, '') || '/'
   const isActive = (path: string, exact = false) => (path === '/' || exact ? norm(location.pathname) === norm(path) : location.pathname.startsWith(path))
 
@@ -267,6 +272,12 @@ export function AppLayout() {
             <>
               {section(t('nav.finance'))}
               {finance.map((n) => item(n.module, n.path, t(`nav.${n.module}`), ICONS[n.module] ?? IconFileText))}
+            </>
+          )}
+          {management.length > 0 && (
+            <>
+              {section(t('nav.management'))}
+              {management.map((n) => item(n.module, n.path, t(`nav.${n.module}`), ICONS[n.module] ?? IconFileText))}
             </>
           )}
           {can('admin', 'view') && (
