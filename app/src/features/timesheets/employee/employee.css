@@ -1,46 +1,16 @@
-/* Ekran pracownika ewidencji czasu — wygląd przeniesiony z workload-calendar (src/styles.css):
-   jasna powierzchnia, jedna linia zamiast ramek, kolor jako akcent, żółty zakreślacz na „dziś”. */
-
-:root {
-  --wc-bg: #f6f7f9;
-  --wc-surface: #ffffff;
-  --wc-surface-sunken: #f2f4f7;
-  --wc-ink: #16181d;
-  --wc-muted: #616874;
-  --wc-faint: #6b7280;
-  --wc-line: #e6e8ec;
-  --wc-line-strong: #d3d7de;
-  --wc-accent: #2563eb;
-  --wc-accent-soft: #eef3fe;
-  --wc-highlight: #ffe27a;
-  --wc-highlight-strong: #f5c518;
-  --wc-weekend: #fafbfc;
-  --wc-radius: 12px;
-  --wc-radius-sm: 8px;
-  --wc-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
-  --wc-font: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-html {
-  scrollbar-gutter: stable;
-}
-
-body {
-  background: var(--wc-bg);
-  color: var(--wc-ink);
-  font-family: var(--wc-font);
-  -webkit-font-smoothing: antialiased;
-  --mantine-font-family: var(--wc-font);
-  --mantine-font-family-headings: var(--wc-font);
-  --mantine-color-blue-filled: var(--wc-accent);
-  --mantine-color-blue-filled-hover: #1d4ed8;
-  --mantine-primary-color-filled: var(--wc-accent);
-  --mantine-primary-color-filled-hover: #1d4ed8;
-}
+/* Ekran pracownika ewidencji czasu — układ z workload-calendar, wygląd z motywu PMO (kolory, font, ramki Mantine). */
 
 .wc-page {
-  min-height: 100vh;
-  background: var(--wc-bg);
+  --wc-surface: var(--mantine-color-body);
+  --wc-ink: var(--mantine-color-text);
+  --wc-muted: var(--mantine-color-gray-7);
+  --wc-faint: var(--mantine-color-gray-6);
+  --wc-line: var(--mantine-color-gray-3);
+  --wc-weekend: var(--mantine-color-gray-0);
+  --wc-accent: var(--mantine-primary-color-filled);
+  --wc-radius: var(--mantine-radius-md);
+  min-height: calc(100vh - 60px);
+  background: var(--mantine-color-body);
 }
 
 /* Miejsce na przyklejony pasek sumy tygodnia — nie zasłania ostatniego dnia. */
@@ -60,38 +30,34 @@ body {
 }
 
 .wc-title {
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-weight: 600;
   color: var(--wc-ink);
 }
 
 .wc-label {
-  font-size: 0.72rem;
+  font-size: var(--mantine-font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--wc-faint);
+  color: var(--mantine-color-dimmed);
 }
 
 .wc-muted {
-  color: var(--wc-muted);
+  color: var(--mantine-color-dimmed);
 }
 
 .wc-card {
   border: 1px solid var(--wc-line);
   border-radius: var(--wc-radius);
   background: var(--wc-surface);
-  box-shadow: var(--wc-shadow);
 }
 
 .wc-stat {
-  padding: 16px;
+  padding: var(--mantine-spacing-md);
 }
 
 .wc-stat__value {
   font-size: 1.5rem;
   font-weight: 650;
-  letter-spacing: -0.02em;
   color: var(--wc-ink);
 }
 
@@ -104,7 +70,7 @@ body {
   }
 }
 
-/* --- Pasek górny --- */
+/* --- Nagłówek jak w AppShell PMO --- */
 
 .wc-appbar {
   position: sticky;
@@ -112,11 +78,11 @@ body {
   z-index: 10;
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 56px;
-  padding: 0 8px 0 16px;
-  background: var(--wc-surface);
-  border-bottom: 1px solid var(--wc-line);
+  gap: var(--mantine-spacing-sm);
+  height: 60px;
+  padding: 0 var(--mantine-spacing-md);
+  background: var(--mantine-color-body);
+  border-bottom: 1px solid var(--mantine-color-gray-3);
 }
 
 .wc-appbar__title {
@@ -125,24 +91,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 650;
-  font-size: 1.1rem;
-}
-
-/* --- Zakładki --- */
-
-.wc-tabs .mantine-Tabs-list::before {
-  border-color: var(--wc-line);
-}
-
-.wc-tabs .mantine-Tabs-tab {
   font-weight: 600;
-  color: var(--wc-muted);
-}
-
-.wc-tabs .mantine-Tabs-tab[data-active] {
-  color: var(--wc-ink);
-  border-color: var(--wc-accent);
 }
 
 /* --- Karta dnia --- */
@@ -159,21 +108,17 @@ body {
   background: var(--wc-weekend);
 }
 
-.wc-day--empty {
-  background: var(--wc-surface);
-  border-color: var(--wc-line);
-}
-
 .wc-day--empty .wc-day__date {
   color: var(--wc-faint);
 }
 
 .wc-day--today {
-  border-color: var(--wc-highlight-strong);
+  border-color: var(--mantine-color-navy-4);
+  box-shadow: inset 3px 0 0 var(--wc-accent);
 }
 
 .wc-day--error {
-  border-color: #dc2626;
+  border-color: var(--mantine-color-red-6);
 }
 
 .wc-day__head {
@@ -189,12 +134,12 @@ body {
   color: var(--wc-ink);
   text-transform: uppercase;
   font-size: 0.72rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
 }
 
 .wc-day__date {
   color: var(--wc-muted);
-  font-size: 0.875rem;
+  font-size: var(--mantine-font-size-sm);
 }
 
 .wc-day__sum {
@@ -218,13 +163,9 @@ body {
 }
 
 .wc-day__fields .mantine-InputWrapper-label {
-  font-size: 0.75rem;
+  font-size: var(--mantine-font-size-xs);
   color: var(--wc-muted);
   font-weight: 500;
-}
-
-.wc-day__fields input {
-  font-variant-numeric: tabular-nums;
 }
 
 .wc-day__note-btn {
@@ -233,8 +174,8 @@ body {
 
 .wc-day__error {
   margin: 8px 0 0;
-  color: #dc2626;
-  font-size: 0.82rem;
+  color: var(--mantine-color-red-7);
+  font-size: var(--mantine-font-size-sm);
   display: flex;
   align-items: center;
 }
@@ -242,23 +183,15 @@ body {
 .wc-day__hint {
   margin: 8px 0 0;
   color: var(--wc-muted);
-  font-size: 0.78rem;
+  font-size: var(--mantine-font-size-xs);
 }
 
-/* Żółty „zakreślacz” na dzisiejszej dacie. */
+/* „Dziś” — znacznik w kolorze akcentu PMO. */
 .wc-today-mark {
-  position: relative;
-  padding: 0 4px;
-  isolation: isolate;
-}
-
-.wc-today-mark::before {
-  content: '';
-  position: absolute;
-  inset: 12% -2px 8%;
-  background: var(--wc-highlight);
-  border-radius: 3px;
-  z-index: -1;
+  padding: 1px 6px;
+  border-radius: var(--mantine-radius-sm);
+  background: var(--mantine-color-navy-0);
+  color: var(--wc-accent);
 }
 
 /* --- Nawigacja po tygodniach i miesiącach --- */
@@ -281,7 +214,7 @@ body {
   border: 0;
   padding: 2px 4px;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: var(--mantine-font-size-xs);
   color: var(--wc-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -296,7 +229,6 @@ body {
   background: var(--wc-surface);
 }
 
-/* Dzień i suma w jednym wierszu — zawija się tylko opis (od–do, przerwa, uwagi). */
 .wc-month-table td {
   white-space: nowrap;
 }
@@ -313,10 +245,9 @@ body {
   right: 0;
   bottom: 0;
   z-index: 10;
-  background: var(--wc-surface);
-  border-top: 1px solid var(--wc-line);
+  background: var(--mantine-color-body);
+  border-top: 1px solid var(--mantine-color-gray-3);
   padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
-  box-shadow: 0 -4px 16px rgba(16, 24, 40, 0.06);
 }
 
 .wc-sticky-bar__inner {
@@ -331,16 +262,9 @@ body {
 .wc-sticky-bar__total {
   font-size: 1.25rem;
   font-weight: 650;
-  letter-spacing: -0.02em;
   color: var(--wc-ink);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
-}
-
-/* Widoczny focus klawiatury; bez animacji dla „ogranicz ruch”. */
-.wc-page :focus-visible {
-  outline: 2px solid var(--wc-accent);
-  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

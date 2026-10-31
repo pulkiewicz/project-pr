@@ -1,9 +1,5 @@
-import '@fontsource/public-sans/400.css'
-import '@fontsource/public-sans/500.css'
-import '@fontsource/public-sans/600.css'
-import '@fontsource/public-sans/700.css'
 import './employee.css'
-import { ActionIcon, Alert, Button, Progress, Tabs, TextInput } from '@mantine/core'
+import { ActionIcon, Alert, Button, Card, Image, Progress, Tabs, Text, TextInput, Title } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconCheck, IconChevronLeft, IconChevronRight, IconLogout } from '@tabler/icons-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -54,8 +50,8 @@ const storage = {
 const notify = (message: string, color: 'green' | 'red' = 'green') => notifications.show({ message, color, autoClose: 3000, position: 'top-center' })
 
 /**
- * Ekran pracownika ewidencji czasu (`/godziny?id=XXXX-XXXX`) — odwzorowanie 1:1 widoku z workload-calendar:
- * te same pola, przyciski, komunikaty i zachowanie. Bez konta w PMO: dostęp wyłącznie identyfikatorem.
+ * Ekran pracownika ewidencji czasu (`/godziny?id=XXXX-XXXX`) — pola, przyciski, komunikaty i zachowanie jak w
+ * workload-calendar, wygląd z motywu PMO. Bez konta w PMO: dostęp wyłącznie identyfikatorem.
  */
 export function EmployeeView() {
   // --- logowanie ---
@@ -218,62 +214,72 @@ export function EmployeeView() {
   const shiftWeek = (amount: number) => setAnchor((a) => H.addDays(a, amount * 7))
   const isCurrentWeek = anchor === H.startOfWeek(today)
 
+  const header = (
+    <header className="wc-appbar">
+      <Image src="/brand/envcheck-mark.svg" w={34} h={34} alt="Envcheck" />
+      <div className="wc-appbar__title">{employee ? employee.name : 'Ewidencja czasu pracy'}</div>
+      {employee && (
+        <Button variant="subtle" color="gray" leftSection={<IconLogout size={18} />} onClick={() => logout()}>
+          Wyloguj
+        </Button>
+      )}
+    </header>
+  )
+
   if (!employee) {
     return (
-      <main className="wc-page" id="tresc">
-        <div className="wc-container" style={{ maxWidth: 440, paddingTop: 48, paddingBottom: 48 }}>
-          <div className="wc-card" style={{ padding: 24 }}>
-            <h1 className="wc-title" style={{ fontSize: '1.5rem', margin: '0 0 4px' }}>
-              Ewidencja czasu pracy
-            </h1>
-            <p className="wc-muted" style={{ fontSize: '0.875rem', margin: '0 0 24px' }}>
-              Wpisz swój identyfikator, żeby uzupełnić godziny.
-            </p>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                void confirmId(idInput)
-              }}
-            >
-              <TextInput
-                label="Twój identyfikator"
-                placeholder="ABCD-2345"
-                autoComplete="off"
-                autoCapitalize="characters"
-                spellCheck={false}
-                size="md"
-                className="wc-nums"
-                value={idInput}
-                onChange={(e) => setIdInput(e.currentTarget.value)}
-                error={loginError || undefined}
-                disabled={loggingIn}
-                mb="md"
-              />
-              <Button type="submit" size="lg" fullWidth loading={loggingIn}>
-                Dalej
-              </Button>
-            </form>
-            <p className="wc-muted" style={{ fontSize: '0.75rem', margin: '24px 0 0' }}>
-              Identyfikator dostajesz od administratora. Widzisz wyłącznie swoje dane.
-            </p>
+      <>
+        {header}
+        <main className="wc-page" id="tresc">
+          <div className="wc-container" style={{ maxWidth: 440, paddingTop: 48, paddingBottom: 48 }}>
+            <Card withBorder padding="lg">
+              <Title order={3} mb={4}>
+                Ewidencja czasu pracy
+              </Title>
+              <Text size="sm" c="dimmed" mb="lg">
+                Wpisz swój identyfikator, żeby uzupełnić godziny.
+              </Text>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void confirmId(idInput)
+                }}
+              >
+                <TextInput
+                  label="Twój identyfikator"
+                  placeholder="ABCD-2345"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  size="md"
+                  className="wc-nums"
+                  value={idInput}
+                  onChange={(e) => setIdInput(e.currentTarget.value)}
+                  error={loginError || undefined}
+                  disabled={loggingIn}
+                  mb="md"
+                />
+                <Button type="submit" size="lg" fullWidth loading={loggingIn}>
+                  Dalej
+                </Button>
+              </form>
+              <Text size="xs" c="dimmed" mt="lg">
+                Identyfikator dostajesz od administratora. Widzisz wyłącznie swoje dane.
+              </Text>
+            </Card>
           </div>
-        </div>
-      </main>
+        </main>
+      </>
     )
   }
 
   return (
     <>
-      <header className="wc-appbar">
-        <div className="wc-appbar__title">{employee.name}</div>
-        <Button variant="subtle" color="gray" leftSection={<IconLogout size={18} />} onClick={() => logout()}>
-          Wyloguj
-        </Button>
-      </header>
+      {header}
 
       <main className={`wc-page${tab === 'tydzien' ? ' wc-page--with-bar' : ''}`}>
         <div className="wc-container" id="tresc" style={{ maxWidth: 720, paddingTop: 12, paddingBottom: 12 }}>
-          <Tabs value={tab} onChange={setTab} mb="sm" className="wc-tabs">
+          <Tabs value={tab} onChange={setTab} mb="sm">
             <Tabs.List>
               <Tabs.Tab value="tydzien">Tydzień</Tabs.Tab>
               <Tabs.Tab value="miesiac">Miesiąc</Tabs.Tab>

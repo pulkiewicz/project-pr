@@ -1,5 +1,9 @@
 # Changelog
 
+## Czas pracy: ekran pracownika w stylu PMO (31.10.2026)
+
+- `/godziny` ma wygląd reszty aplikacji: motyw PMO (granat Envcheck, font Inter, ramki i zaokrąglenia Mantine), nagłówek ze znakiem Envcheck, „dziś” wyróżnione kolorem akcentu. Pola, przyciski, komunikaty i zachowanie bez zmian. Usunięty font Public Sans (`@fontsource/public-sans`).
+
 ## Czas pracy — etapy T3–T4: panel i przełączenie (31.10.2026)
 
 - **Zarząd → Czas pracy** (`/czas-pracy`, osoby z listy „Zarząd — czas pracy”): zakładki **Podsumowanie** (okres: bieżący miesiąc / 3 miesiące / ten rok / od–do; kafelki, wykres słupkowy z legendą do ukrywania serii, tabela z sumami i średnimi), **Zestawienie miesięczne** (pracownicy × dni, podpowiedź od–do / przerwa / uwagi, przyklejona kolumna i nagłówek) i **Pracownicy** (dodawanie z generowanym ID, zmiana nazwy, aktywny / nieaktywny, usuwanie z wpisami, kopiowanie wiadomości z nowym linkiem — pojedynczo i dla wszystkich aktywnych). Osoby z podglądem widzą zestawienia i eksporty bez zmian w pracownikach.
