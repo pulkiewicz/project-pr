@@ -119,10 +119,18 @@ describe('Pojazdy', () => {
   })
 
   it('usunięcie pracownika zdejmuje przypisanie z pojazdu', async () => {
-    const [v] = (await (await req(h, 'GET', '/api/fleet', ania.headers)).json()) as FleetVehicleDto[]
+    const fleet = async () => ((await (await req(h, 'GET', '/api/fleet', ania.headers)).json()) as FleetVehicleDto[]).find((x) => x.registrationNumber === 'WX 12345')
+    const v = await fleet()
     expect((await req(h, 'DELETE', `/api/employees/${v!.assignedEmployeeId}`, ania.headers)).status).toBe(200)
-    const [after] = (await (await req(h, 'GET', '/api/fleet', ania.headers)).json()) as FleetVehicleDto[]
-    expect(after!.assignedEmployeeId).toBeNull()
+    expect((await fleet())!.assignedEmployeeId).toBeNull()
+  })
+
+  it('import z dokumentów: 3 pojazdy z polisami OC', async () => {
+    const list = (await (await req(h, 'GET', '/api/fleet', ania.headers)).json()) as FleetVehicleDto[]
+    const jeep = list.find((x) => x.registrationNumber === 'WN8757V')
+    expect(jeep).toMatchObject({ ownership: 'leasing', financingCompany: 'PKO Leasing S.A.', insurances: [{ type: 'OC', validTo: '2027-01-08' }, { type: 'assistance' }] })
+    expect(list.find((x) => x.registrationNumber === 'WD8871V')).toMatchObject({ kind: 'van', inspections: [{ kind: 'technical', validUntil: '2027-01-22' }] })
+    expect(list.find((x) => x.registrationNumber === 'WN063AM')).toMatchObject({ kind: 'trailer', insurances: [{ insurer: 'STU ERGO Hestia SA', validTo: '2027-09-08' }] })
   })
 })
 
