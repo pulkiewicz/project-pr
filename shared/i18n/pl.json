@@ -412,6 +412,8 @@
     "link": "Link do pliku",
     "linkColumn": "Link",
     "openLinkNewTab": "Otwórz link w nowej karcie",
+    "linkPreview": "Podgląd pliku",
+    "linkPreviewUnavailable": "Podgląd dostępny dla plików i folderów Google Drive / Docs.",
     "critical": "Ścieżka krytyczna",
     "acceptance": "Punkt odbioru",
     "milestone": "Kamień milowy",

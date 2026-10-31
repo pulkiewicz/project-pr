@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Group, NumberInput, Select, Text, Tooltip } from '@mantine/core'
+import { ActionIcon, Anchor, Badge, Group, HoverCard, NumberInput, Select, Stack, Text, Tooltip } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconDiamond, IconExternalLink, IconFlame, IconSubtask } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable, type MRT_ColumnDef } from 'mantine-react-table'
@@ -6,7 +6,7 @@ import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mj
 import { useMemo } from 'react'
 import './table.css'
 import { useTranslation } from 'react-i18next'
-import { HRF_STATUSES, type HrfInternalTaskDto, type HrfStatus, type HrfTaskDto } from '#shared'
+import { embedPreviewUrl, HRF_STATUSES, type HrfInternalTaskDto, type HrfStatus, type HrfTaskDto } from '#shared'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, formatPLN } from '../../lib/format'
 import { usePatchTask } from './api'
@@ -61,6 +61,44 @@ export function buildTree(tasks: HrfTaskDto[], internal: HrfInternalTaskDto[] = 
   // Zadania wewnętrzne na końcu listy dzieci swojego zadania formalnego (tylko gdy to zadanie jest widoczne po filtrach).
   for (const i of internal) nodes.get(i.parentTaskId)?.subRows.push(internalRow(i))
   return roots
+}
+
+/** Przycisk „otwórz w nowej karcie” z podglądem po najechaniu (Google Drive / Docs osadzone, inne — sam adres). */
+function LinkButton({ link }: { link: string }) {
+  const { t } = useTranslation()
+  const embed = embedPreviewUrl(link)
+  return (
+    <HoverCard openDelay={300} closeDelay={150} position="left" withinPortal shadow="md" width={embed ? 480 : 360}>
+      <HoverCard.Target>
+        <ActionIcon
+          size="sm"
+          variant="light"
+          component="a"
+          href={link}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          aria-label={t('hrf.openLinkNewTab')}
+        >
+          <IconExternalLink size={14} />
+        </ActionIcon>
+      </HoverCard.Target>
+      <HoverCard.Dropdown p="xs" onClick={(e) => e.stopPropagation()}>
+        <Stack gap={6}>
+          {embed ? (
+            <iframe src={embed} title={t('hrf.linkPreview')} loading="lazy" style={{ width: '100%', height: 320, border: 0, borderRadius: 4 }} />
+          ) : (
+            <Text fz={12} c="dimmed">
+              {t('hrf.linkPreviewUnavailable')}
+            </Text>
+          )}
+          <Anchor href={link} target="_blank" rel="noopener noreferrer" fz={12} style={{ wordBreak: 'break-all' }}>
+            {t('hrf.openLinkNewTab')}: {link}
+          </Anchor>
+        </Stack>
+      </HoverCard.Dropdown>
+    </HoverCard>
+  )
 }
 
 interface Props {
@@ -133,22 +171,7 @@ export function TaskTable({ tasks, internalTasks = [], showInternal, onOpen }: P
         size: 64,
         enableSorting: false,
         Cell: ({ row }) =>
-          row.original.link ? (
-            <Tooltip label={`${t('hrf.openLinkNewTab')}: ${row.original.link}`} multiline maw={360} style={{ wordBreak: 'break-all' }}>
-              <ActionIcon
-                size="sm"
-                variant="light"
-                component="a"
-                href={row.original.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                aria-label={t('hrf.openLinkNewTab')}
-              >
-                <IconExternalLink size={14} />
-              </ActionIcon>
-            </Tooltip>
-          ) : null,
+          row.original.link ? <LinkButton link={row.original.link} /> : null,
       },
       {
         accessorKey: 'party',

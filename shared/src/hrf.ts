@@ -69,6 +69,34 @@ export const httpUrl = z
 
 export const isHttpUrl = (v: string) => /^https?:\/\/\S+$/i.test(v.trim())
 
+/**
+ * Adres do osadzenia w podglądzie (iframe) dla linków Google Drive / Docs; `null` = podgląd niedostępny.
+ * Inne serwisy zwykle blokują osadzanie (X-Frame-Options), więc dla nich podglądu nie ma.
+ */
+export function embedPreviewUrl(link: string): string | null {
+  let u: URL
+  try {
+    u = new URL(link.trim())
+  } catch {
+    return null
+  }
+  if (u.protocol !== 'https:') return null
+  const id = /^[\w-]{10,}$/
+  if (u.hostname === 'drive.google.com') {
+    const file = u.pathname.match(/^\/file\/d\/([\w-]+)/)?.[1] ?? (u.pathname === '/open' ? u.searchParams.get('id') : null)
+    if (file && id.test(file)) return `https://drive.google.com/file/d/${file}/preview`
+    const folder = u.pathname.match(/^\/drive\/(?:u\/\d+\/)?folders\/([\w-]+)/)?.[1]
+    if (folder && id.test(folder)) return `https://drive.google.com/embeddedfolderview?id=${folder}#list`
+    return null
+  }
+  if (u.hostname === 'docs.google.com') {
+    const m = u.pathname.match(/^\/(document|spreadsheets|presentation)\/d\/([\w-]+)/)
+    const [, kind, doc] = m ?? []
+    if (kind && doc && id.test(doc)) return `https://docs.google.com/${kind}/d/${doc}/preview`
+  }
+  return null
+}
+
 /** Pola postępu — edytowalne przez strony z uprawnieniem `hrf:edit` dla własnych zadań. */
 export const hrfProgressPatch = z.object({
   actualStart: isoDate.nullable().optional(),
