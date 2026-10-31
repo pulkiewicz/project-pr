@@ -10,7 +10,7 @@ import { useAuth } from '../../auth/AuthProvider'
 import { ApiError } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 import { formatDate } from '../../lib/format'
-import { usePatchTask, useResponsibleOptions, useSetDependencies } from './api'
+import { usePatchTask, useSetDependencies } from './api'
 import { StatusBadge } from './StatusBadge'
 
 interface Props {
@@ -69,7 +69,7 @@ function InternalTasksSection({ items, onOpen, onAdd }: { items: HrfInternalTask
 const toDate = (d: string | null) => (d ? new Date(`${d}T00:00:00`) : null)
 const fromDate = (d: Date | string | null) => (d ? format(typeof d === 'string' ? new Date(d) : d, 'yyyy-MM-dd') : null)
 
-type Form = Pick<HrfTaskDto, 'actualStart' | 'actualEnd' | 'forecastEnd' | 'percentComplete' | 'status' | 'notes' | 'link' | 'responsibleUserId' | 'name' | 'party' | 'startOffsetDays' | 'durationDays' | 'isMilestone' | 'isAcceptancePoint' | 'postAcceptanceAllowed'> & { contractValue: string | null }
+type Form = Pick<HrfTaskDto, 'actualStart' | 'actualEnd' | 'forecastEnd' | 'percentComplete' | 'status' | 'notes' | 'link' | 'name' | 'party' | 'startOffsetDays' | 'durationDays' | 'isMilestone' | 'isAcceptancePoint' | 'postAcceptanceAllowed'> & { contractValue: string | null }
 
 export function TaskDrawer({ task, tasks, dependencies, internalTasks, onOpenInternal, onAddInternal, onClose }: Props) {
   const { t } = useTranslation()
@@ -92,7 +92,6 @@ export function TaskDrawer({ task, tasks, dependencies, internalTasks, onOpenInt
       status: task.status,
       notes: task.notes,
       link: task.link,
-      responsibleUserId: task.responsibleUserId,
       name: task.name,
       party: task.party,
       startOffsetDays: task.startOffsetDays,
@@ -104,14 +103,6 @@ export function TaskDrawer({ task, tasks, dependencies, internalTasks, onOpenInt
     })
     setPreds(dependencies.filter((d) => d.taskId === task.id).map(({ predecessorId, type, lagDays }) => ({ predecessorId, type, lagDays })))
   }, [task, dependencies])
-
-  const responsible = useResponsibleOptions(!!task)
-  const responsibleData = useMemo(() => {
-    const options = (responsible.data ?? []).map((o) => ({ value: o.id, label: `${o.name} (${t(`roles.${o.role}`)})` }))
-    // Wcześniej wskazana osoba bez dostępu (np. dezaktywowana) — widoczna, by dało się ją zmienić.
-    if (task?.responsibleUserId && !options.some((o) => o.value === task.responsibleUserId)) options.unshift({ value: task.responsibleUserId, label: t('hrf.responsibleUnavailable') })
-    return options
-  }, [responsible.data, task, t])
 
   const leafOptions = useMemo(() => {
     const parents = new Set(tasks.map((x) => x.parentId))
@@ -126,7 +117,7 @@ export function TaskDrawer({ task, tasks, dependencies, internalTasks, onOpenInt
 
   const submit = () => {
     const changes: Record<string, unknown> = {}
-    const progressKeys = ['actualStart', 'actualEnd', 'forecastEnd', 'percentComplete', 'status', 'notes', 'link', 'responsibleUserId'] as const
+    const progressKeys = ['actualStart', 'actualEnd', 'forecastEnd', 'percentComplete', 'status', 'notes', 'link'] as const
     const structKeys = ['name', 'party', 'startOffsetDays', 'durationDays', 'isMilestone', 'isAcceptancePoint', 'postAcceptanceAllowed'] as const
     for (const k of progressKeys) if (form[k] !== task[k]) changes[k] = form[k]
     if (structure) for (const k of structKeys) if (form[k] !== task[k]) changes[k] = form[k]
@@ -186,17 +177,6 @@ export function TaskDrawer({ task, tasks, dependencies, internalTasks, onOpenInt
               data={HRF_STATUSES.map((s) => ({ value: s, label: t(`hrf.status.${s}`) }))}
               value={form.status}
               onChange={(v) => v && set('status', v as HrfStatus)}
-            />
-            <Select
-              label={t('hrf.responsible')}
-              description={t('hrf.responsibleHint')}
-              placeholder="—"
-              disabled={!editable}
-              clearable
-              searchable
-              data={responsibleData}
-              value={form.responsibleUserId}
-              onChange={(v) => set('responsibleUserId', v)}
             />
           </>
         )}

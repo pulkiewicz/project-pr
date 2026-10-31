@@ -3,7 +3,6 @@ import type { IdentityAdmin, IdentityClaims, IdentityVerifier } from './auth/ide
 import type { Database } from './db/client.ts'
 import type { AiClient } from './integrations/ai/types.ts'
 import type { DriveClient } from './integrations/drive/types.ts'
-import type { EmailSender } from './integrations/email/types.ts'
 import type { InfaktClient } from './integrations/infakt/types.ts'
 import type { users } from './db/schema.ts'
 import type { Keyring } from './lib/field-crypto.ts'
@@ -32,8 +31,6 @@ export interface AppDeps {
   ai?: AiClient | null
   /** inFakt (INFAKT_API_KEY); null = integracja wyłączona. Lokalnie i w testach — atrapa. */
   infakt?: InfaktClient | null
-  /** Wysyłka e-mail (RESEND_API_KEY + EMAIL_FROM); null = wyłączona. Lokalnie i w testach — atrapa. */
-  email?: EmailSender | null
   /** Zlecenie zadania AI do wykonania w tle (funkcja background); w testach wykonanie od razu. */
   dispatchJob?: (jobId: string, token: string, origin: string) => Promise<void>
 }

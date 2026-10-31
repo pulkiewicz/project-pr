@@ -38,7 +38,6 @@ interface FormState {
   role: Role
   subcontractorId: string
   isActive: boolean
-  taskReminders: boolean
   access: UserAccessMode
   initialPassword: string
   projectIds: string[]
@@ -50,7 +49,7 @@ interface Credentials {
   password: string
 }
 
-const emptyForm: FormState = { email: '', name: '', role: 'EnvcheckInternal', subcontractorId: '', isActive: true, taskReminders: true, access: 'password', initialPassword: '', projectIds: [] }
+const emptyForm: FormState = { email: '', name: '', role: 'EnvcheckInternal', subcontractorId: '', isActive: true, access: 'password', initialPassword: '', projectIds: [] }
 
 const ACCESS_LABEL = { password: 'users.accessPassword', invite: 'users.accessInvite', none: 'users.accessNone' } as const
 const ACCESS_HINT = { password: 'users.accessPasswordHint', invite: 'users.accessInviteHint', none: 'users.accessNoneHint' } as const
@@ -118,7 +117,7 @@ export function UsersPage() {
       f.id
         ? api<UserDto>(`/admin/users/${f.id}`, {
             method: 'PATCH',
-            json: { name: f.name, role: f.role, subcontractorId: f.subcontractorId || null, isActive: f.isActive, taskReminders: f.taskReminders, projectIds: f.projectIds, version: f.version },
+            json: { name: f.name, role: f.role, subcontractorId: f.subcontractorId || null, isActive: f.isActive, projectIds: f.projectIds, version: f.version },
           })
         : api<UserCreatedResponse>('/admin/users', {
             method: 'POST',
@@ -195,7 +194,6 @@ export function UsersPage() {
     role: u.role,
     subcontractorId: u.subcontractorId ?? '',
     isActive: u.isActive,
-    taskReminders: u.taskReminders,
     access: 'none',
     initialPassword: '',
     projectIds: u.projectIds,
@@ -260,11 +258,6 @@ export function UsersPage() {
                     <Badge color="green">{t('users.active')}</Badge>
                   ) : (
                     <Badge color="yellow">{t('users.pending')}</Badge>
-                  )}
-                  {u.isActive && !u.taskReminders && (
-                    <Badge color="gray" variant="outline" ml={4}>
-                      {t('users.noTaskReminders')}
-                    </Badge>
                   )}
                 </Table.Td>
                 <Table.Td>{u.totpEnabled ? <Badge color="green">✓</Badge> : <Badge color="gray">—</Badge>}</Table.Td>
@@ -354,14 +347,6 @@ export function UsersPage() {
                 />
               )}
               {form.id && <Switch label={t('users.active')} checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.currentTarget.checked })} />}
-              {form.id && (
-                <Switch
-                  label={t('users.taskReminders')}
-                  description={t('users.taskRemindersHint')}
-                  checked={form.taskReminders}
-                  onChange={(e) => setForm({ ...form, taskReminders: e.currentTarget.checked })}
-                />
-              )}
               <Group justify="flex-end">
                 <Button variant="default" onClick={() => setForm(null)}>
                   {t('app.cancel')}

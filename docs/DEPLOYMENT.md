@@ -54,20 +54,6 @@ npm run secrets:generate -- adres@firmy.pl        # wypisuje gotowe polecenia ne
 
 Synchronizacja: przycisk „Synchronizuj z inFakt” w module oraz codziennie o 05:00 UTC (funkcja `infakt-sync`). Lokalnie `DEV_FAKE_INFAKT=1` włącza atrapę (przykładowe pliki kosztowe, w tym jeden bez odczytanych danych).
 
-### Przypomnienia e-mail o zadaniach (Resend)
-
-| Zmienna | Opis |
-|---|---|
-| `RESEND_API_KEY` | klucz API Resend (sekret) |
-| `EMAIL_FROM` | nadawca z zweryfikowanej domeny, np. `Envcheck PMO <pmo@envcheck.pl>` |
-| `APP_URL` | opcjonalnie — adres aplikacji w linkach z maila (domyślnie `URL` ustawiany przez Netlify) |
-
-1. https://resend.com → **Domains** → dodaj domenę nadawcy i wpisz w DNS podane rekordy (SPF/DKIM); poczekaj na status „Verified”.
-2. **API Keys** → klucz z uprawnieniem **Sending access** (tylko ta domena).
-3. `netlify env:set RESEND_API_KEY "…" --secret --scope functions` i `netlify env:set EMAIL_FROM "Envcheck PMO <pmo@envcheck.pl>" --scope functions`, potem redeploy.
-
-Bez obu zmiennych wysyłka jest wyłączona (funkcja loguje `email_disabled`). Funkcja `task-reminders` startuje w dni robocze o 05:00 i 06:00 UTC i wysyła tylko w uruchomieniu wypadającym o 7:00 w Warszawie; w święta nie wysyła. Każda osoba dostaje najwyżej jeden mail dziennie. Wyłączenie dla osoby: **Administracja → Użytkownicy → Edytuj → „Przypomnienia e-mail o zadaniach”**. Lokalnie `DEV_FAKE_EMAIL=1` włącza atrapę (maile tylko w logu).
-
 ### Envcheck Hub — zmienne dla wycen z AI i Google Drive (etapy R4–R5)
 
 | Zmienna | Opis |
