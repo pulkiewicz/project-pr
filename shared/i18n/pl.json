@@ -1631,7 +1631,10 @@
       "hint": "Import można powtórzyć (np. w dniu przełączenia): pracownicy zachowują swoje ID, wpisy nie dublują się, a wpisy zmienione już w PMO nie są nadpisywane. Godziny są przeliczane tak samo jak w starej aplikacji.",
       "badFile": "To nie jest plik z eksportu ewidencji czasu pracy.",
       "result": "Pracownicy: {{employeesCreated}} nowych, {{employeesUpdated}} zmienionych. Wpisy: {{entriesCreated}} nowych, {{entriesUpdated}} zaktualizowanych, {{entriesSkippedNewer}} pominiętych (nowsze w PMO).",
-      "rejected": "Odrzucone wpisy: {{count}}"
+      "rejected": "Odrzucone wpisy: {{count}}",
+      "matched": "Sumy godzin zgodne ze starą aplikacją we wszystkich {{checked}} zestawieniach (miesiąc × pracownik).",
+      "mismatches": "Rozbieżne sumy: {{count}} z {{checked}} zestawień (miesiąc × pracownik). Różnica jest spodziewana tylko wtedy, gdy ktoś wpisał już godziny w PMO.",
+      "mismatchLine": "stara aplikacja {{old}} h, PMO {{new}} h"
     }
   }
 }

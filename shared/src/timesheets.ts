@@ -96,6 +96,8 @@ export const timesheetImportInput = z.object({
       }),
     )
     .max(200_000),
+  /** Sumy z zestawień starej aplikacji (miesiąc × pracownik) — do porównania z PMO po imporcie. */
+  totals: z.array(z.object({ month: z.string().max(7), employeeId: z.string().max(20), total: z.number() })).max(50_000).optional(),
 })
 export type TimesheetImportInput = z.infer<typeof timesheetImportInput>
 
@@ -108,4 +110,6 @@ export interface TimesheetImportResult {
   entriesSkippedNewer: number
   /** Wpisy odrzucone przez walidację (z powodem). */
   rejected: { employeeId: string; date: string; error: string }[]
+  /** Porównanie sum ze starą aplikacją (gdy plik je zawiera): liczba par miesiąc × pracownik i rozbieżności. */
+  comparison: { checked: number; mismatches: { month: string; employeeId: string; name: string; oldTotal: number; newTotal: number }[] } | null
 }

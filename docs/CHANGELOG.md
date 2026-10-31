@@ -1,5 +1,11 @@
 # Changelog
 
+## Czas pracy — etapy T3–T4: panel i przełączenie (31.10.2026)
+
+- **Zarząd → Czas pracy** (`/czas-pracy`, osoby z listy „Zarząd — czas pracy”): zakładki **Podsumowanie** (okres: bieżący miesiąc / 3 miesiące / ten rok / od–do; kafelki, wykres słupkowy z legendą do ukrywania serii, tabela z sumami i średnimi), **Zestawienie miesięczne** (pracownicy × dni, podpowiedź od–do / przerwa / uwagi, przyklejona kolumna i nagłówek) i **Pracownicy** (dodawanie z generowanym ID, zmiana nazwy, aktywny / nieaktywny, usuwanie z wpisami, kopiowanie wiadomości z nowym linkiem — pojedynczo i dla wszystkich aktywnych). Osoby z podglądem widzą zestawienia i eksporty bez zmian w pracownikach.
+- **Excel** jak w starej aplikacji: `godziny_{nazwisko}_{RRRR-MM}.xlsx`, `zestawienie_godzin_{RRRR-MM}.xlsx` (arkusz zbiorczy + arkusz na osobę), `podsumowanie_godzin_{okres}.xlsx` — te same układy, formuły z wynikami i formatowanie.
+- **Kontrola przełączenia:** skrypt eksportu zapisuje też sumy z zestawień starej aplikacji, a import porównuje je z PMO (miesiąc × pracownik) i pokazuje rozbieżności. Kroki przełączenia: `docs/PLAN_CZAS_PRACY.md` → „T4”.
+
 ## Czas pracy — etap T2: ekran pracownika (31.10.2026)
 
 - **`/godziny?id=XXXX-XXXX`** — ekran pracownika odwzorowany 1:1 z workload-calendar: logowanie identyfikatorem (ID z linku do potwierdzenia, zapamiętane w przeglądarce, „Wyloguj”), tydzień pon–nd z numerem ISO, od–do + przerwa (kwadranse, przez północ), uwagi pod ikoną, „takie same godziny jak poprzedniego dnia”, „wyczyść dzień”, sumy i walidacja na żywo, „Zapisz” / „Zapisano ✓” w przyklejonym pasku, ostrzeżenie o niezapisanych zmianach, zakładka „Miesiąc” z rozbiciem na tygodnie i „Otwórz ten tydzień”. Te same teksty, kolory, żółty zakreślacz „dziś” i font Public Sans (lokalnie, `@fontsource/public-sans`).

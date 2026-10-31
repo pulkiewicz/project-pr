@@ -1,0 +1,108 @@
+/* Zestawienie miesięczne (pracownicy × dni) — układ z workload-calendar: przyklejona kolumna pracownika i nagłówek. */
+.ts-table-wrap {
+  overflow: auto;
+  max-height: calc(100dvh - 300px);
+  border: 1px solid var(--mantine-color-gray-3);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-body);
+}
+
+.ts-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: max-content;
+  width: 100%;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ts-table th,
+.ts-table td {
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+  padding: 8px 6px;
+  text-align: center;
+  white-space: nowrap;
+  background: var(--mantine-color-body);
+}
+
+.ts-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: var(--mantine-color-gray-7);
+  border-bottom: 1px solid var(--mantine-color-gray-4);
+}
+
+.ts-table tfoot th,
+.ts-table tfoot td {
+  font-weight: 600;
+  border-bottom: 0;
+  border-top: 1px solid var(--mantine-color-gray-4);
+}
+
+.ts-col-name {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  text-align: left !important;
+  min-width: 200px;
+  max-width: 260px;
+  white-space: normal !important;
+  padding-left: 14px !important;
+  border-right: 1px solid var(--mantine-color-gray-2);
+}
+
+.ts-table thead th.ts-col-name {
+  z-index: 4;
+}
+
+.ts-col-total {
+  font-weight: 600;
+  border-left: 1px solid var(--mantine-color-gray-2);
+}
+
+.ts-table .ts-weekend {
+  background: var(--mantine-color-gray-0);
+}
+
+.ts-table .ts-today {
+  box-shadow: inset 0 -3px 0 #f5c518;
+}
+
+.ts-zero {
+  color: var(--mantine-color-gray-5);
+}
+
+.ts-has-hours {
+  color: var(--mantine-color-text);
+}
+
+.ts-dow {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--mantine-color-gray-6);
+}
+
+.ts-name {
+  font-weight: 500;
+}
+
+.ts-sub {
+  font-size: 0.72rem;
+  color: var(--mantine-color-gray-6);
+}
+
+.ts-inactive {
+  color: var(--mantine-color-orange-8);
+}
+
+.ts-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

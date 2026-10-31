@@ -16,13 +16,17 @@ export const TIMESHEET_EXPORT_SNIPPET = `(async () => {
   const first = employees.map((e) => (e.createdAt || '').slice(0, 7)).filter(Boolean).sort()[0] || new Date().toISOString().slice(0, 7)
   const now = new Date().toISOString().slice(0, 7)
   const entries = []
+  const totals = []
   for (let [y, m] = first.split('-').map(Number); y * 100 + m <= Number(now.replace('-', '')); m === 12 ? (y++, m = 1) : m++) {
     const month = y + '-' + String(m).padStart(2, '0')
     const report = await get('/api/admin/report?month=' + month)
-    for (const e of report.employees) for (const [date, x] of Object.entries(e.days)) entries.push({ employeeId: e.id, date, ...x })
+    for (const e of report.employees) {
+      for (const [date, x] of Object.entries(e.days)) entries.push({ employeeId: e.id, date, ...x })
+      totals.push({ month, employeeId: e.id, total: e.total })
+    }
     console.log(month + ': ' + report.employees.length + ' os., ' + report.total + ' h')
   }
-  const file = { format: '${TIMESHEET_EXPORT_FORMAT}', exportedAt: new Date().toISOString(), employees, entries }
+  const file = { format: '${TIMESHEET_EXPORT_FORMAT}', exportedAt: new Date().toISOString(), employees, entries, totals }
   const a = document.createElement('a')
   a.href = URL.createObjectURL(new Blob([JSON.stringify(file)], { type: 'application/json' }))
   a.download = 'ewidencja-czasu-' + new Date().toISOString().slice(0, 10) + '.json'

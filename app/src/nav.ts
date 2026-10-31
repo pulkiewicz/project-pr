@@ -47,6 +47,7 @@ export const FINANCE_NAV: NavItem[] = [{ module: 'invoices', path: '/faktury', s
 export const MANAGEMENT_NAV: NavItem[] = [
   { module: 'employees', path: '/pracownicy', stage: '—', ready: true },
   { module: 'fleet', path: '/pojazdy', stage: '—', ready: true },
+  { module: 'timesheets', path: '/czas-pracy', stage: '—', ready: true },
 ]
 
 /** Dawne adresy sprzed Envcheck Hub (jeden projekt) → moduł projektu. */

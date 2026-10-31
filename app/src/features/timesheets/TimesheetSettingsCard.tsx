@@ -109,8 +109,22 @@ export function TimesheetImportCard() {
           {t('timesheets.import.hint')}
         </Text>
         {result && (
-          <Alert color={result.rejected.length ? 'yellow' : 'green'}>
-            <Text size="sm">{t('timesheets.import.result', { ...result, rejected: result.rejected.length })}</Text>
+          <Alert color={result.rejected.length || result.comparison?.mismatches.length ? 'yellow' : 'green'}>
+            <Text size="sm">{t('timesheets.import.result', { ...result, rejected: result.rejected.length, comparison: null })}</Text>
+            {result.comparison && (
+              <Stack gap={2} mt="xs">
+                <Text size="sm" fw={500}>
+                  {result.comparison.mismatches.length
+                    ? t('timesheets.import.mismatches', { count: result.comparison.mismatches.length, checked: result.comparison.checked })
+                    : t('timesheets.import.matched', { checked: result.comparison.checked })}
+                </Text>
+                {result.comparison.mismatches.slice(0, 30).map((m) => (
+                  <Code key={`${m.month}-${m.employeeId}`}>
+                    {m.month} {m.name}: {t('timesheets.import.mismatchLine', { old: m.oldTotal, new: m.newTotal })}
+                  </Code>
+                ))}
+              </Stack>
+            )}
             {result.rejected.length > 0 && (
               <Stack gap={2} mt="xs">
                 <Text size="sm">{t('timesheets.import.rejected', { count: result.rejected.length })}</Text>

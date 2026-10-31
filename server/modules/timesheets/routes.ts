@@ -221,7 +221,7 @@ timesheetsRouter.openapi(
     const input = c.req.valid('json')
     const db = c.get('deps').db
     const me = c.get('user').id
-    const result: TimesheetImportResult = { employeesCreated: 0, employeesUpdated: 0, entriesCreated: 0, entriesUpdated: 0, entriesSkippedNewer: 0, rejected: [] }
+    const result: TimesheetImportResult = { employeesCreated: 0, employeesUpdated: 0, entriesCreated: 0, entriesUpdated: 0, entriesSkippedNewer: 0, rejected: [], comparison: null }
 
     const employees = input.employees.map((e) => ({ ...e, id: hours.normalizeId(e.id), name: cleanName(e.name) }))
     const badEmployee = employees.find((e) => !e.id || !e.name)
@@ -283,6 +283,24 @@ timesheetsRouter.openapi(
       // Audyt bez treści wpisów — tylko liczby.
       await writeAudit(c, { action: 'timesheets.import', entity: 'timesheet_entries', changes: { exportedAt: input.exportedAt, ...result, rejected: result.rejected.length } }, tx)
     })
+
+    // Kontrola przełączenia: suma każdego miesiąca w PMO = suma z zestawienia starej aplikacji.
+    if (input.totals?.length) {
+      const names = new Map(employees.map((e) => [e.id!, e.name]))
+      const mismatches: NonNullable<TimesheetImportResult['comparison']>['mismatches'] = []
+      const months = [...new Set(input.totals.map((t) => t.month))].filter((m) => hours.isValidMonth(m)).sort()
+      for (const month of months) {
+        const days = hours.monthDates(month)
+        const byEmployee = await getEntriesForAll(db, days[0]!, days.at(-1)!)
+        for (const t of input.totals.filter((x) => x.month === month)) {
+          const id = hours.normalizeId(t.employeeId)
+          if (!id) continue
+          const newTotal = hours.sumHours(revalidate(byEmployee[id] ?? {}))
+          if (hours.roundHours(t.total) !== newTotal) mismatches.push({ month, employeeId: id, name: names.get(id) ?? id, oldTotal: hours.roundHours(t.total), newTotal })
+        }
+      }
+      result.comparison = { checked: input.totals.length, mismatches }
+    }
     return c.json(result, 200)
   },
 )

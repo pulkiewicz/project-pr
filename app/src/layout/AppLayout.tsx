@@ -9,6 +9,7 @@ import {
   IconCalculator,
   IconCalendarWeek,
   IconCar,
+  IconClockHour4,
   IconChecklist,
   IconClipboardCheck,
   IconCoin,
@@ -72,6 +73,7 @@ const ICONS: Partial<Record<ModuleKey, typeof IconGauge>> = {
   invoices: IconReceipt,
   employees: IconId,
   fleet: IconCar,
+  timesheets: IconClockHour4,
 }
 
 function Countdown() {

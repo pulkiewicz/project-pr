@@ -35,8 +35,18 @@ Logika dat i godzin (`shared/hours.js`) przechodzi 1:1 z testami — te same sum
 |---|---|---|
 | **T1** ✅ | Tabele `timesheet_employees` (ID tekstowe) i `timesheet_entries`; logika godzin w `shared` z przeniesionymi testami; API pracownika (publiczne, po ID, ze spowolnieniem błędnych prób) i API panelu (uprawnienie `timesheets` + lista osób); import JSON w Administracji; skrypt odczytu starej bazy | Testy: godziny, ID, tydzień przez dwa miesiące, macierz ról, pracownik nie widzi cudzych danych, ponowny import bez duplikatów |
 | **T2** ✅ | Ekran pracownika `/godziny` 1:1 | Zapis i odczyt tygodnia, podsumowanie miesiąca, działanie na telefonie |
-| **T3** | Panel: Podsumowanie, Zestawienie, Pracownicy, eksport Excel | Sumy identyczne w ekranie, panelu i Excelu |
-| **T4** | Przełączenie: końcowy import, sprawdzenie sum ze starą aplikacją, rozesłanie nowych linków | Sumy godzin za każdy miesiąc zgodne ze starą bazą |
+| **T3** ✅ | Panel: Podsumowanie, Zestawienie, Pracownicy, eksport Excel | Sumy identyczne w ekranie, panelu i Excelu |
+| **T4** 🔧 | Przełączenie: końcowy import, sprawdzenie sum ze starą aplikacją, rozesłanie nowych linków | Sumy godzin za każdy miesiąc zgodne ze starą bazą |
+
+## T4 — przełączenie krok po kroku
+
+Narzędzia są w PMO; kroki wykonuje Admin.
+
+1. **Dostęp:** Administracja → Ustawienia → „Zarząd — czas pracy” — dodaj osoby (edycja / tylko podgląd). Bez wpisu nikt, także Admin, nie widzi modułu **Zarząd → Czas pracy**.
+2. **Próba:** w panelu starej aplikacji (`time-tracking-envcheck.netlify.app/admin`, po zalogowaniu) uruchom w konsoli skrypt z karty „Czas pracy — import ze starej aplikacji” i wgraj pobrany plik. Wynik musi pokazać **„Sumy godzin zgodne ze starą aplikacją…”**. Import można powtarzać — nic się nie dubluje.
+3. **Dzień przełączenia:** poproś pracowników, żeby od jutra wpisywali godziny pod nowym linkiem. Rano powtórz eksport i import (dogra wpisy z ostatnich dni) i sprawdź zgodność sum.
+4. **Nowe linki:** Zarząd → Czas pracy → Pracownicy → **„Skopiuj wiadomości dla wszystkich aktywnych”** (treść jak dotąd, link `…/godziny?id=XXXX-XXXX`, to samo ID). Wyślij każdemu jego wiadomość.
+5. **Po przełączeniu:** jeśli ktoś wpisze jeszcze godziny w starej aplikacji, kolejny import je dogra, a wpisów zmienionych już w PMO nie nadpisze. Stara aplikacja zostaje bez zmian (decyzja C2); jej wyłączenie — osobna decyzja, gdy wszyscy przejdą.
 
 ## Poza zakresem (do decyzji później)
 
