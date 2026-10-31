@@ -1,4 +1,4 @@
-import { Badge, Group, NumberInput, Select, Text, Tooltip } from '@mantine/core'
+import { ActionIcon, Badge, Group, NumberInput, Select, Text, Tooltip } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconDiamond, IconExternalLink, IconFlame, IconSubtask } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable, type MRT_ColumnDef } from 'mantine-react-table'
@@ -124,15 +124,31 @@ export function TaskTable({ tasks, internalTasks = [], showInternal, onOpen }: P
             >
               {row.original.name}
             </Text>
-            {row.original.link && (
-              <Tooltip label={t('hrf.internal.openLink')}>
-                <a href={row.original.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label={t('hrf.internal.openLink')}>
-                  <IconExternalLink size={14} color="var(--mantine-color-blue-6)" />
-                </a>
-              </Tooltip>
-            )}
           </Group>
         ),
+      },
+      {
+        accessorKey: 'link',
+        header: t('hrf.linkColumn'),
+        size: 64,
+        enableSorting: false,
+        Cell: ({ row }) =>
+          row.original.link ? (
+            <Tooltip label={`${t('hrf.openLinkNewTab')}: ${row.original.link}`} multiline maw={360} style={{ wordBreak: 'break-all' }}>
+              <ActionIcon
+                size="sm"
+                variant="light"
+                component="a"
+                href={row.original.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                aria-label={t('hrf.openLinkNewTab')}
+              >
+                <IconExternalLink size={14} />
+              </ActionIcon>
+            </Tooltip>
+          ) : null,
       },
       {
         accessorKey: 'party',

@@ -410,6 +410,8 @@
     "responsible": "Odpowiedzialny",
     "notes": "Uwagi",
     "link": "Link do pliku",
+    "linkColumn": "Link",
+    "openLinkNewTab": "Otwórz link w nowej karcie",
     "critical": "Ścieżka krytyczna",
     "acceptance": "Punkt odbioru",
     "milestone": "Kamień milowy",
