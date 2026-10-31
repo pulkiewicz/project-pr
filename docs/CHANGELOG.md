@@ -1,5 +1,17 @@
 # Changelog
 
+## Czas pracy — etap T2: ekran pracownika (31.10.2026)
+
+- **`/godziny?id=XXXX-XXXX`** — ekran pracownika odwzorowany 1:1 z workload-calendar: logowanie identyfikatorem (ID z linku do potwierdzenia, zapamiętane w przeglądarce, „Wyloguj”), tydzień pon–nd z numerem ISO, od–do + przerwa (kwadranse, przez północ), uwagi pod ikoną, „takie same godziny jak poprzedniego dnia”, „wyczyść dzień”, sumy i walidacja na żywo, „Zapisz” / „Zapisano ✓” w przyklejonym pasku, ostrzeżenie o niezapisanych zmianach, zakładka „Miesiąc” z rozbiciem na tygodnie i „Otwórz ten tydzień”. Te same teksty, kolory, żółty zakreślacz „dziś” i font Public Sans (lokalnie, `@fontsource/public-sans`).
+- Strona ładuje się osobno, bez logowania do PMO i bez reszty aplikacji (`noindex`).
+
+## Czas pracy — etap T1: dane, API i import (31.10.2026)
+
+- Początek przenoszenia ewidencji czasu pracy z aplikacji workload-calendar (plan i decyzje: `docs/PLAN_CZAS_PRACY.md`). Tabele `timesheet_employees` (ID `XXXX-XXXX` jak dotąd) i `timesheet_entries`; logika godzin przeniesiona 1:1 z testami starej aplikacji (`hours` w `#shared`: kwadranse, praca przez północ, przecinek, tydzień ISO, przełomy miesięcy).
+- **API pracownika** `/api/public/czas/{me,entries}` — bez konta i 2FA, dostęp wyłącznie identyfikatorem i wyłącznie do własnych godzin; nieudane próby spowalniane; komunikaty jak w starej aplikacji.
+- **API panelu** `/api/timesheets/*` (pracownicy, zestawienie miesięczne, podsumowanie okresu) z nowym uprawnieniem `timesheets`; dostęp tylko dla osób z listy **Administracja → Ustawienia → „Zarząd — czas pracy”** (edycja / tylko podgląd).
+- **Import historii** (Administracja → Ustawienia): skrypt eksportu do konsoli w panelu starej aplikacji + wgranie pliku JSON. Powtarzalny: te same ID, bez duplikatów, wpisy nowsze w PMO nie są nadpisywane, godziny przeliczane. Migracja `20261031135145_timesheets`.
+
 ## HRF: link do pliku na liście zadań (31.10.2026)
 
 - Na liście zadań HRF kolumna **Link** z przyciskiem otwarcia w nowej karcie i podglądem po najechaniu (pliki i foldery Google Drive / Docs).

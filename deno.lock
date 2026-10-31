@@ -11,7 +11,9 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@anthropic-ai/sdk@0.134",
         "npm:@eslint/js@^10.0.1",
+        "npm:@fontsource/public-sans@^5.3.0",
         "npm:@hono/zod-openapi@^1.6.3",
         "npm:@hookform/resolvers@^5.9.1",
         "npm:@mantine/core@^7.17.8",
@@ -50,7 +52,6 @@
         "npm:jose@^6.2.12",
         "npm:mantine-react-table@^2.0.0-beta.9",
         "npm:otplib@^13.5.0",
-        "npm:pdfjs-dist@^6.3.289",
         "npm:pg@^8.23.0",
         "npm:postcss-preset-mantine@^1.18.0",
         "npm:postcss-simple-vars@^7.0.1",

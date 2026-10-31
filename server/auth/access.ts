@@ -1,5 +1,5 @@
 import { and, eq, isNull, sql } from 'drizzle-orm'
-import { DEFAULT_INVOICE_SYNC_FROM, ROLES, defaultPartyForRole, type InvoiceSettings, type ManagementSettings, isStaffOnlyModule, isStaffRole, type Action, type ModuleKey, type Role } from '#shared'
+import { DEFAULT_INVOICE_SYNC_FROM, ROLES, defaultPartyForRole, type InvoiceSettings, type ManagementSettings, type TimesheetSettings, isStaffOnlyModule, isStaffRole, type Action, type ModuleKey, type Role } from '#shared'
 import type { Database } from '../db/client.ts'
 import { appSettings, auditLog, permissions, projectMembers, projects, users } from '../db/schema.ts'
 import type { IdentityClaims } from './identity.ts'
@@ -76,6 +76,21 @@ export async function managementSettings(db: Database): Promise<ManagementSettin
 export function restrictManagementPermissions(perms: Set<`${ModuleKey}:${Action}`>, userId: string, settings: ManagementSettings) {
   if (settings.userIds.includes(userId)) return perms
   return new Set([...perms].filter((p) => !MANAGEMENT_MODULES.some((m) => p.startsWith(`${m}:`))))
+}
+
+export const TIMESHEETS_SETTING_KEY = 'timesheets.access'
+
+export async function timesheetSettings(db: Database): Promise<TimesheetSettings> {
+  const [row] = await db.select().from(appSettings).where(eq(appSettings.key, TIMESHEETS_SETTING_KEY))
+  const v = (row?.value ?? {}) as Partial<TimesheetSettings>
+  return { viewerIds: Array.isArray(v.viewerIds) ? v.viewerIds : [], editorIds: Array.isArray(v.editorIds) ? v.editorIds : [] }
+}
+
+/** Czas pracy: bez wpisu na liście — brak modułu; podgląd — tylko odczyt i eksport; edycja — uprawnienia z roli. */
+export function restrictTimesheetPermissions(perms: Set<`${ModuleKey}:${Action}`>, userId: string, settings: TimesheetSettings) {
+  if (settings.editorIds.includes(userId)) return perms
+  const viewer = settings.viewerIds.includes(userId)
+  return new Set([...perms].filter((p) => !p.startsWith('timesheets:') || (viewer && (p === 'timesheets:view' || p === 'timesheets:export'))))
 }
 
 export async function mfaRequiredRoles(db: Database): Promise<Role[]> {

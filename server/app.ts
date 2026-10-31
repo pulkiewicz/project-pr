@@ -13,6 +13,8 @@ import { catalogRouter } from './modules/catalog/routes.ts'
 import { aiRouter } from './modules/ai/routes.ts'
 import { invoicesRouter } from './modules/invoices/routes.ts'
 import { managementRouter } from './modules/management/routes.ts'
+import { timesheetPublicRouter } from './modules/timesheets/public.ts'
+import { timesheetsRouter } from './modules/timesheets/routes.ts'
 import { dashboardRouter } from './modules/dashboard/routes.ts'
 import { hrfInternalRouter } from './modules/hrf/internal.ts'
 import { hrfRouter } from './modules/hrf/routes.ts'
@@ -42,8 +44,11 @@ export function createApp(deps: AppDeps) {
 
   app.get('/health', (c) => c.json({ ok: true }))
 
-  // Wszystko poza /health wymaga JWT Identity + aktywnego użytkownika.
-  app.use('*', async (c, next) => (c.req.path === '/api/health' ? next() : authenticate(c, next)))
+  // Ekran pracownika ewidencji czasu: dostęp identyfikatorem z linku, bez konta (jak w workload-calendar).
+  app.route('/public/czas', timesheetPublicRouter)
+
+  // Wszystko poza /health i /public/* wymaga JWT Identity + aktywnego użytkownika.
+  app.use('*', async (c, next) => (c.req.path === '/api/health' || c.req.path.startsWith('/api/public/') ? next() : authenticate(c, next)))
 
   app.route('/', meRouter)
   app.route('/mfa', mfaRouter)
@@ -65,6 +70,7 @@ export function createApp(deps: AppDeps) {
   app.route('/', aiRouter)
   app.route('/', invoicesRouter)
   app.route('/', managementRouter)
+  app.route('/', timesheetsRouter)
 
   // Dokumentacja OpenAPI — tylko Admin.
   app.use('/openapi.json', requireMfa, requirePermission('admin', 'view'))

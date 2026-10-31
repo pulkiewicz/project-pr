@@ -126,7 +126,8 @@
     "adminProjects": "Projekty",
     "management": "Zarząd",
     "fleet": "Pojazdy",
-    "employees": "Pracownicy"
+    "employees": "Pracownicy",
+    "timesheets": "Czas pracy"
   },
   "roles": {
     "Admin": "Administrator",
@@ -349,6 +350,7 @@
     "invoice_self_approval": "Fakturę akceptuje inna osoba niż ta, która wysłała ją do akceptacji",
     "invoice_user_not_staff": "Dostęp do faktur można nadać tylko pracownikom Envcheck",
     "user_not_staff": "Można wybrać tylko pracowników Envcheck",
+    "timesheet_error": "{{detail}}",
     "employee_not_found": "Nie znaleziono pracownika",
     "vehicle_registration_exists": "Pojazd o tym numerze rejestracyjnym już istnieje",
     "invoice_amount_missing": "Uzupełnij kwotę netto faktury przed wysłaniem do akceptacji"
@@ -1609,5 +1611,27 @@
     "showArchived": "Pokaż zarchiwizowane",
     "archiveTitle": "Zarchiwizować projekt {{code}}?",
     "archiveHint": "Projekt zniknie z menu, list wyboru i dostępu użytkowników zewnętrznych. Dane (HRF, zakupy, awizacje, przypisane faktury) zostają; projekt można przywrócić."
+  },
+  "timesheets": {
+    "settings": {
+      "title": "Zarząd — czas pracy",
+      "editors": "Edycja",
+      "editorsHint": "Zestawienia, eksport i zarządzanie pracownikami ewidencji (dodawanie, zmiana nazwy, aktywność, usuwanie).",
+      "viewers": "Tylko podgląd",
+      "viewersHint": "Zestawienia i eksport do Excela, bez zmian w pracownikach."
+    },
+    "import": {
+      "title": "Czas pracy — import ze starej aplikacji",
+      "step1": "Zaloguj się do panelu starej aplikacji: time-tracking-envcheck.netlify.app/admin.",
+      "step2": "Skopiuj skrypt, otwórz konsolę przeglądarki (F12 → Konsola), wklej go i naciśnij Enter — pobierze się plik ewidencja-czasu-RRRR-MM-DD.json.",
+      "step3": "Wgraj ten plik tutaj.",
+      "copy": "Kopiuj skrypt eksportu",
+      "copied": "Skopiowano",
+      "upload": "Wgraj plik JSON",
+      "hint": "Import można powtórzyć (np. w dniu przełączenia): pracownicy zachowują swoje ID, wpisy nie dublują się, a wpisy zmienione już w PMO nie są nadpisywane. Godziny są przeliczane tak samo jak w starej aplikacji.",
+      "badFile": "To nie jest plik z eksportu ewidencji czasu pracy.",
+      "result": "Pracownicy: {{employeesCreated}} nowych, {{employeesUpdated}} zmienionych. Wpisy: {{entriesCreated}} nowych, {{entriesUpdated}} zaktualizowanych, {{entriesSkippedNewer}} pominiętych (nowsze w PMO).",
+      "rejected": "Odrzucone wpisy: {{count}}"
+    }
   }
 }

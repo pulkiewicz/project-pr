@@ -24,6 +24,8 @@ export const MODULES = {
   /** Zarząd: ewidencja pojazdów i pracownicy. Dostęp dodatkowo zawężony do osób z ustawienia `management.access`. */
   fleet: { internal: true, staffOnly: true, scope: 'global' },
   employees: { internal: true, staffOnly: true, scope: 'global' },
+  /** Zarząd: ewidencja czasu pracy (panel). Dostęp zawężony do osób z ustawienia `timesheets.access` (podgląd / edycja). */
+  timesheets: { internal: true, staffOnly: true, scope: 'global' },
   dashboardInternal: { internal: true },
   hrf: { internal: false },
   hrfInternal: { internal: true },
@@ -95,6 +97,8 @@ export const DEFAULT_LEVELS: Record<ModuleKey, Row> = {
   // Zarząd: jak Faktury — o dostępie decyduje lista osób w Ustawieniach (Admin).
   fleet: row('P', 'P', '-', '-', '-'),
   employees: row('P', 'P', '-', '-', '-'),
+  // Czas pracy: jak Faktury — o dostępie (i podziale podgląd / edycja) decyduje lista osób w Ustawieniach.
+  timesheets: row('P', 'P', '-', '-', '-'),
   dashboardInternal: row('P', 'O', '-', '-', '-'),
   hrf: row('P', 'E', 'E', 'O', '-'),
   // Zadania wewnętrzne doprecyzowujące HRF — niewidoczne dla Zamawiającego i podwykonawców.

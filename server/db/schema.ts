@@ -1083,3 +1083,38 @@ export const fleetInspections = pgTable(
   },
   (t) => [index('fleet_inspections_vehicle_idx').on(t.vehicleId)],
 )
+
+// ---------------- Zarząd: ewidencja czasu pracy (moduł `timesheets`, z workload-calendar) ----------------
+
+/**
+ * Pracownik ewidencji. `id` to 8-znakowy identyfikator z linku (`XXXX-XXXX` bez myślnika) — ten sam co w starej
+ * aplikacji, żeby po przeniesieniu pracownicy logowali się dotychczasowym ID. Usunięcie kasuje wpisy (jak dotąd).
+ */
+export const timesheetEmployees = pgTable('timesheet_employees', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  active: boolean('active').notNull().default(true),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  createdBy: uuid('created_by'),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+  updatedBy: uuid('updated_by'),
+})
+
+/** Godziny jednego dnia; pusty dzień = brak wiersza. `hours` liczone zawsze przez `hours.validateEntry`. */
+export const timesheetEntries = pgTable(
+  'timesheet_entries',
+  {
+    employeeId: text('employee_id')
+      .notNull()
+      .references(() => timesheetEmployees.id, { onDelete: 'cascade' }),
+    workDate: date('work_date', { mode: 'string' }).notNull(),
+    mode: text('mode').notNull().$type<'range' | 'total'>(),
+    startTime: text('start_time'),
+    endTime: text('end_time'),
+    breakMin: integer('break_min').notNull().default(0),
+    hours: numeric('hours', { precision: 5, scale: 2, mode: 'number' }).notNull().default(0),
+    note: text('note').notNull().default(''),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.employeeId, t.workDate] }), index('timesheet_entries_date_idx').on(t.workDate)],
+)

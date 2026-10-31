@@ -10,6 +10,7 @@ import { ProjectContext } from '../../lib/project'
 import { AvizationSettingsCard } from '../../features/avizations/AvizationSettingsCard'
 import { InvoiceSettingsCard } from '../../features/invoices/InvoiceSettingsCard'
 import { ManagementSettingsCard } from '../../features/management/ManagementSettingsCard'
+import { TimesheetImportCard, TimesheetSettingsCard } from '../../features/timesheets/TimesheetSettingsCard'
 import { errorMessage } from '../../lib/errors'
 
 export function SettingsPage() {
@@ -50,6 +51,8 @@ export function SettingsPage() {
       </Card>
       <InvoiceSettingsCard />
       <ManagementSettingsCard />
+      <TimesheetSettingsCard />
+      <TimesheetImportCard />
       {/* Ustawienia awizacji są per projekt — karta dostaje projekt wprost, bo ta strona jest poza `/projekty/…`. */}
       {me.projects.map((p) => (
         <ProjectContext.Provider key={p.id} value={p}>

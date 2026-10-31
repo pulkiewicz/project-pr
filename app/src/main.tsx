@@ -11,7 +11,7 @@ import { DatesProvider } from '@mantine/dates'
 import { ModalsProvider } from '@mantine/modals'
 import { Notifications } from '@mantine/notifications'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { StrictMode } from 'react'
+import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { App } from './App'
@@ -27,6 +27,21 @@ window.addEventListener('vite:preloadError', (e) => {
   e.preventDefault()
   window.location.reload()
 })
+
+/**
+ * Ekran pracownika ewidencji czasu (`/godziny?id=…`) — publiczny, bez logowania Identity i bez reszty aplikacji
+ * (osobny, leniwie ładowany fragment; własne style ładują się tylko tutaj).
+ */
+const TIMESHEET_PATH = '/godziny'
+const isTimesheetPage = window.location.pathname === TIMESHEET_PATH || window.location.pathname.startsWith(`${TIMESHEET_PATH}/`)
+const EmployeeView = lazy(() => import('./features/timesheets/employee/EmployeeView').then((m) => ({ default: m.EmployeeView })))
+if (isTimesheetPage) {
+  document.title = 'Ewidencja czasu pracy'
+  const robots = document.createElement('meta')
+  robots.name = 'robots'
+  robots.content = 'noindex, nofollow'
+  document.head.appendChild(robots)
+}
 
 // Wpisywanie dat w polach DateInput w formacie DD.MM.YYYY.
 dayjs.extend(customParseFormat)
@@ -47,11 +62,17 @@ createRoot(document.getElementById('root')!).render(
         <ModalsProvider>
           <Notifications position="top-right" />
           <QueryClientProvider client={queryClient}>
-            <BrowserRouter>
-              <AuthProvider>
-                <App />
-              </AuthProvider>
-            </BrowserRouter>
+            {isTimesheetPage ? (
+              <Suspense fallback={null}>
+                <EmployeeView />
+              </Suspense>
+            ) : (
+              <BrowserRouter>
+                <AuthProvider>
+                  <App />
+                </AuthProvider>
+              </BrowserRouter>
+            )}
           </QueryClientProvider>
         </ModalsProvider>
       </DatesProvider>

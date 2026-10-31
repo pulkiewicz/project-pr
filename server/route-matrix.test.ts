@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DEFAULT_LEVELS, ROLES, defaultPermissionEntries, type Role } from '#shared'
 import { ROUTE_POLICIES } from './app.ts'
-import { INVOICES_SETTING_KEY, MANAGEMENT_SETTING_KEY } from './auth/access.ts'
+import { INVOICES_SETTING_KEY, MANAGEMENT_SETTING_KEY, TIMESHEETS_SETTING_KEY } from './auth/access.ts'
 import { createUser, req, schema, startHarness, type Harness, type TestUser } from './test/harness.ts'
 
 /**
@@ -14,9 +14,10 @@ const users = {} as Record<Role, TestUser>
 beforeAll(async () => {
   h = await startHarness()
   for (const role of ROLES) users[role] = await createUser(h, role)
-  // Faktury i Zarząd: dostęp z roli działa tylko dla osób z listy — tu wszyscy, by sprawdzić samą macierz.
+  // Faktury, Zarząd i Czas pracy: dostęp z roli działa tylko dla osób z listy — tu wszyscy, by sprawdzić samą macierz.
   await h.db.insert(schema.appSettings).values({ key: INVOICES_SETTING_KEY, value: { userIds: Object.values(users).map((u) => u.id), syncFrom: '2026-01-01' } })
   await h.db.insert(schema.appSettings).values({ key: MANAGEMENT_SETTING_KEY, value: { userIds: Object.values(users).map((u) => u.id) } })
+  await h.db.insert(schema.appSettings).values({ key: TIMESHEETS_SETTING_KEY, value: { viewerIds: [], editorIds: Object.values(users).map((u) => u.id) } })
 })
 afterAll(() => h.stop())
 
