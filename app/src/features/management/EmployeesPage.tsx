@@ -2,7 +2,7 @@ import { Alert, Badge, Button, Checkbox, Divider, Drawer, Group, Loader, Select,
 import { DateInput } from '@mantine/dates'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
-import { IconEye, IconPlus } from '@tabler/icons-react'
+import { IconEye, IconPlus, IconUserPlus } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable, type MRT_ColumnDef } from 'mantine-react-table'
 import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mjs'
 import { useEffect, useMemo, useState } from 'react'
@@ -14,6 +14,7 @@ import { errorMessage } from '../../lib/errors'
 import { todayWarsaw } from '../../lib/format'
 import { fetchPesel, useDelete, useEmployees, useSaveEmployee, useUserOptions } from './api'
 import { Deadline, RowsEditor, fromDate, toDate } from './common'
+import { ImportFromAvizationsModal } from './ImportFromAvizationsModal'
 
 const fullName = (e: Pick<EmployeeDto, 'firstName' | 'lastName'>) => `${e.lastName} ${e.firstName}`
 
@@ -32,6 +33,7 @@ export function EmployeesPage() {
   const [open, setOpen] = useState<EmployeeDto | 'new' | null>(null)
   const [onlyAttention, setOnlyAttention] = useState(false)
   const [showInactive, setShowInactive] = useState(false)
+  const [importing, setImporting] = useState(false)
   const today = todayWarsaw()
 
   const items = useMemo(
@@ -114,9 +116,14 @@ export function EmployeesPage() {
       <Group justify="space-between" wrap="wrap">
         <Title order={2}>{t('employees.title')}</Title>
         {can('employees', 'create') && (
-          <Button leftSection={<IconPlus size={16} />} onClick={() => setOpen('new')}>
-            {t('employees.add')}
-          </Button>
+          <Group gap="xs">
+            <Button variant="light" leftSection={<IconUserPlus size={16} />} onClick={() => setImporting(true)}>
+              {t('employees.import.button')}
+            </Button>
+            <Button leftSection={<IconPlus size={16} />} onClick={() => setOpen('new')}>
+              {t('employees.add')}
+            </Button>
+          </Group>
         )}
       </Group>
       {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
@@ -125,6 +132,7 @@ export function EmployeesPage() {
         <Switch label={t('deadline.showInactive')} checked={showInactive} onChange={(e) => setShowInactive(e.currentTarget.checked)} />
       </Group>
       <MantineReactTable table={table} />
+      <ImportFromAvizationsModal opened={importing} onClose={() => setImporting(false)} />
       <EmployeeDrawer opened={!!open} item={open === 'new' ? null : open} onClose={() => setOpen(null)} />
     </Stack>
   )

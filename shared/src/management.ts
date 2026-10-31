@@ -188,3 +188,18 @@ export interface ManagementUserOption {
   id: string
   name: string
 }
+
+// ---------------- Import z listy awizacyjnej ----------------
+
+/** Osoba z firmy Envcheck z awizacji (wszystkie projekty), której nie ma jeszcze na liście pracowników. */
+export interface AvizationCandidate {
+  personId: string
+  firstName: string
+  lastName: string
+  company: string
+  phone: string | null
+  /** Rola na budowie z awizacji → stanowisko. */
+  position: string | null
+  projects: string[]
+}
+export const employeeImportInput = z.object({ personIds: z.array(z.uuid()).min(1).max(500) })

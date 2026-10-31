@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { birthDateFromPesel, deadlineStatus, isValidPesel, type EmployeeDto, type FleetVehicleDto, type MeResponse } from '#shared'
+import { birthDateFromPesel, deadlineStatus, isValidPesel, type AvizationCandidate, type EmployeeDto, type FleetVehicleDto, type MeResponse } from '#shared'
+import { SEED_PROJECT_ID } from '../../db/seed-sql.ts'
 import { createUser, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
 
 let h: Harness
@@ -122,5 +123,34 @@ describe('Pojazdy', () => {
     expect((await req(h, 'DELETE', `/api/employees/${v!.assignedEmployeeId}`, ania.headers)).status).toBe(200)
     const [after] = (await (await req(h, 'GET', '/api/fleet', ania.headers)).json()) as FleetVehicleDto[]
     expect(after!.assignedEmployeeId).toBeNull()
+  })
+})
+
+describe('Import z listy awizacyjnej', () => {
+  const person = (firstName: string, lastName: string, company: string, extra: object = {}) =>
+    req(h, 'POST', `/api/projects/${SEED_PROJECT_ID}/persons`, admin.headers, { firstName, lastName, company, idDocType: 'id_card', idDocNumber: `ABC${Math.floor(Math.random() * 1e6)}`, ...extra })
+
+  it('tylko osoby z firmy Envcheck, bez duplikatów i bez osób już na liście; import tworzy pracowników', async () => {
+    expect((await person('Anna', 'Nowak', 'Envcheck', { phone: '600100200', roleOnSite: 'Kierownik budowy' })).status).toBe(201)
+    expect((await person('anna', 'NOWAK', 'Envcheck')).status).toBe(201)
+    expect((await person('Ewa', 'Lis', 'ENVCHECK Sp. z o.o.')).status).toBe(201)
+    expect((await person('Piotr', 'Zieliński', 'Arsanit')).status).toBe(201)
+    expect((await person('Marek', 'Wójcik', 'Envcheck')).status).toBe(201)
+    expect((await req(h, 'POST', '/api/employees', ania.headers, { firstName: 'Marek', lastName: 'Wójcik' })).status).toBe(201)
+
+    expect((await req(h, 'GET', '/api/employees/avization-candidates', outsider.headers)).status).toBe(403)
+    const list = (await (await req(h, 'GET', '/api/employees/avization-candidates', ania.headers)).json()) as AvizationCandidate[]
+    expect(list.map((p) => `${p.firstName} ${p.lastName}`)).toEqual(['Ewa Lis', 'Anna Nowak'])
+    const anna = list.find((p) => p.lastName.toLowerCase() === 'nowak')!
+    expect(anna).toMatchObject({ phone: '600100200', position: 'Kierownik budowy' })
+
+    const res = await req(h, 'POST', '/api/employees/import-avization', ania.headers, { personIds: [anna.personId] })
+    expect(await res.json()).toEqual({ created: 1 })
+    const emps = (await (await req(h, 'GET', '/api/employees', ania.headers)).json()) as EmployeeDto[]
+    expect(emps.find((e) => e.lastName.toLowerCase() === 'nowak')).toMatchObject({ phone: '600100200', position: 'Kierownik budowy' })
+    // Ponowny import tej samej osoby nic nie dodaje.
+    expect(await (await req(h, 'POST', '/api/employees/import-avization', ania.headers, { personIds: [anna.personId] })).json()).toEqual({ created: 0 })
+    const after = (await (await req(h, 'GET', '/api/employees/avization-candidates', ania.headers)).json()) as AvizationCandidate[]
+    expect(after.map((p) => p.lastName)).toEqual(['Lis'])
   })
 })

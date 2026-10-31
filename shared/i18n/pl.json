@@ -802,7 +802,17 @@
       "bhp": "BHP do",
       "qualifications": "Uprawnienia"
     },
-    "empty": "Brak pracowników"
+    "empty": "Brak pracowników",
+    "import": {
+      "button": "Dodaj z awizacji",
+      "title": "Dodaj pracowników z listy awizacyjnej",
+      "hint": "Osoby z firmy Envcheck z awizacji wszystkich projektów, których nie ma jeszcze na liście (porównanie po imieniu i nazwisku). Przenoszone są imię, nazwisko, telefon i rola na budowie (jako stanowisko) — numer dokumentu tożsamości zostaje w awizacjach.",
+      "empty": "Wszystkie osoby Envcheck z awizacji są już na liście pracowników.",
+      "all": "Zaznacz wszystkie",
+      "projects": "Projekty",
+      "submit": "Dodaj ({{count}})",
+      "done": "Dodano pracowników: {{count}}"
+    }
   },
   "avizations": {
     "title": "Awizacje osób i pojazdów",

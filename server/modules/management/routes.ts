@@ -1,15 +1,17 @@
 import { z, type RouteConfig } from '@hono/zod-openapi'
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, ilike, inArray, isNull, sql } from 'drizzle-orm'
 import type { Context } from 'hono'
 import {
   STAFF_ROLES,
   birthDateFromPesel,
+  employeeImportInput,
   employeeInput,
   employeePatch,
   fleetVehicleInput,
   fleetVehiclePatch,
   managementSettingsInput,
   type Action,
+  type AvizationCandidate,
   type EmployeeDto,
   type FleetVehicleDto,
   type ManagementUserOption,
@@ -17,7 +19,7 @@ import {
 } from '#shared'
 import type { AppEnv } from '../../context.ts'
 import type { Database } from '../../db/client.ts'
-import { appSettings, employeeQualifications, employees, fleetInspections, fleetInsurances, fleetVehicles, users } from '../../db/schema.ts'
+import { appSettings, employeeQualifications, employees, fleetInspections, fleetInsurances, fleetVehicles, persons, projects, users } from '../../db/schema.ts'
 import { MANAGEMENT_SETTING_KEY, managementSettings } from '../../auth/access.ts'
 import { decryptField, encryptField } from '../../lib/field-crypto.ts'
 import { HttpProblem, conflict, notFound } from '../../lib/problem.ts'
@@ -271,6 +273,62 @@ managementRouter.openapi(route({ method: 'get', path: '/employees/{id}/pesel', r
   await writeAudit(c, { action: 'employees.view_pesel', entity: 'employees', entityId: id })
   return c.json({ pesel: e.peselEnc ? decryptField(c.get('deps').config.keyring, e.peselEnc) : null }, 200)
 })
+
+// ---------- import z listy awizacyjnej ----------
+
+const nameKey = (p: { firstName: string; lastName: string }) => `${p.firstName} ${p.lastName}`.trim().toLowerCase().replace(/\s+/g, ' ')
+
+const properCase = (p: { firstName: string; lastName: string }) => [p.firstName, p.lastName].every((w) => w !== w.toLowerCase() && w !== w.toUpperCase())
+
+/** Osoby z firmy Envcheck z awizacji wszystkich projektów: jedna pozycja na imię i nazwisko, bez osób już na liście pracowników. */
+async function avizationCandidates(db: Database): Promise<AvizationCandidate[]> {
+  const rows = await db
+    .select({ id: persons.id, firstName: persons.firstName, lastName: persons.lastName, company: persons.company, phone: persons.phone, roleOnSite: persons.roleOnSite, projectCode: projects.code })
+    .from(persons)
+    .innerJoin(projects, eq(projects.id, persons.projectId))
+    .where(and(isNull(persons.deletedAt), ilike(persons.company, '%envcheck%')))
+    .orderBy(desc(persons.updatedAt))
+  const existing = new Set((await db.select({ firstName: employees.firstName, lastName: employees.lastName }).from(employees).where(isNull(employees.deletedAt))).map(nameKey))
+  const byName = new Map<string, AvizationCandidate>()
+  // Od najnowszych: telefon i rola z ostatnio aktualizowanego wpisu, brakujące uzupełniane ze starszych.
+  for (const r of rows) {
+    const key = nameKey(r)
+    if (existing.has(key)) continue
+    const c = byName.get(key)
+    if (c) {
+      if (!c.projects.includes(r.projectCode)) c.projects.push(r.projectCode)
+      c.phone ??= r.phone
+      c.position ??= r.roleOnSite
+      // Pisownia: wpis „Anna Nowak” wygrywa z „anna NOWAK”.
+      if (!properCase(c) && properCase(r)) Object.assign(c, { firstName: r.firstName, lastName: r.lastName })
+    } else byName.set(key, { personId: r.id, firstName: r.firstName, lastName: r.lastName, company: r.company, phone: r.phone, position: r.roleOnSite, projects: [r.projectCode] })
+  }
+  return [...byName.values()].sort((a, b) => a.lastName.localeCompare(b.lastName, 'pl') || a.firstName.localeCompare(b.firstName, 'pl'))
+}
+
+managementRouter.openapi(route({ method: 'get', path: '/employees/avization-candidates', responses: ok }, 'employees', 'create'), async (c) =>
+  c.json(await avizationCandidates(c.get('deps').db), 200),
+)
+
+managementRouter.openapi(
+  route({ method: 'post', path: '/employees/import-avization', request: { body: body(employeeImportInput) }, responses: ok }, 'employees', 'create'),
+  async (c) => {
+    const ids = new Set(c.req.valid('json').personIds)
+    const db = c.get('deps').db
+    const me = c.get('user').id
+    // Lista liczona od nowa — osoby dodane w międzyczasie (lub spoza Envcheck) są pomijane.
+    const chosen = (await avizationCandidates(db)).filter((p) => ids.has(p.personId))
+    if (chosen.length) {
+      await db.transaction(async (tx) => {
+        await tx.insert(employees).values(
+          chosen.map((p) => ({ firstName: p.firstName, lastName: p.lastName, phone: p.phone, position: p.position, createdBy: me, updatedBy: me })),
+        )
+        await writeAudit(c, { action: 'employees.import_avization', entity: 'employees', changes: { count: chosen.length, names: chosen.map(fullName) } }, tx)
+      })
+    }
+    return c.json({ created: chosen.length }, 200)
+  },
+)
 
 managementRouter.openapi(route({ method: 'post', path: '/employees', request: { body: body(employeeInput) }, responses: created }, 'employees', 'create'), async (c) => {
   const { qualifications, pesel, ...input } = c.req.valid('json')

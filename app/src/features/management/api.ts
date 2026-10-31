@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { EmployeeDto, EmployeeInput, FleetVehicleDto, FleetVehicleInput, ManagementSettings, ManagementUserOption } from '#shared'
+import type { AvizationCandidate, EmployeeDto, EmployeeInput, FleetVehicleDto, FleetVehicleInput, ManagementSettings, ManagementUserOption } from '#shared'
 import { api } from '../../lib/api'
 
 export const useVehicles = () => useQuery({ queryKey: ['fleet', 'list'], queryFn: () => api<FleetVehicleDto[]>('/fleet') })
@@ -38,6 +38,14 @@ export function useSaveEmployee() {
 export function useDelete(kind: 'fleet' | 'employees') {
   const onSettled = useInvalidate()
   return useMutation({ mutationFn: (id: string) => api(`/${kind}/${id}`, { method: 'DELETE' }), onSettled })
+}
+
+export const useAvizationCandidates = (enabled: boolean) =>
+  useQuery({ queryKey: ['employees', 'avization-candidates'], queryFn: () => api<AvizationCandidate[]>('/employees/avization-candidates'), enabled })
+
+export function useImportFromAvizations() {
+  const onSettled = useInvalidate()
+  return useMutation({ mutationFn: (personIds: string[]) => api<{ created: number }>('/employees/import-avization', { method: 'POST', json: { personIds } }), onSettled })
 }
 
 /** Pełny PESEL — tylko na żądanie (odczyt zapisywany w audit logu). */
