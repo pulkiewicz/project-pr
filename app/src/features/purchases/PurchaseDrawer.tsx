@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PURCHASE_PARTIES, PURCHASE_STATUSES, type PurchaseItemDto, type PurchaseItemInput, type PurchaseStatus } from '#shared'
-import { useMe } from '../../auth/AuthProvider'
+import { useAuth, useMe } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { formatDate } from '../../lib/format'
 import { useHrfTasks } from '../hrf/api'
@@ -17,6 +17,7 @@ const fromDate = (d: Date | string | null) => (d ? format(typeof d === 'string' 
 export function PurchaseDrawer({ item, opened, defaultBuffer, onClose }: { item: PurchaseItemDto | null; opened: boolean; defaultBuffer: number; onClose: () => void }) {
   const { t } = useTranslation()
   const me = useMe()
+  const { can } = useAuth()
   const hrf = useHrfTasks()
   const save = useSavePurchase()
   const [f, setF] = useState<PurchaseItemInput>({ name: '', party: 'Envcheck', status: 'to_inquire', isCritical: false, requiresAvization: false })
@@ -41,9 +42,12 @@ export function PurchaseDrawer({ item, opened, defaultBuffer, onClose }: { item:
   const parents = new Set(hrf.data?.tasks.map((x) => x.parentId))
   const tasks = hrf.data?.tasks.filter((x) => !parents.has(x.id)).map((x) => ({ value: x.id, label: `${x.code} ${x.name}` })) ?? []
 
-  const submit = () =>
+  const canEditCost = can('purchasesCost', 'edit')
+  const submit = () => {
+    // Bez uprawnienia kwota nie jest wysyłana (serwer i tak by ją odrzucił).
+    const { netAmount: _n, ...rest } = f
     save.mutate(
-      { id: item?.id, version: item?.version, data: f },
+      { id: item?.id, version: item?.version, data: canEditCost ? f : rest },
       {
         onSuccess: () => {
           notifications.show({ color: 'green', message: t('app.saved') })
@@ -52,6 +56,7 @@ export function PurchaseDrawer({ item, opened, defaultBuffer, onClose }: { item:
         onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
       },
     )
+  }
 
   return (
     <Drawer opened={opened} onClose={onClose} position="right" size="xl" title={item ? t('purchases.edit') : t('purchases.add')}>
@@ -68,6 +73,18 @@ export function PurchaseDrawer({ item, opened, defaultBuffer, onClose }: { item:
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           {text('supplierName', t('purchases.supplierName'))}
           {text('supplierContact', t('purchases.supplierContact'))}
+          {can('purchasesCost', 'view') && (
+            <NumberInput
+              label={t('purchases.netAmount')}
+              disabled={!editable || !canEditCost}
+              min={0}
+              decimalScale={2}
+              decimalSeparator=","
+              thousandSeparator=" "
+              value={f.netAmount ?? ''}
+              onChange={(v) => set('netAmount', v === '' ? null : Number(v))}
+            />
+          )}
         </SimpleGrid>
         <Divider label={t('purchases.needDate')} labelPosition="left" />
         <Select label={t('purchases.hrfTask')} searchable clearable disabled={!editable} data={tasks} value={f.hrfTaskId ?? null} onChange={(v) => set('hrfTaskId', v)} />
@@ -96,9 +113,11 @@ export function PurchaseDrawer({ item, opened, defaultBuffer, onClose }: { item:
           <Checkbox label={t('purchases.requiresAvization')} disabled={!editable} checked={f.requiresAvization} onChange={(e) => set('requiresAvization', e.currentTarget.checked)} />
         </Group>
         <Textarea label={t('purchases.notes')} autosize minRows={2} disabled={!editable} value={f.notes ?? ''} onChange={(e) => set('notes', e.currentTarget.value || null)} />
-        <Text size="xs" c="dimmed">
-          {t('purchases.noPrices')}
-        </Text>
+        {can('purchasesCost', 'view') && (
+          <Text size="xs" c="dimmed">
+            {t('purchases.netAmountHint')}
+          </Text>
+        )}
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
             {t('app.cancel')}

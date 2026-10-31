@@ -32,6 +32,11 @@ async function list(c: Context<AppEnv>, projectId: string) {
   return { buffer, items }
 }
 
+/** Zmiana kwoty netto zamówienia wymaga `purchasesCost:edit`. */
+function assertCost(c: Context<AppEnv>, netAmount: number | null | undefined, current: number | null = null) {
+  if (netAmount !== undefined && netAmount !== current && !c.get('permissions').has('purchasesCost:edit')) throw forbidden('cost_forbidden')
+}
+
 async function assertTask(c: Context<AppEnv>, projectId: string, taskId: string | null | undefined) {
   if (!taskId) return
   const [t] = await c.get('deps').db.select({ id: hrfTasks.id }).from(hrfTasks).where(and(eq(hrfTasks.id, taskId), eq(hrfTasks.projectId, projectId), isNull(hrfTasks.deletedAt)))
@@ -52,6 +57,7 @@ purchasesRouter.openapi(
     const deps = c.get('deps')
     await getProject(deps.db, projectId)
     if (!canCreateForParty(user, c.get('permissions'), 'purchases', input.party, 'purchases')) throw forbidden('party_not_allowed', input.party)
+    assertCost(c, input.netAmount)
     await assertTask(c, projectId, input.hrfTaskId)
     const id = await deps.db.transaction(async (tx) => {
       const [r] = await tx.insert(purchaseItems).values({ ...input, projectId, createdBy: user.id, updatedBy: user.id }).returning({ id: purchaseItems.id })
@@ -76,6 +82,7 @@ purchasesRouter.openapi(
     if (!canEditRecord(user, perms, 'purchases', current, 'purchases')) throw forbidden('not_own_record')
     if (patch.party && patch.party !== current.party && !canCreateForParty(user, perms, 'purchases', patch.party, 'purchases')) throw forbidden('party_not_allowed', patch.party)
     await assertTask(c, projectId, patch.hrfTaskId)
+    assertCost(c, patch.netAmount, current.netAmount)
     const updated = await deps.db.transaction(async (tx) => {
       const [r] = await tx
         .update(purchaseItems)
@@ -119,6 +126,7 @@ purchasesRouter.openapi(
   async (c) => {
     const { projectId } = c.req.valid('param')
     const { items } = await list(c, projectId)
+    const withCost = c.get('permissions').has('purchasesCost:view')
     const t = i18nPl as unknown as { purchases: { status: Record<string, string>; alert: Record<string, string> }; parties: Record<string, string> }
     const wb = new ExcelJS.Workbook()
     const ws = wb.addWorksheet('Plan zakupów', { views: [{ state: 'frozen', ySplit: 1 }] })
@@ -131,6 +139,7 @@ purchasesRouter.openapi(
       { header: 'Ilość', key: 'quantity', width: 8 },
       { header: 'J.m.', key: 'unit', width: 6 },
       { header: 'Dostawca', key: 'supplierName', width: 20 },
+      ...(withCost ? [{ header: 'Netto (PLN)', key: 'netAmount', width: 14, style: { numFmt: '#,##0.00' } }] : []),
       { header: 'Kupuje', key: 'party', width: 10 },
       { header: 'Zadanie HRF', key: 'hrf', width: 12 },
       { header: 'Krytyczny', key: 'isCritical', width: 10 },
@@ -160,7 +169,7 @@ purchasesRouter.openapi(
         alerts: i.alerts.map((a) => t.purchases.alert[a.code]!.replace('{{count}}', String(a.days))).join('; '),
       })
     }
-    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 18 } }
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: ws.columns.length } }
     await writeAudit(c, { action: 'purchases.export_xlsx', entity: 'purchase_items', projectId, changes: { rows: items.length } })
     return c.body((await wb.xlsx.writeBuffer()) as ArrayBuffer, 200, {
       'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

@@ -143,9 +143,21 @@ describe('M4 plan zakupów', () => {
     expect(da).toContain('Sprężarka W75-240Y: dostawa 8 dni po dacie potrzeby')
   })
 
-  it('brak pól cenowych w API', async () => {
-    const raw = await (await req(h, 'GET', `${P}/purchases`, u.admin.headers)).text()
-    expect(raw).not.toMatch(/price|cost|cena|koszt/i)
+  it('kwota netto zamówienia tylko z purchasesCost — Arsanit jej nie widzi ani nie ustawia', async () => {
+    expect((await add(u.ars, { name: 'Y', party: 'Arsanit', netAmount: 100 })).status).toBe(403)
+    const created = await add(u.env, { name: 'Parowniki', party: 'Envcheck', supplierName: 'Güntner', netAmount: 12345.67 })
+    expect(created.status).toBe(201)
+    const item = (await created.json()) as PurchasesResponse['items'][number]
+    expect(item).toMatchObject({ supplierName: 'Güntner', netAmount: 12345.67 })
+
+    const ars = (await (await req(h, 'GET', `${P}/purchases`, u.ars.headers)).json()) as PurchasesResponse
+    expect(ars.items.find((i) => i.id === item.id)!.netAmount).toBeNull()
+    expect(await (await req(h, 'GET', `${P}/purchases`, u.ars.headers)).text()).not.toContain('12345')
+
+    const own = (await (await add(u.ars, { name: 'Rury', party: 'Arsanit' })).json()) as PurchasesResponse['items'][number]
+    expect((await req(h, 'PATCH', `${P}/purchases/${own.id}`, u.ars.headers, { version: own.version, netAmount: 5 })).status).toBe(403)
+    // Odesłanie niezmienionej (null) kwoty w całym formularzu nie jest zmianą.
+    expect((await req(h, 'PATCH', `${P}/purchases/${own.id}`, u.ars.headers, { version: own.version, netAmount: null, notes: 'ok' })).status).toBe(200)
   })
 
   it('eksport XLSX', async () => {

@@ -33,6 +33,7 @@ export async function listPurchases(db: Database, projectId: string, ctx: { user
       unit: p.unit,
       supplierName: p.supplierName,
       supplierContact: p.supplierContact,
+      netAmount: ctx.perms.has('purchasesCost:view') ? p.netAmount : null,
       party: p.party as PurchaseItemDto['party'],
       hrfTaskId: p.hrfTaskId,
       bufferDays: p.bufferDays,

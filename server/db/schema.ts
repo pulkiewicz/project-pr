@@ -305,6 +305,7 @@ export const purchaseItems = pgTable(
     unit: text('unit'),
     supplierName: text('supplier_name'),
     supplierContact: text('supplier_contact'),
+    netAmount: numeric('net_amount', { precision: 14, scale: 2, mode: 'number' }),
     party: text('party').notNull(),
     hrfTaskId: uuid('hrf_task_id').references(() => hrfTasks.id),
     bufferDays: integer('buffer_days'),

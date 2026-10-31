@@ -9,7 +9,7 @@ import { PURCHASE_PARTIES, PURCHASE_STATUSES, type PurchaseItemDto } from '#shar
 import { useAuth } from '../../auth/AuthProvider'
 import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
-import { formatDate, todayWarsaw } from '../../lib/format'
+import { formatDate, formatPLN, todayWarsaw } from '../../lib/format'
 import { useProjectId } from '../hrf/api'
 import { usePurchases } from './api'
 import { PurchaseDrawer } from './PurchaseDrawer'
@@ -112,6 +112,9 @@ export function PurchasesPage() {
     [q.data, parties, statuses, onlyAlerts, onlyCritical],
   )
 
+  const canSeeCost = can('purchasesCost', 'view')
+  const netTotal = items.reduce((sum, i) => sum + (i.netAmount ?? 0), 0)
+
   const columns = useMemo<MRT_ColumnDef<PurchaseItemDto>[]>(
     () => [
       {
@@ -126,6 +129,24 @@ export function PurchasesPage() {
           </Group>
         ),
       },
+      { accessorKey: 'supplierName', header: t('purchases.col.supplier'), size: 160, Cell: ({ cell }) => cell.getValue<string | null>() ?? '—' },
+      ...(canSeeCost
+        ? [
+            {
+              accessorKey: 'netAmount',
+              header: t('purchases.col.netAmount'),
+              size: 130,
+              mantineTableHeadCellProps: { align: 'right' },
+              mantineTableBodyCellProps: { align: 'right' },
+              mantineTableFooterCellProps: { align: 'right' },
+              Cell: ({ cell }) => {
+                const v = cell.getValue<number | null>()
+                return v == null ? '—' : formatPLN(v)
+              },
+              Footer: () => <Text size="sm" fw={600}>{formatPLN(netTotal)}</Text>,
+            } satisfies MRT_ColumnDef<PurchaseItemDto>,
+          ]
+        : []),
       { accessorKey: 'party', header: t('purchases.col.party'), size: 105, Cell: ({ cell }) => t(`parties.${cell.getValue<string>()}`) },
       { accessorKey: 'hrfTaskCode', header: 'HRF', size: 85 },
       { accessorKey: 'leadTimeWeeks', header: t('purchases.col.leadTime'), size: 110 },
@@ -135,7 +156,7 @@ export function PurchasesPage() {
       { accessorKey: 'status', header: t('purchases.col.status'), size: 140, Cell: ({ cell }) => <Badge variant="light">{t(`purchases.status.${cell.getValue<string>()}`)}</Badge> },
       { id: 'alerts', header: t('purchases.alerts'), size: 250, mantineTableBodyCellProps: { style: { whiteSpace: 'normal' } }, Cell: ({ row }) => <Alerts item={row.original} /> },
     ],
-    [t],
+    [t, canSeeCost, netTotal],
   )
 
   const table = useMantineReactTable({

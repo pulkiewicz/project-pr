@@ -120,6 +120,7 @@
     "sales": "Sprzedaż",
     "quoteProfile": "Profil wyceny",
     "quotesCost": "Wyceny — koszty",
+    "purchasesCost": "Zakupy — kwoty netto",
     "invoices": "Faktury kosztowe",
     "finance": "Finanse",
     "adminProjects": "Projekty"
@@ -646,9 +647,12 @@
     "export": "Eksport XLSX",
     "timelineHint": "▲ zamówić do · ● data potrzeby · ■ potwierdzona dostawa",
     "noTask": "bez zadania HRF — data potrzeby nieznana",
-    "noPrices": "Plan zakupów nie zawiera cen ani kosztów.",
+    "netAmount": "Kwota netto zamówienia (PLN)",
+    "netAmountHint": "Kwotę widzą tylko osoby z uprawnieniem „Zakupy — kwoty netto”.",
     "col": {
       "party": "Kupuje",
+      "supplier": "Dostawca",
+      "netAmount": "Netto (PLN)",
       "leadTime": "Lead (tyg.)",
       "orderBy": "Zamówić do",
       "needDate": "Potrzebne",

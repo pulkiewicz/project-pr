@@ -26,6 +26,8 @@ export const MODULES = {
   hrfInternal: { internal: true },
   weeklyPlan: { internal: false },
   purchases: { internal: false },
+  /** Kwota netto zamówienia w planie zakupów. */
+  purchasesCost: { internal: true, staffOnly: true },
   avizations: { internal: false },
   subcontractors: { internal: false },
   acceptances: { internal: false },
@@ -93,6 +95,7 @@ export const DEFAULT_LEVELS: Record<ModuleKey, Row> = {
   hrfInternal: row('P', 'P', '-', '-', '-'),
   weeklyPlan: row('P', 'E', 'E', 'O', 'O'),
   purchases: row('P', 'E', 'E', '-', '-'),
+  purchasesCost: row('P', 'E', '-', '-', '-'),
   avizations: row('P', 'E', 'E', 'A', 'E'),
   subcontractors: row('P', 'E', 'E', 'O', 'O'),
   acceptances: row('P', 'E', 'O', 'A', '-'),

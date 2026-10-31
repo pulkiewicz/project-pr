@@ -1,5 +1,10 @@
 # Changelog
 
+## Plan zakupów: dostawca i kwota netto zamówienia (31.10.2026)
+
+- Na liście zakupów (`/projekty/{kod}/zakupy`) nowe kolumny **Dostawca** i **Netto (PLN)** — łączna kwota netto zamówienia pozycji; w stopce suma dla widocznych (przefiltrowanych) pozycji. Kwotę wpisuje się w karcie komponentu; jest też w eksporcie XLSX.
+- Wyjątek od zasady „bez cen w planie zakupów” (spec. §1): kwotę widzi i zmienia tylko nowe uprawnienie **„Zakupy — kwoty netto”** (`purchasesCost`) — domyślnie Admin i Envcheck wewnętrzny; role zewnętrzne (Arsanit, Zamawiający, podwykonawcy) go nie dostaną. Bez uprawnienia API zwraca kwotę jako pustą, a próba jej zmiany kończy się 403. Migracja `20261031083939_purchases_net_amount`.
+
 ## Administracja → Projekty (26.10.2026)
 
 - Nowa strona **Administracja → Projekty** (tylko Admin): lista wszystkich projektów ze źródłem (CRM z kodem oferty albo „ręcznie”), **zakładanie projektu bez szansy w CRM** (np. wewnętrzny `WEW-BIURO`), edycja danych (nazwa, klient, nr umowy i postępowania, wartość, termin) z kontrolą wersji oraz **archiwizacja / przywracanie**. Zarchiwizowany projekt znika z menu, list wyboru i dostępu ról zewnętrznych; dane i przypisane faktury zostają. Kod projektu jest stały i unikalny (także wśród zarchiwizowanych).

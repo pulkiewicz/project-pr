@@ -23,7 +23,10 @@ const isoDate = z.iso.date()
 const optDate = isoDate.nullable().optional()
 const optText = (max: number) => z.string().trim().max(max).nullable().optional()
 
-/** Bez pól cenowych (zasada nadrzędna spec. §1). Baza bez domyślnych — `.partial()` w Zod 4 zachowuje `.default()`. */
+/**
+ * Jedyne pole kwotowe to `netAmount` (decyzja Admina 31.10.2026, wyjątek od spec. §1) — widoczne tylko z `purchasesCost:view`.
+ * Baza bez domyślnych — `.partial()` w Zod 4 zachowuje `.default()`.
+ */
 const purchaseItemBase = z.object({
   name: z.string().trim().min(1).max(300),
   category: optText(100),
@@ -33,6 +36,8 @@ const purchaseItemBase = z.object({
   unit: optText(20),
   supplierName: optText(200),
   supplierContact: optText(300),
+  /** Łączna kwota netto zamówienia (PLN); zmiana wymaga `purchasesCost:edit`. */
+  netAmount: z.number().min(0).max(1e12).nullable().optional(),
   party: z.enum(PURCHASE_PARTIES),
   hrfTaskId: z.uuid().nullable().optional(),
   /** Bufor w dniach roboczych przed startem zadania HRF; null = domyślny projektu (5). */
@@ -66,8 +71,10 @@ export interface PurchaseAlert {
   days: number
 }
 
-export interface PurchaseItemDto extends Required<Omit<PurchaseItemInput, 'quantity' | 'leadTimeWeeks' | 'bufferDays'>> {
+export interface PurchaseItemDto extends Required<Omit<PurchaseItemInput, 'quantity' | 'leadTimeWeeks' | 'bufferDays' | 'netAmount'>> {
   id: string
+  /** Null bez `purchasesCost:view`. */
+  netAmount: number | null
   quantity: number | null
   leadTimeWeeks: number | null
   bufferDays: number | null
