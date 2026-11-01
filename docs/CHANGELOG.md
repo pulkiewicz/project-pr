@@ -1,5 +1,16 @@
 # Changelog
 
+## Faktury: koszty per projekt po miesiącach (01.11.2026)
+
+- Zakładka **Koszty per projekt**: kolumny = miesiące (data wystawienia, a dla plików bez niej — dodania do inFakt), wiersze = projekty, **Ogólne** (świadomie przypisane do kosztów ogólnych i reszta z podziału %) oraz **Nieprzypisane** (bez projektu i bez decyzji); suma, liczba faktur i wiersz „Razem (PLN)”. Przełącznik „Wszystkie / Tylko zaakceptowane” i wybór roku; faktury bez kwoty netto są pomijane z informacją, ile ich jest. Wcześniej faktury przypisane w całości do kosztów ogólnych nie były tu widoczne.
+
+## Wyciągi bankowe — etap B1: import wyciągów PKO BP (01.11.2026)
+
+- Plan i decyzje W1–W4: `docs/PLAN_WYCIAGI_BANKOWE.md` (rekoncyliacja z fakturami w B2, raporty w B3).
+- **Faktury → Wyciągi bankowe:** import wyciągu PDF z PKO BP (iPKO biznes). Przed zapisem podgląd: rachunek, okres, salda, liczba operacji wg rodzaju (przelew, karta/BLIK, rachunek VAT, podatek, ZUS, wynagrodzenie, opłata bankowa, wpływ) i operacje już zapisane wcześniej. Aplikacja sprawdza saldo po każdej operacji, saldo końcowe i obroty; niezgodność blokuje import. Ten sam plik nie wchodzi drugi raz, a wyciąg za nakładający się okres nie dubluje operacji.
+- Lista wyciągów i operacji wybranego wyciągu: kontrahent lub miejsce zakupu, tytuł lub numer faktury z split payment, rodzaj, kwota; wyszukiwanie i filtr rodzaju (domyślnie bez przeksięgowań VAT i opłat). Usunięcie wyciągu (z operacjami) dla uprawnienia „Usuwanie” w Fakturach; import i usunięcie trafiają do audit logu.
+- Dostęp jak do Faktur (lista osób w Ustawieniach). Nowa zależność `unpdf` (pdf.js do odczytu PDF na serwerze). Migracja `20261101064216_bank_statements`.
+
 ## Faktury: koszty ogólne w wierszu i kategorie kosztów (01.11.2026)
 
 - **Koszty ogólne w liście:** w polu projektu w wierszu jest opcja **„Koszty ogólne”** (wcześniej tylko w pasku zbiorczym). Faktura dostaje znacznik „koszty ogólne”, więc lista odróżnia ją od faktury jeszcze nieprzypisanej (odznaka „Ogólne 100%”, filtr projektu: „Do przypisania (bez decyzji)” / „Ogólne”). W karcie faktury bez projektów — pole „Koszty ogólne firmy (bez projektu)”. Faktury już wysłane / zaakceptowane bez projektu oraz z ostatnim pustym przypisaniem dostają znacznik w migracji. W eksporcie XLSX nieprzypisane mają wiersz „do przypisania”.

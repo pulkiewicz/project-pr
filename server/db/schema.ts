@@ -18,7 +18,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { ACTIVITY_KINDS, AI_JOB_KINDS, AI_JOB_STATUSES, INPUT_KINDS, QUESTION_AUDIENCES, QUESTION_STATUSES, SUGGESTION_STATUSES, type SuggestionPayload, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type QuoteInfo, type QuoteParams, HRF_STATUSES, ID_DOC_TYPES, INVOICE_EVENT_KINDS, INVOICE_STATUSES, type InvoiceManual, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
+import { ACTIVITY_KINDS, AI_JOB_KINDS, AI_JOB_STATUSES, INPUT_KINDS, QUESTION_AUDIENCES, QUESTION_STATUSES, SUGGESTION_STATUSES, type SuggestionPayload, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type QuoteInfo, type QuoteParams, HRF_STATUSES, ID_DOC_TYPES, INVOICE_EVENT_KINDS, INVOICE_STATUSES, type InvoiceManual, type BankTxKind, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -997,6 +997,67 @@ export const costInvoiceEvents = pgTable(
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [index('cost_invoice_events_invoice_idx').on(t.invoiceId, t.createdAt)],
+)
+
+// ---------------- Wyciągi bankowe (PKO BP, PDF) → rekoncyliacja z fakturami kosztowymi ----------------
+
+/** Zaimportowany wyciąg (nagłówek); kwoty w groszach. Ten sam plik nie wchodzi dwa razy (sha256). */
+export const bankStatements = pgTable(
+  'bank_statements',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    bank: text('bank').notNull(),
+    accountNumber: text('account_number').notNull(),
+    currency: text('currency').notNull().default('PLN'),
+    number: text('number').notNull(),
+    periodFrom: date('period_from', { mode: 'string' }).notNull(),
+    periodTo: date('period_to', { mode: 'string' }).notNull(),
+    openingBalance: bigint('opening_balance', { mode: 'number' }).notNull(),
+    closingBalance: bigint('closing_balance', { mode: 'number' }).notNull(),
+    creditTurnover: bigint('credit_turnover', { mode: 'number' }).notNull(),
+    debitTurnover: bigint('debit_turnover', { mode: 'number' }).notNull(),
+    fileName: text('file_name').notNull(),
+    sha256: text('sha256').notNull(),
+    importedBy: uuid('imported_by').references(() => users.id),
+    importedAt: ts('imported_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('bank_statements_sha256_uq').on(t.sha256), index('bank_statements_account_period_idx').on(t.accountNumber, t.periodFrom)],
+)
+
+/**
+ * Operacja z wyciągu. Klucz naturalny (rachunek, identyfikator operacji, typ, kwota) — wyciągi za nakładające się okresy
+ * nie dublują operacji (identyfikator bywa wspólny dla przelewu i jego opłaty, stąd typ i kwota w kluczu).
+ */
+export const bankTransactions = pgTable(
+  'bank_transactions',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    statementId: uuid('statement_id').notNull().references(() => bankStatements.id, { onDelete: 'cascade' }),
+    accountNumber: text('account_number').notNull(),
+    operationId: text('operation_id').notNull(),
+    seq: integer('seq').notNull(),
+    bookingDate: date('booking_date', { mode: 'string' }).notNull(),
+    valueDate: date('value_date', { mode: 'string' }),
+    type: text('type').notNull(),
+    amount: bigint('amount', { mode: 'number' }).notNull(),
+    balance: bigint('balance', { mode: 'number' }).notNull(),
+    description: text('description').notNull(),
+    title: text('title'),
+    counterpartyName: text('counterparty_name'),
+    counterpartyAccount: text('counterparty_account'),
+    invoiceRef: text('invoice_ref'),
+    vatAmount: bigint('vat_amount', { mode: 'number' }),
+    supplierNip: text('supplier_nip'),
+    cardHolder: text('card_holder'),
+    merchant: text('merchant'),
+    kind: text('kind').$type<BankTxKind>().notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('bank_transactions_natural_uq').on(t.accountNumber, t.operationId, t.type, t.amount),
+    index('bank_transactions_statement_idx').on(t.statementId, t.seq),
+    index('bank_transactions_booking_idx').on(t.bookingDate),
+  ],
 )
 
 // ---------------- Zarząd: pracownicy i ewidencja pojazdów (moduły `employees`, `fleet`) ----------------

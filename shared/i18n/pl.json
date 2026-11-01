@@ -356,7 +356,11 @@
     "invoice_amount_missing": "Uzupełnij kwotę netto faktury przed wysłaniem do akceptacji",
     "cost_category_exists": "Kategoria o tej nazwie już istnieje.",
     "cost_category_in_use": "Kategoria jest przypisana do faktur ({{detail}}) — można ją tylko wyłączyć.",
-    "cost_category_not_found": "Kategoria nie istnieje albo jest wyłączona."
+    "cost_category_not_found": "Kategoria nie istnieje albo jest wyłączona.",
+    "bank_file_type": "Wybierz wyciąg w formacie PDF",
+    "bank_file_too_large": "Plik większy niż 10 MB",
+    "bank_file_invalid": "Nie udało się odczytać pliku PDF",
+    "bank_statement_unrecognized": "To nie wygląda na wyciąg PKO BP (nie rozpoznano okresu, numeru, rachunku lub sald)"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -1497,7 +1501,8 @@
     },
     "tabs": {
       "list": "Faktury",
-      "projects": "Koszty per projekt"
+      "projects": "Koszty per projekt",
+      "bank": "Wyciągi bankowe"
     },
     "onlyMine": "Do mojej akceptacji",
     "number": "Numer",
@@ -1544,10 +1549,17 @@
     "noAmount": "inFakt nie odczytał wszystkich danych z pliku. Uzupełnij przynajmniej kwotę netto — bez niej nie można wysłać faktury do akceptacji.",
     "unsaved": "Masz niezapisane zmiany przypisania — zapisz je przed wysłaniem.",
     "perProject": {
-      "hint": "Netto udziałów w walucie faktury. „W toku” — faktury przypisane, wysłane do akceptacji lub odrzucone.",
-      "approved": "Zaakceptowane",
-      "other": "W toku",
-      "count": "Faktur"
+      "hint": "Netto w walucie faktury, po miesiącu wystawienia (pliki bez daty — miesiąc dodania do inFakt).",
+      "count": "Faktur",
+      "all": "Wszystkie",
+      "approvedOnly": "Tylko zaakceptowane",
+      "year": "Rok",
+      "allYears": "Wszystkie lata",
+      "unassigned": "Nieprzypisane",
+      "total": "Razem",
+      "sumPln": "Razem (PLN)",
+      "skipped": "Pominięto faktury bez kwoty netto: {{count}} — uzupełnij kwoty w karcie faktury.",
+      "empty": "Brak faktur w wybranym okresie."
     },
     "settings": {
       "title": "Faktury kosztowe (inFakt)",
@@ -1656,6 +1668,52 @@
       "matched": "Sumy godzin zgodne ze starą aplikacją we wszystkich {{checked}} zestawieniach (miesiąc × pracownik).",
       "mismatches": "Rozbieżne sumy: {{count}} z {{checked}} zestawień (miesiąc × pracownik). Różnica jest spodziewana tylko wtedy, gdy ktoś wpisał już godziny w PMO.",
       "mismatchLine": "stara aplikacja {{old}} h, PMO {{new}} h"
+    }
+  },
+  "bank": {
+    "hint": "Wyciągi PDF z PKO BP (iPKO biznes). Przed zapisem aplikacja sprawdza, czy salda po każdej operacji i saldo końcowe się zgadzają.",
+    "importPdf": "Importuj wyciąg (PDF)",
+    "import": "Importuj",
+    "empty": "Nie zaimportowano jeszcze żadnego wyciągu.",
+    "previewTitle": "Wyciąg nr {{number}}",
+    "account": "Rachunek",
+    "period": "Okres",
+    "balances": "Saldo początkowe → końcowe",
+    "opening": "Saldo początkowe",
+    "closing": "Saldo końcowe",
+    "number": "Nr wyciągu",
+    "transactions": "Operacje",
+    "importedBy": "Zaimportował",
+    "checksOk": "Odczytano {{count}} operacji — salda po każdej operacji, saldo końcowe i obroty są zgodne z wyciągiem.",
+    "errorsTitle": "Nie można zaimportować wyciągu",
+    "duplicates": "{{count}} operacji jest już w aplikacji (z wcześniejszego wyciągu) — zostaną pominięte.",
+    "imported": "Zaimportowano {{created}} operacji (pominięto {{duplicates}} już zapisanych)",
+    "deleteTitle": "Usunąć wyciąg nr {{number}}?",
+    "deleteBody": "Usuniesz wyciąg razem z jego operacjami. Plik można później zaimportować ponownie.",
+    "search": "Szukaj w opisie, typie, kwocie",
+    "kindLabel": "Rodzaj",
+    "shown": "{{shown}} z {{total}} operacji",
+    "date": "Data",
+    "type": "Typ operacji",
+    "description": "Kontrahent / opis",
+    "amount": "Kwota",
+    "kind": {
+      "transfer": "Przelew",
+      "card": "Karta / BLIK",
+      "vat_transfer": "Rachunek VAT",
+      "tax": "Podatek",
+      "zus": "ZUS",
+      "salary": "Wynagrodzenie",
+      "bank_fee": "Opłata bankowa",
+      "income": "Wpływ"
+    },
+    "issue": {
+      "format": "Błąd odczytu: {{detail}}",
+      "balance": "Niezgodne saldo — {{detail}}",
+      "closing": "Niezgodne saldo końcowe — {{detail}}",
+      "turnover": "Niezgodne obroty — {{detail}}",
+      "no_transactions": "Wyciąg nie zawiera operacji",
+      "already_imported": "Ten plik został już zaimportowany (wyciąg nr {{detail}})"
     }
   }
 }

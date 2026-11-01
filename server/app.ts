@@ -12,6 +12,7 @@ import { specRouter } from './modules/quotes/spec-routes.ts'
 import { catalogRouter } from './modules/catalog/routes.ts'
 import { aiRouter } from './modules/ai/routes.ts'
 import { invoicesRouter } from './modules/invoices/routes.ts'
+import { bankRouter } from './modules/bank/routes.ts'
 import { managementRouter } from './modules/management/routes.ts'
 import { timesheetPublicRouter } from './modules/timesheets/public.ts'
 import { timesheetsRouter } from './modules/timesheets/routes.ts'
@@ -69,6 +70,7 @@ export function createApp(deps: AppDeps) {
   app.route('/', catalogRouter)
   app.route('/', aiRouter)
   app.route('/', invoicesRouter)
+  app.route('/', bankRouter)
   app.route('/', managementRouter)
   app.route('/', timesheetsRouter)
 
