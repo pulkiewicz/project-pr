@@ -9,13 +9,14 @@ import {
   IconCalculator,
   IconCalendarWeek,
   IconCar,
-  IconClockHour4,
   IconChecklist,
   IconClipboardCheck,
+  IconClockHour4,
   IconCoin,
   IconFileText,
   IconFolder,
   IconGauge,
+  IconHelp,
   IconHistory,
   IconHome,
   IconId,
@@ -280,6 +281,7 @@ export function AppLayout() {
             <>
               {section(t('nav.management'))}
               {management.map((n) => item(n.module, n.path, t(`nav.${n.module}`), ICONS[n.module] ?? IconFileText))}
+              {can('employees', 'view') && item('management-help', '/pomoc-zarzad', t('nav.managementHelp'), IconHelp)}
             </>
           )}
           {can('admin', 'view') && (

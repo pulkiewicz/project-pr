@@ -26,6 +26,7 @@ const CrmPage = lazy(() => import('./features/crm/CrmPage').then((m) => ({ defau
 const QuotesPage = lazy(() => import('./features/quotes/QuotesPage').then((m) => ({ default: m.QuotesPage })))
 const KnowledgePage = lazy(() => import('./features/quotes/KnowledgePage').then((m) => ({ default: m.KnowledgePage })))
 const InvoicesPage = lazy(() => import('./features/invoices/InvoicesPage').then((m) => ({ default: m.InvoicesPage })))
+const ManagementHelpPage = lazy(() => import('./features/help/ManagementHelpPage').then((m) => ({ default: m.ManagementHelpPage })))
 const EmployeesPage = lazy(() => import('./features/management/EmployeesPage').then((m) => ({ default: m.EmployeesPage })))
 const TimesheetsPage = lazy(() => import('./features/timesheets/TimesheetsPage').then((m) => ({ default: m.TimesheetsPage })))
 const FleetPage = lazy(() => import('./features/management/FleetPage').then((m) => ({ default: m.FleetPage })))
@@ -101,6 +102,8 @@ export function App() {
         <Route path="/pracownicy" element={<Guard module="employees"><Suspense fallback={<Loader />}><EmployeesPage /></Suspense></Guard>} />
         <Route path="/pojazdy" element={<Guard module="fleet"><Suspense fallback={<Loader />}><FleetPage /></Suspense></Guard>} />
         <Route path="/czas-pracy" element={<Guard module="timesheets"><Suspense fallback={<Loader />}><TimesheetsPage /></Suspense></Guard>} />
+        {/* Pomoc Zarządu — dla osób z listy „Zarząd — pojazdy i pracownicy”. */}
+        <Route path="/pomoc-zarzad" element={<Guard module="employees"><Suspense fallback={<Loader />}><ManagementHelpPage /></Suspense></Guard>} />
         {SALES_NAV.filter((n) => !n.ready).map((n) => (
           <Route key={n.module} path={n.path} element={<Guard module={n.module}><ModulePlaceholder item={n} /></Guard>} />
         ))}
