@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { defaultCostStatus, type BankCostDto, type BankImportPreview, type BankImportResult, type BankStatementDetailDto, type BankStatementDto, type BankTransactionDto, type CostCategoryDto } from '#shared'
+import { defaultCostStatus, isStaffCost, netOfGross, type BankCostDto, type BankImportPreview, type BankImportResult, type BankStatementDetailDto, type BankStatementDto, type BankTransactionDto, type CostCategoryDto } from '#shared'
 import { INVOICES_SETTING_KEY } from '../../auth/access.ts'
 import { SEED_PROJECT_ID } from '../../db/seed-sql.ts'
-import { createUser, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
+import { createUser, eq, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
 import { FIXTURE_ACCOUNT, FIXTURE_OPENING, FIXTURE_PAGES, buildPkoFixture, type FixtureTx } from '../../test/pko-fixture.tsx'
 import { classify, describe as describeTx, extractPdfItems, parseMoney, parsePkoStatement } from './pko.ts'
 
@@ -180,6 +180,38 @@ describe('import przez API', () => {
     expect(cats.find((k) => k.id === fuel.id)).toMatchObject({ invoiceCount: 0, transactionCount: 1 })
     const admin = await createUser(h, 'Admin')
     expect((await req(h, 'DELETE', `/api/admin/settings/cost-categories/${fuel.id}`, admin.headers)).status).toBe(409)
+  })
+
+  it('kategoria „Pracownicze”: domyślna dla wynagrodzeń, nie do usunięcia; stawka VAT kosztu bez faktury daje netto', async () => {
+    const cats = (await (await req(h, 'GET', '/api/invoices/categories', ania.headers)).json()) as CostCategoryDto[]
+    const staff = cats.filter((k) => k.staff)
+    expect(staff).toEqual([expect.objectContaining({ name: 'Pracownicze' })])
+    expect(isStaffCost('zus', null)).toBe(true)
+    expect(isStaffCost('tax', 'N 9512591569 26M08 PIT-4')).toBe(true)
+    expect(isStaffCost('tax', 'N 9512591569 26M08 VAT-7')).toBe(false)
+    expect(isStaffCost('bank_fee', null)).toBe(false)
+
+    // Wyciąg 11/2026 (zaimportowany wyżej) ma jedną nową operację — przelew; nowy wyciąg z wynagrodzeniem.
+    const salaryTx: FixtureTx = { date: '30.11.2026', id: '6834FE90000000100', type: 'PRZELEW WYCHODZĄCY', amount: -400_000, desc: ['WYNAGRODZENIE 11/2026 15 2030 0045 1130 0000 1106 9930 ANNA NOWAK'] }
+    const buyTx: FixtureTx = { date: '30.11.2026', id: '6834FE90000000101', type: 'PRZELEW WYCHODZĄCY', amount: -12_300, desc: ['ZAKUP NARZĘDZI 12 3456 7890 1234 5678 9012 3456 SKLEP SP. Z O.O.'] }
+    await upload('/bank/import', ania, await buildPkoFixture({ number: '12/2026', pages: [[salaryTx, buyTx]] }), 'Wyciag_12.pdf')
+    const tx = await txsOf('12/2026')
+    expect(tx[0]).toMatchObject({ kind: 'salary', costStatus: 'no_invoice', costCategoryId: staff[0]!.id, costCategoryName: 'Pracownicze', vatRate: 0 })
+    expect(tx[1]).toMatchObject({ kind: 'transfer', costStatus: 'pending', costCategoryId: null })
+
+    const res = await req(h, 'PATCH', `/api/bank/transactions/${tx[1]!.id}`, ania.headers, { costStatus: 'no_invoice', vatRate: 23 })
+    expect((await res.json()) as BankTransactionDto).toMatchObject({ vatRate: 23 })
+    expect((await req(h, 'PATCH', `/api/bank/transactions/${tx[1]!.id}`, ania.headers, { vatRate: 7 })).status).toBe(422)
+    const costs = await bankCosts()
+    expect(costs.find((c) => c.id === tx[0]!.id)).toMatchObject({ amount: 400_000, net: 400_000 })
+    expect(costs.find((c) => c.id === tx[1]!.id)).toMatchObject({ amount: 12_300, vatRate: 23, net: 10_000 })
+    expect(netOfGross(10_800, 8)).toBe(10_000)
+
+    const admin = await createUser(h, 'Admin')
+    const del = await req(h, 'DELETE', `/api/admin/settings/cost-categories/${staff[0]!.id}`, admin.headers)
+    expect(del.status).toBe(409)
+    expect(((await del.json()) as { code: string }).code).toBe('cost_category_staff')
+    await h.db.delete(schema.bankStatements).where(eq(schema.bankStatements.number, '12/2026'))
   })
 
   it('usunięcie wyciągu usuwa jego operacje (z wpisem w audit logu)', async () => {

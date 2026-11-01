@@ -360,7 +360,13 @@
     "bank_file_type": "Wybierz wyciąg w formacie PDF",
     "bank_file_too_large": "Plik większy niż 10 MB",
     "bank_file_invalid": "Nie udało się odczytać pliku PDF",
-    "bank_statement_unrecognized": "To nie wygląda na wyciąg PKO BP (nie rozpoznano okresu, numeru, rachunku lub sald)"
+    "bank_statement_unrecognized": "To nie wygląda na wyciąg PKO BP (nie rozpoznano okresu, numeru, rachunku lub sald)",
+    "cost_category_staff": "Kategorii pracowniczej nie można usunąć — można zmienić jej nazwę",
+    "bank_tx_linked": "Operacja jest połączona z fakturą — najpierw ją rozłącz",
+    "bank_tx_not_expense": "Z fakturą kosztową można połączyć tylko wydatek",
+    "invoice_not_found": "Nie znaleziono faktury",
+    "bank_rule_no_counterparty": "Operacja nie ma kontrahenta ani miejsca zakupu — reguły nie da się utworzyć",
+    "bank_rule_needs_no_invoice": "Regułę tworzy się z operacji oznaczonej jako „Koszt bez faktury”"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -1549,7 +1555,7 @@
     "noAmount": "inFakt nie odczytał wszystkich danych z pliku. Uzupełnij przynajmniej kwotę netto — bez niej nie można wysłać faktury do akceptacji.",
     "unsaved": "Masz niezapisane zmiany przypisania — zapisz je przed wysłaniem.",
     "perProject": {
-      "hint": "Faktury: netto w walucie faktury, po miesiącu wystawienia (pliki bez daty — miesiąc dodania do inFakt). Płatności z wyciągów oznaczone „Koszt bez faktury”: kwota zapłacona, miesiąc operacji.",
+      "hint": "Netto: faktury po miesiącu wystawienia (pliki bez daty — miesiąc dodania do inFakt), płatności z wyciągów oznaczone „Koszt bez faktury” po miesiącu operacji (netto wg stawki VAT).",
       "count": "Faktur i płatności",
       "all": "Wszystkie",
       "approvedOnly": "Tylko zaakceptowane",
@@ -1619,9 +1625,20 @@
       "inUse": "Kategoria jest używana — można ją tylko wyłączyć",
       "newPlaceholder": "Nowa kategoria, np. Leasing",
       "add": "Dodaj",
-      "txCount": "{{count}} oper."
+      "txCount": "{{count}} oper.",
+      "staff": "kolumna „Pracownicze”",
+      "staffHint": "Koszty bez projektu z tą kategorią mają osobną kolumnę w „Kosztach per projekt”; domyślna dla wynagrodzeń, ZUS i PIT z wyciągów. Można zmienić nazwę, nie można usunąć."
     },
-    "generalShort": "Koszty ogólne"
+    "generalShort": "Koszty ogólne",
+    "pay": {
+      "label": "Zapłata",
+      "title": "Zapłata (z wyciągów)",
+      "paid": "Zapłacona",
+      "partial": "Częściowo",
+      "unpaid": "Niezapłacona",
+      "none": "Brak płatności połączonych z wyciągów.",
+      "statement": "wyciąg {{number}}"
+    }
   },
   "projectsAdmin": {
     "title": "Projekty",
@@ -1725,6 +1742,36 @@
       "excluded": "Nie jest kosztem"
     },
     "projectOnlyNoInvoice": "Projekt przypisuje się tylko kosztom bez faktury — koszt z faktury przypisz w fakturze.",
-    "onlyPending": "Tylko do ustalenia"
+    "onlyPending": "Tylko do ustalenia",
+    "vat": "VAT",
+    "vatHint": "Stawka VAT kosztu bez faktury — w kosztach per projekt liczy się netto",
+    "invoice": "Faktura",
+    "linkInvoice": "Połącz z fakturą",
+    "linkTitle": "Połącz {{amount}} · {{who}} z fakturą",
+    "linkSearch": "Szukaj: numer, sprzedawca, kwota",
+    "unpaid": "Do zapłaty",
+    "unlink": "Rozłącz",
+    "accept": "Zatwierdź propozycję",
+    "linkAuto": "połączona automatycznie",
+    "linkManual": "połączona ręcznie",
+    "match": "Dopasuj automatycznie",
+    "matched": "Połączono automatycznie: {{linked}}, z propozycjami: {{suggested}}, oznaczono regułą: {{ruled}}",
+    "summary": "Do ustalenia: {{pending}} · połączone z fakturą: {{linked}} · z propozycją: {{suggested}}",
+    "reason": {
+      "number": "Numer faktury w opisie przelewu",
+      "number_sum": "Ten sam numer w kilku przelewach — suma równa brutto",
+      "seller_amount": "Kwota równa brutto i podobny kontrahent",
+      "amount_date": "Kwota równa brutto i data ±7 dni"
+    },
+    "rule": {
+      "title": "Reguły kontrahentów ({{count}})",
+      "hint": "Operacje „do ustalenia” z kontrahentem z listy dostają przy imporcie „koszt bez faktury” z kategorią, projektem i stawką VAT z reguły. Regułę tworzy przycisk z zakładką przy operacji oznaczonej jako koszt bez faktury.",
+      "create": "Zawsze tak dla tego kontrahenta — koszt bez faktury z tą kategorią, projektem i VAT (także dla innych operacji do ustalenia)",
+      "update": "Reguła istnieje — kliknij, żeby zastąpić ją ustawieniami tej operacji",
+      "created": "Reguła dla „{{label}}” zapisana; oznaczono od razu {{count}} innych operacji",
+      "counterparty": "Kontrahent",
+      "createdBy": "Utworzył",
+      "deleteHint": "Usuń regułę — oznaczone już operacje zostają bez zmian"
+    }
   }
 }

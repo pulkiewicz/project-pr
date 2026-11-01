@@ -7,7 +7,7 @@ import dayjs from 'dayjs'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { INVOICE_EDITABLE, INVOICE_STATUSES, type CostCategoryDto, type InvoiceDto } from '#shared'
+import { INVOICE_EDITABLE, INVOICE_STATUSES, paymentState, type CostCategoryDto, type InvoiceDto } from '#shared'
 import { useAuth, useMe } from '../../auth/AuthProvider'
 import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
@@ -16,7 +16,7 @@ import { BankTab } from './BankTab'
 import { useBankCosts } from './bankApi'
 import { useBulkAllocation, useBulkCategory, useCostCategories, useInvoices, useSaveAllocation, useSetInvoiceCategory, useSyncInvoices } from './api'
 import { InvoiceDrawer } from './InvoiceDrawer'
-import { InvoiceStatusBadge, formatMoney } from './status'
+import { InvoiceStatusBadge, PaymentBadge, formatMoney } from './status'
 
 const norm = (s: string | null | undefined) => (s ?? '').toLocaleLowerCase('pl')
 
@@ -254,6 +254,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
   const categories = useMemo(() => categoriesQ.data ?? [], [categoriesQ.data])
   const [mine, setMine] = useState(false)
   const [missing, setMissing] = useState(false)
+  const [payments, setPayments] = useState<string[]>([])
 
   const filtered = useMemo(() => {
     const s = norm(search.trim())
@@ -265,9 +266,10 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
         (!project ||
           (project === 'general' ? i.general || (i.allocatedShare > 0 && i.allocatedShare < 100) : project === 'unassigned' ? !i.allocations.length && !i.general : i.allocations.some((a) => a.projectId === project))) &&
         (!categoryFilter.length || categoryFilter.includes(i.costCategoryId ?? NO_CATEGORY)) &&
+        (!payments.length || payments.includes(paymentState(i.grossPrice, i.paidAmount))) &&
         (!mine || (i.status === 'pending' && i.submittedBy !== me.user.id)),
     )
-  }, [items, search, statuses, project, categoryFilter, mine, missing, me.user.id])
+  }, [items, search, statuses, project, categoryFilter, payments, mine, missing, me.user.id])
 
   const projectOptions = useMemo(() => me.projects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })), [me.projects])
 
@@ -338,6 +340,13 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
         Cell: ({ row }) => <DescriptionCell inv={row.original} />,
       },
       { accessorKey: 'status', header: t('invoices.statusLabel'), size: 150, Cell: ({ row }) => <InvoiceStatusBadge status={row.original.status} /> },
+      {
+        id: 'payment',
+        accessorFn: (r) => paymentState(r.grossPrice, r.paidAmount),
+        header: t('invoices.pay.label'),
+        size: 130,
+        Cell: ({ row }) => <PaymentBadge inv={row.original} />,
+      },
     ],
     [t, projectOptions, categories],
   )
@@ -406,6 +415,14 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
           value={categoryFilter}
           onChange={setCategoryFilter}
         />
+        <MultiSelect
+          w={220}
+          placeholder={t('invoices.pay.label')}
+          clearable
+          data={(['unpaid', 'partial', 'paid'] as const).map((v) => ({ value: v, label: t(`invoices.pay.${v}`) }))}
+          value={payments}
+          onChange={setPayments}
+        />
         <Switch label={t('invoices.onlyMine')} checked={mine} onChange={(e) => setMine(e.currentTarget.checked)} />
         <Switch label={t('invoices.onlyMissing')} checked={missing} onChange={(e) => setMissing(e.currentTarget.checked)} />
       </Group>
@@ -414,7 +431,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
   )
 }
 
-type CostRowKind = 'project' | 'general' | 'unassigned'
+type CostRowKind = 'project' | 'staff' | 'general' | 'unassigned'
 interface CostRow {
   kind: CostRowKind
   label: string
@@ -436,6 +453,7 @@ function ProjectsTab({ items }: { items: InvoiceDto[] }) {
   const me = useMe()
   const [scope, setScope] = useState<'all' | 'approved'>('all')
   const bankCosts = useBankCosts()
+  const staff = useCostCategories().data?.find((k) => k.staff)
   const payments = useMemo(() => bankCosts.data ?? [], [bankCosts.data])
   const years = useMemo(
     () => [...new Set([...items.map((i) => costMonth(i).slice(0, 4)), ...payments.map((p) => p.bookingDate.slice(0, 4))].filter(Boolean))].sort().reverse(),
@@ -469,29 +487,33 @@ function ProjectsTab({ items }: { items: InvoiceDto[] }) {
       for (const a of i.allocations) add('project', a.projectId, `${a.projectCode} — ${a.projectName}`, i, month, a.netAmount ?? 0)
       const rest = i.netPrice - i.allocations.reduce((s, a) => s + (a.netAmount ?? 0), 0)
       if (rest === 0) continue
-      // Bez projektów i bez decyzji „koszty ogólne” — nieprzypisana; reszta z podziału % albo świadomy wybór — ogólne.
-      if (!i.allocations.length && !i.general) add('unassigned', 'unassigned', t('invoices.perProject.unassigned'), i, month, rest)
+      // Część bez projektu z kategorią „Pracownicze” — osobna kolumna; bez projektów i bez decyzji „koszty ogólne” —
+      // nieprzypisana; reszta z podziału % albo świadomy wybór — ogólne.
+      if (staff && i.costCategoryId === staff.id) add('staff', 'staff', staff.name, i, month, rest)
+      else if (!i.allocations.length && !i.general) add('unassigned', 'unassigned', t('invoices.perProject.unassigned'), i, month, rest)
       else add('general', 'general', t('invoices.general'), i, month, rest)
     }
-    // Płatności z wyciągów oznaczone „bez faktury” — kwota zapłacona, miesiąc operacji (bez akceptacji, więc w obu zakresach).
+    // Płatności z wyciągów oznaczone „bez faktury” — netto wg stawki VAT, miesiąc operacji (bez akceptacji, więc w obu zakresach).
     for (const p of payments) {
       const month = p.bookingDate.slice(0, 7)
       if (!inYear(month)) continue
       monthsSet.add(month)
-      if (p.projectId) add('project', p.projectId, `${p.projectCode} — ${p.projectName}`, p, month, p.amount)
-      else if (p.general) add('general', 'general', t('invoices.general'), p, month, p.amount)
-      else add('unassigned', 'unassigned', t('invoices.perProject.unassigned'), p, month, p.amount)
+      if (p.projectId) add('project', p.projectId, `${p.projectCode} — ${p.projectName}`, p, month, p.net)
+      else if (staff && p.costCategoryId === staff.id) add('staff', 'staff', staff.name, p, month, p.net)
+      else if (p.general) add('general', 'general', t('invoices.general'), p, month, p.net)
+      else add('unassigned', 'unassigned', t('invoices.perProject.unassigned'), p, month, p.net)
     }
-    // Projekty w kolejności z menu, potem „Ogólne” i „Nieprzypisane”; w obrębie grupy PLN przed walutami obcymi.
+    // Projekty w kolejności z menu, potem „Pracownicze”, „Ogólne” i „Nieprzypisane”; w obrębie grupy PLN przed walutami obcymi.
     const order = new Map<string, number>(me.projects.map((p, idx) => [p.id, idx]))
-    const rank = (key: string, r: CostRow) => [r.kind === 'project' ? (order.get(key.split('|')[0]!) ?? 0) : r.kind === 'general' ? 1e6 : 1e6 + 1, r.currency === 'PLN' ? '' : r.currency] as const
+    const GROUP: Record<CostRowKind, number> = { project: 0, staff: 1e6, general: 1e6 + 1, unassigned: 1e6 + 2 }
+    const rank = (key: string, r: CostRow) => [r.kind === 'project' ? (order.get(key.split('|')[0]!) ?? 0) : GROUP[r.kind], r.currency === 'PLN' ? '' : r.currency] as const
     const rows = [...acc.entries()].sort(([ka, a], [kb, b]) => {
       const [pa, ca] = rank(ka, a)
       const [pb, cb] = rank(kb, b)
       return pa - pb || ca.localeCompare(cb)
     })
     return { rows, months: [...monthsSet].sort(), skipped }
-  }, [items, payments, scope, activeYear, year, me.projects, t])
+  }, [items, payments, staff, scope, activeYear, year, me.projects, t])
 
   // Wiersz „Razem” tylko dla PLN (sumowanie walut nie ma sensu).
   const pln = rows.filter(([, r]) => r.currency === 'PLN')

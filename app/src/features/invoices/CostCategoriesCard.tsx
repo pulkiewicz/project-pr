@@ -62,6 +62,11 @@ export function CostCategoriesCard() {
                       {t('invoices.categories.count', { count: k.invoiceCount })}
                     </Badge>
                   )}
+                  {k.staff && (
+                    <Badge size="xs" variant="light" color="teal" title={t('invoices.categories.staffHint')}>
+                      {t('invoices.categories.staff')}
+                    </Badge>
+                  )}
                   {k.transactionCount > 0 && (
                     <Badge size="xs" variant="light" color="gray">
                       {t('invoices.categories.txCount', { count: k.transactionCount })}
@@ -95,8 +100,8 @@ export function CostCategoriesCard() {
                   size="sm"
                   variant="subtle"
                   color="red"
-                  disabled={k.invoiceCount + k.transactionCount > 0}
-                  title={k.invoiceCount + k.transactionCount > 0 ? t('invoices.categories.inUse') : t('app.delete')}
+                  disabled={k.staff || k.invoiceCount + k.transactionCount > 0}
+                  title={k.staff ? t('invoices.categories.staffHint') : k.invoiceCount + k.transactionCount > 0 ? t('invoices.categories.inUse') : t('app.delete')}
                   aria-label={t('app.delete')}
                   onClick={() => remove.mutate(k.id, { onError })}
                 >

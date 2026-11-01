@@ -1,5 +1,14 @@
 # Changelog
 
+## Wyciągi bankowe — etap B2: rekoncyliacja z fakturami, reguły kontrahentów, „Pracownicze”, VAT (01.11.2026)
+
+- **Łączenie operacji z fakturami kosztowymi** (N:M z kwotą). Po imporcie i przyciskiem **„Dopasuj automatycznie”** aplikacja łączy sama numer faktury z opisu przelewu + zgodną kwotę — tylko gdy dopasowanie jest jednoznaczne. Pozostałe dostają **propozycje** do zatwierdzenia jednym kliknięciem: ten sam numer w kilku przelewach o sumie równej brutto (np. „CZĘŚĆ NETTO” + „CZĘŚĆ VAT”), kwota + podobny kontrahent (faktura od 60 dni przed do 30 dni po operacji — także proformy), kwota + data ±7 dni (karty, BLIK, Przelewy24 / PayU). Ręczne łączenie z wyszukiwarką faktur i rozłączanie. Połączona operacja ma rozliczenie „Jest faktura”; zmiana statusu wymaga rozłączenia. Pasek: do ustalenia / połączone / z propozycją.
+- **Stan zapłaty faktury** (zapłacona / częściowo / niezapłacona) z połączonych płatności: kolumna i filtr na liście faktur, sekcja „Zapłata” z płatnościami w karcie faktury. Status tylko w PMO (W3).
+- **Reguły kontrahentów** (W5): przycisk przy operacji „koszt bez faktury” zapisuje regułę dla kontrahenta (rachunek, a bez niego nazwa / miejsce zakupu) z kategorią, projektem / kosztami ogólnymi i VAT; stosowana od razu do operacji „do ustalenia” i przy każdym imporcie. Lista reguł z usuwaniem w zakładce.
+- **Kategoria „Pracownicze”** (W8): domyślna dla wynagrodzeń, ZUS i PIT z wyciągów; koszty bez projektu z tą kategorią (płatności i faktury) mają osobną kolumnę w „Kosztach per projekt”. Nie do usunięcia (można zmienić nazwę).
+- **Stawka VAT kosztu bez faktury** (W9: 0 / 8 / 23%) — w kosztach per projekt liczy się netto.
+- Migracje `20261101074254_staff_category_vat_rate`, `20261101074639_bank_reconciliation`.
+
 ## Wyciągi: kategoria i rozliczenie operacji, płatności bez faktury w kosztach per projekt (01.11.2026)
 
 - **Rozliczenie operacji** w tabeli wyciągu: „Do ustalenia”, „Jest faktura” (koszt liczy się z faktury — bez podwójnego liczenia), „Koszt bez faktury”, „Nie jest kosztem”. Domyślnie przy imporcie: wynagrodzenia, ZUS, opłaty bankowe i PIT — koszt bez faktury; przeksięgowania VAT, wpływy, VAT i CIT — nie jest kosztem; przelewy i karty — do ustalenia. Przełącznik „Tylko do ustalenia”.

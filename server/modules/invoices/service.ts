@@ -2,7 +2,7 @@ import { asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { INFAKT_COST_KINDS, INVOICE_MANUAL_FIELDS, shareAmount, type InvoiceDto, type InvoiceManualField, type InvoiceEventDto, type InvoiceSettings, type InvoiceSyncResult } from '#shared'
 import type { Database } from '../../db/client.ts'
-import { appSettings, costCategories, costInvoiceAllocations, costInvoiceEvents, costInvoices, projects, users } from '../../db/schema.ts'
+import { appSettings, bankTxInvoiceLinks, costCategories, costInvoiceAllocations, costInvoiceEvents, costInvoices, projects, users } from '../../db/schema.ts'
 import type { InfaktClient, InfaktCost } from '../../integrations/infakt/types.ts'
 
 export const LAST_SYNC_KEY = 'invoices.lastSync'
@@ -145,6 +145,16 @@ export async function listInvoices(db: Database, where?: SQL): Promise<InvoiceDt
     .innerJoin(projects, eq(projects.id, costInvoiceAllocations.projectId))
     .where(where ? inArray(costInvoiceAllocations.invoiceId, rows.map((r) => r.inv.id)) : undefined)
     .orderBy(asc(projects.code))
+  // Płatności z wyciągów połączone z fakturami (rekoncyliacja).
+  const paid = new Map(
+    (
+      await db
+        .select({ invoiceId: bankTxInvoiceLinks.invoiceId, paid: sql<string>`sum(${bankTxInvoiceLinks.amount})` })
+        .from(bankTxInvoiceLinks)
+        .where(where ? inArray(bankTxInvoiceLinks.invoiceId, rows.map((r) => r.inv.id)) : undefined)
+        .groupBy(bankTxInvoiceLinks.invoiceId)
+    ).map((r) => [r.invoiceId, Number(r.paid)] as const),
+  )
   const byInvoice = new Map<string, typeof allocs>()
   for (const a of allocs) byInvoice.set(a.invoiceId, [...(byInvoice.get(a.invoiceId) ?? []), a])
 
@@ -188,6 +198,7 @@ export async function listInvoices(db: Database, where?: SQL): Promise<InvoiceDt
       submittedAt: inv.submittedAt,
       decidedByName,
       decidedAt: inv.decidedAt,
+      paidAmount: paid.get(inv.id) ?? 0,
       version: inv.version,
     }
   })

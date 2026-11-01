@@ -1,15 +1,28 @@
-import { ActionIcon, Alert, Badge, Button, FileButton, Group, List, Loader, Modal, MultiSelect, Select, Stack, Switch, Table, Text, TextInput, Tooltip } from '@mantine/core'
+import { Accordion, ActionIcon, Alert, Badge, Button, FileButton, Group, List, Loader, Modal, MultiSelect, Select, Stack, Switch, Table, Text, TextInput, Tooltip } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
-import { IconAlertTriangle, IconCircleCheck, IconSearch, IconTrash, IconUpload } from '@tabler/icons-react'
+import { IconAlertTriangle, IconBookmark, IconBookmarkFilled, IconCheck, IconCircleCheck, IconLink, IconPlus, IconSearch, IconTrash, IconUpload, IconWand, IconX } from '@tabler/icons-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BANK_TX_COST_STATUSES, BANK_TX_KINDS, type BankImportPreview, type BankTransactionDto, type BankTxCostStatus, type BankTxKind, type BankTxPatch } from '#shared'
+import { BANK_TX_COST_STATUSES, BANK_TX_KINDS, BANK_VAT_RATES, type BankImportPreview, type BankVatRate, type BankTransactionDto, type BankTxCostStatus, type BankTxKind, type BankTxPatch, type InvoiceDto } from '#shared'
 import { useAuth, useMe } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime } from '../../lib/format'
-import { useCostCategories } from './api'
-import { previewBankStatement, useBankStatement, useBankStatements, useDeleteBankStatement, useImportBankStatement, useUpdateBankTx } from './bankApi'
+import { useCostCategories, useInvoices } from './api'
+import {
+  previewBankStatement,
+  useBankRules,
+  useBankStatement,
+  useBankStatements,
+  useCreateBankRule,
+  useDeleteBankRule,
+  useDeleteBankStatement,
+  useImportBankStatement,
+  useLinkInvoice,
+  useRunMatching,
+  useUnlinkInvoice,
+  useUpdateBankTx,
+} from './bankApi'
 import { formatMoney } from './status'
 
 const KIND_COLOR: Record<BankTxKind, string> = {
@@ -103,7 +116,7 @@ function ImportModal({ file, preview, onClose }: { file: File; preview: BankImpo
             loading={commit.isPending}
             onClick={() =>
               commit.mutate(file, {
-                onSuccess: (r) => (notifications.show({ color: 'green', message: t('bank.imported', { created: r.created, duplicates: r.duplicates }) }), onClose()),
+                onSuccess: (r) => (notifications.show({ color: 'green', message: `${t('bank.imported', { created: r.created, duplicates: r.duplicates })}. ${t('bank.matched', { ...r.match })}` }), onClose()),
                 onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
               })
             }
@@ -164,6 +177,19 @@ function TxCostCells({ tx }: { tx: BankTransactionDto }) {
       <Table.Td>
         <Select
           size="xs"
+          allowDeselect={false}
+          disabled={!editable || !isCost}
+          title={isCost ? t('bank.vatHint') : undefined}
+          aria-label={t('bank.vat')}
+          data={BANK_VAT_RATES.map((r) => ({ value: String(r), label: `${r}%` }))}
+          value={isCost ? String(tx.vatRate) : null}
+          placeholder="—"
+          onChange={(v) => v && Number(v) !== tx.vatRate && save({ vatRate: Number(v) as BankVatRate })}
+        />
+      </Table.Td>
+      <Table.Td>
+        <Select
+          size="xs"
           clearable
           searchable
           disabled={!editable}
@@ -188,7 +214,162 @@ function TxCostCells({ tx }: { tx: BankTransactionDto }) {
           onChange={(v) => save(v === GENERAL ? { projectId: null, general: true } : { projectId: v, general: false })}
         />
       </Table.Td>
+      <Table.Td>{isCost && tx.ruleKey && <RuleButton tx={tx} />}</Table.Td>
     </>
+  )
+}
+
+/** „Zawsze tak dla tego kontrahenta” — reguła z bieżących ustawień operacji (kategoria, projekt, VAT). */
+function RuleButton({ tx }: { tx: BankTransactionDto }) {
+  const { t } = useTranslation()
+  const { can } = useAuth()
+  const create = useCreateBankRule()
+  const label = tx.hasRule ? t('bank.rule.update') : t('bank.rule.create')
+  return (
+    <Tooltip label={label} multiline w={260}>
+      <ActionIcon
+        variant={tx.hasRule ? 'light' : 'subtle'}
+        color={tx.hasRule ? 'teal' : 'gray'}
+        disabled={!can('invoices', 'edit')}
+        loading={create.isPending}
+        aria-label={label}
+        onClick={() =>
+          create.mutate(tx.id, {
+            onSuccess: (r) => notifications.show({ color: 'green', message: t('bank.rule.created', { label: r.rule.label, count: r.applied }) }),
+            onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+          })
+        }
+      >
+        {tx.hasRule ? <IconBookmarkFilled size={16} /> : <IconBookmark size={16} />}
+      </ActionIcon>
+    </Tooltip>
+  )
+}
+
+/** Połączone faktury (z rozłączaniem), propozycje do zatwierdzenia i ręczne łączenie. */
+function InvoiceCell({ tx, onLink }: { tx: BankTransactionDto; onLink: (tx: BankTransactionDto) => void }) {
+  const { t } = useTranslation()
+  const { can } = useAuth()
+  const canEdit = can('invoices', 'edit')
+  const link = useLinkInvoice()
+  const unlink = useUnlinkInvoice()
+  const onError = (e: unknown) => notifications.show({ color: 'red', message: errorMessage(e) })
+  const expense = tx.amount < 0 && tx.kind !== 'vat_transfer'
+  if (!expense) return <Text c="dimmed">—</Text>
+  return (
+    <Stack gap={4}>
+      {tx.links.map((l) => (
+        <Group key={l.invoiceId} gap={4} wrap="nowrap">
+          <Badge
+            variant="light"
+            color="green"
+            size="sm"
+            style={{ textTransform: 'none', maxWidth: 190 }}
+            title={`${l.sellerName ?? ''} · ${formatMoney(l.amount)}${l.source === 'auto' ? ` · ${t('bank.linkAuto')}` : ''}`}
+            leftSection={<IconLink size={12} />}
+          >
+            {l.invoiceNumber ?? t('invoices.fileNoData')}
+          </Badge>
+          {canEdit && (
+            <ActionIcon size="xs" variant="subtle" color="gray" aria-label={t('bank.unlink')} title={t('bank.unlink')} onClick={() => unlink.mutate({ txId: tx.id, invoiceId: l.invoiceId }, { onError })}>
+              <IconX size={12} />
+            </ActionIcon>
+          )}
+        </Group>
+      ))}
+      {tx.suggestions.map((sug) => (
+        <Group key={sug.invoiceId} gap={4} wrap="nowrap">
+          <Tooltip
+            multiline
+            w={280}
+            label={`${t(`bank.reason.${sug.reason}`)} · ${sug.sellerName ?? ''} · ${formatDate(sug.issueDate)} · ${t('invoices.gross')} ${formatMoney(sug.grossPrice)}`}
+          >
+            <Badge variant="outline" color="yellow" size="sm" style={{ textTransform: 'none', maxWidth: 170 }}>
+              {sug.invoiceNumber ?? sug.sellerName ?? '?'}
+            </Badge>
+          </Tooltip>
+          {canEdit && (
+            <ActionIcon size="xs" variant="light" color="green" aria-label={t('bank.accept')} title={t('bank.accept')} loading={link.isPending} onClick={() => link.mutate({ txId: tx.id, invoiceId: sug.invoiceId }, { onError })}>
+              <IconCheck size={12} />
+            </ActionIcon>
+          )}
+        </Group>
+      ))}
+      {canEdit && (tx.costStatus === 'pending' || tx.costStatus === 'invoice') && (
+        <Button size="compact-xs" variant="subtle" leftSection={<IconPlus size={12} />} onClick={() => onLink(tx)} w="fit-content">
+          {t('bank.linkInvoice')}
+        </Button>
+      )}
+    </Stack>
+  )
+}
+
+/** Ręczne połączenie: wyszukiwanie faktur (numer, sprzedawca, kwota); na górze kwota równa operacji i najbliższa data. */
+function LinkInvoiceModal({ tx, onClose }: { tx: BankTransactionDto; onClose: () => void }) {
+  const { t } = useTranslation()
+  const invoices = useInvoices()
+  const link = useLinkInvoice()
+  const [search, setSearch] = useState('')
+  const paid = -tx.amount
+  const rows = useMemo(() => {
+    const s = norm(search.trim())
+    const date = Date.parse(tx.valueDate ?? tx.bookingDate)
+    const dist = (i: InvoiceDto) => Math.abs(Date.parse(i.issueDate ?? i.infaktCreatedAt?.slice(0, 10) ?? '1970-01-01') - date)
+    return (invoices.data?.items ?? [])
+      .filter((i) => !tx.links.some((l) => l.invoiceId === i.id))
+      .filter((i) => !s || norm(i.number).includes(s) || norm(i.sellerName).includes(s) || norm(i.description).includes(s) || (i.grossPrice != null && String(i.grossPrice / 100).includes(s.replace(',', '.'))))
+      .sort((a, b) => Number(b.grossPrice != null && b.grossPrice - b.paidAmount === paid) - Number(a.grossPrice != null && a.grossPrice - a.paidAmount === paid) || dist(a) - dist(b))
+      .slice(0, 50)
+  }, [invoices.data, search, tx, paid])
+  return (
+    <Modal opened onClose={onClose} title={t('bank.linkTitle', { amount: formatMoney(paid), who: tx.counterpartyName ?? tx.merchant ?? '' })} size="xl">
+      <Stack>
+        <TextInput leftSection={<IconSearch size={16} />} placeholder={t('bank.linkSearch')} value={search} onChange={(e) => setSearch(e.currentTarget.value)} data-autofocus />
+        {invoices.isLoading ? (
+          <Loader />
+        ) : (
+          <Table highlightOnHover fz="sm">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>{t('invoices.date')}</Table.Th>
+                <Table.Th>{t('invoices.number')}</Table.Th>
+                <Table.Th>{t('invoices.seller')}</Table.Th>
+                <Table.Th ta="right">{t('invoices.gross')}</Table.Th>
+                <Table.Th ta="right">{t('bank.unpaid')}</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {rows.map((i) => {
+                const open = i.grossPrice == null ? null : i.grossPrice - i.paidAmount
+                return (
+                  <Table.Tr
+                    key={i.id}
+                    style={{ cursor: 'pointer' }}
+                    bg={open === paid ? 'var(--mantine-color-green-light)' : undefined}
+                    onClick={() =>
+                      link.mutate(
+                        { txId: tx.id, invoiceId: i.id },
+                        { onSuccess: onClose, onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }) },
+                      )
+                    }
+                  >
+                    <Table.Td>{formatDate(i.issueDate ?? i.infaktCreatedAt)}</Table.Td>
+                    <Table.Td>{i.number ?? <Text size="sm" c="dimmed" fs="italic">{i.description ?? t('invoices.fileNoData')}</Text>}</Table.Td>
+                    <Table.Td>{i.sellerName ?? '—'}</Table.Td>
+                    <Table.Td ta="right" style={{ whiteSpace: 'nowrap' }}>
+                      {formatMoney(i.grossPrice, i.currency)}
+                    </Table.Td>
+                    <Table.Td ta="right" style={{ whiteSpace: 'nowrap' }} c={open != null && open <= 0 ? 'dimmed' : undefined}>
+                      {formatMoney(open, i.currency)}
+                    </Table.Td>
+                  </Table.Tr>
+                )
+              })}
+            </Table.Tbody>
+          </Table>
+        )}
+      </Stack>
+    </Modal>
   )
 }
 
@@ -199,6 +380,9 @@ function Transactions({ id }: { id: string }) {
   // Domyślnie bez przeksięgowań VAT i opłat — zostają wydatki i wpływy.
   const [kinds, setKinds] = useState<string[]>(BANK_TX_KINDS.filter((k) => k !== 'vat_transfer' && k !== 'bank_fee'))
   const [onlyPending, setOnlyPending] = useState(false)
+  const [linking, setLinking] = useState<BankTransactionDto | null>(null)
+  const { can } = useAuth()
+  const match = useRunMatching()
   const rows = useMemo(() => {
     const s = norm(search)
     return (q.data?.transactions ?? []).filter((tx) => kinds.includes(tx.kind) && (!onlyPending || tx.costStatus === 'pending') && (!s || norm(tx.description).includes(s) || norm(tx.type).includes(s) || String(tx.amount / 100).includes(s)))
@@ -215,46 +399,144 @@ function Transactions({ id }: { id: string }) {
         <Text size="sm" c="dimmed">
           {t('bank.shown', { shown: rows.length, total: st.transactions.length })}
         </Text>
+        {can('invoices', 'edit') && (
+          <Button
+            ml="auto"
+            variant="light"
+            leftSection={<IconWand size={16} />}
+            loading={match.isPending}
+            onClick={() =>
+              match.mutate(id, {
+                onSuccess: (r) => notifications.show({ color: 'green', message: t('bank.matched', { ...r }) }),
+                onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+              })
+            }
+          >
+            {t('bank.match')}
+          </Button>
+        )}
       </Group>
-      <Table striped highlightOnHover withTableBorder fz="sm">
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th w={40}>#</Table.Th>
-            <Table.Th w={100}>{t('bank.date')}</Table.Th>
-            <Table.Th w={200}>{t('bank.type')}</Table.Th>
-            <Table.Th>{t('bank.description')}</Table.Th>
-            <Table.Th w={130}>{t('bank.kindLabel')}</Table.Th>
-            <Table.Th w={130} ta="right">
-              {t('bank.amount')}
-            </Table.Th>
-            <Table.Th w={150}>{t('bank.costStatusLabel')}</Table.Th>
-            <Table.Th w={170}>{t('invoices.category')}</Table.Th>
-            <Table.Th w={190}>{t('invoices.project')}</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {rows.map((tx) => (
-            <Table.Tr key={tx.id}>
-              <Table.Td c="dimmed">{tx.seq}</Table.Td>
-              <Table.Td>{formatDate(tx.bookingDate)}</Table.Td>
-              <Table.Td>
-                <Text size="xs">{tx.type}</Text>
-              </Table.Td>
-              <Table.Td>
-                <TxDescription tx={tx} />
-              </Table.Td>
-              <Table.Td>
-                <KindBadge kind={tx.kind} />
-              </Table.Td>
-              <Table.Td ta="right" fw={600} c={tx.amount > 0 ? 'green' : undefined} style={{ whiteSpace: 'nowrap' }}>
-                {formatMoney(tx.amount, st.currency)}
-              </Table.Td>
-              <TxCostCells tx={tx} />
+      <Text size="sm">
+        {t('bank.summary', {
+          pending: st.transactions.filter((x) => x.costStatus === 'pending').length,
+          linked: st.transactions.filter((x) => x.links.length).length,
+          suggested: st.transactions.filter((x) => x.suggestions.length).length,
+        })}
+      </Text>
+      <Table.ScrollContainer minWidth={1400}>
+        <Table striped highlightOnHover withTableBorder fz="sm">
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th w={40}>#</Table.Th>
+              <Table.Th w={100}>{t('bank.date')}</Table.Th>
+              <Table.Th>{t('bank.description')}</Table.Th>
+              <Table.Th w={130}>{t('bank.kindLabel')}</Table.Th>
+              <Table.Th w={130} ta="right">
+                {t('bank.amount')}
+              </Table.Th>
+              <Table.Th w={230}>{t('bank.invoice')}</Table.Th>
+              <Table.Th w={150}>{t('bank.costStatusLabel')}</Table.Th>
+              <Table.Th w={90}>{t('bank.vat')}</Table.Th>
+              <Table.Th w={170}>{t('invoices.category')}</Table.Th>
+              <Table.Th w={190}>{t('invoices.project')}</Table.Th>
+              <Table.Th w={40} />
             </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+          </Table.Thead>
+          <Table.Tbody>
+            {rows.map((tx) => (
+              <Table.Tr key={tx.id}>
+                <Table.Td c="dimmed">{tx.seq}</Table.Td>
+                <Table.Td>{formatDate(tx.bookingDate)}</Table.Td>
+                <Table.Td>
+                  <TxDescription tx={tx} />
+                </Table.Td>
+                <Table.Td title={tx.type}>
+                  <KindBadge kind={tx.kind} />
+                </Table.Td>
+                <Table.Td ta="right" fw={600} c={tx.amount > 0 ? 'green' : undefined} style={{ whiteSpace: 'nowrap' }}>
+                  {formatMoney(tx.amount, st.currency)}
+                </Table.Td>
+                <Table.Td>
+                  <InvoiceCell tx={tx} onLink={setLinking} />
+                </Table.Td>
+                <TxCostCells tx={tx} />
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
+      {linking && <LinkInvoiceModal tx={linking} onClose={() => setLinking(null)} />}
     </Stack>
+  )
+}
+
+/** Reguły kontrahentów (W5): lista z usuwaniem; tworzy się je przyciskiem przy operacji. */
+function RulesSection() {
+  const { t } = useTranslation()
+  const { can } = useAuth()
+  const q = useBankRules()
+  const del = useDeleteBankRule()
+  const rules = q.data ?? []
+  return (
+    <Accordion variant="contained">
+      <Accordion.Item value="rules">
+        <Accordion.Control icon={<IconBookmark size={16} />}>{t('bank.rule.title', { count: rules.length })}</Accordion.Control>
+        <Accordion.Panel>
+          <Text size="sm" c="dimmed" mb="xs">
+            {t('bank.rule.hint')}
+          </Text>
+          {rules.length > 0 && (
+            <Table fz="sm" withTableBorder>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>{t('bank.rule.counterparty')}</Table.Th>
+                  <Table.Th>{t('invoices.category')}</Table.Th>
+                  <Table.Th>{t('invoices.project')}</Table.Th>
+                  <Table.Th>{t('bank.vat')}</Table.Th>
+                  <Table.Th>{t('bank.rule.createdBy')}</Table.Th>
+                  <Table.Th w={40} />
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {rules.map((r) => (
+                  <Table.Tr key={r.id}>
+                    <Table.Td>
+                      <Text size="sm">{r.label}</Text>
+                      {r.key !== r.label && (
+                        <Text size="xs" c="dimmed">
+                          {/^\d{26}$/.test(r.key) ? formatAccount(r.key) : r.key}
+                        </Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td>{r.costCategoryName ?? '—'}</Table.Td>
+                    <Table.Td>{r.projectCode ?? (r.general ? t('invoices.general') : t('invoices.unassigned'))}</Table.Td>
+                    <Table.Td>{r.vatRate}%</Table.Td>
+                    <Table.Td>
+                      <Text size="xs">
+                        {r.createdByName ?? '—'} · {formatDateTime(r.createdAt)}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      {can('invoices', 'edit') && (
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          aria-label={t('app.delete')}
+                          title={t('bank.rule.deleteHint')}
+                          onClick={() => del.mutate(r.id, { onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }) })}
+                        >
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      )}
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          )}
+        </Accordion.Panel>
+      </Accordion.Item>
+    </Accordion>
   )
 }
 
@@ -361,6 +643,7 @@ export function BankTab() {
               ))}
             </Table.Tbody>
           </Table>
+          <RulesSection />
           {current && <Transactions id={current} />}
         </>
       )}

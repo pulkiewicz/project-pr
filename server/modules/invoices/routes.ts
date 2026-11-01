@@ -32,6 +32,7 @@ import { InfaktError } from '../../integrations/infakt/types.ts'
 import { HttpProblem, conflict, forbidden, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
 import { writeAudit } from '../audit/service.ts'
+import { invoicePayments } from '../bank/reconcile.ts'
 import { effective, getInvoice, lastSync, listEvents, listInvoices, syncInvoices } from './service.ts'
 
 export const invoicesRouter = newRouter()
@@ -47,7 +48,7 @@ async function detail(c: Context<AppEnv>, id: string): Promise<InvoiceDetailDto>
   const db = c.get('deps').db
   const dto = await getInvoice(db, id)
   if (!dto) throw notFound()
-  return { ...dto, events: await listEvents(db, id) }
+  return { ...dto, events: await listEvents(db, id), payments: await invoicePayments(db, id) }
 }
 
 /**
@@ -404,6 +405,7 @@ async function listCategories(c: Context<AppEnv>): Promise<CostCategoryDto[]> {
     active: k.active,
     invoiceCount: used.get(k.id) ?? 0,
     transactionCount: usedTx.get(k.id) ?? 0,
+    staff: k.staff,
   }))
 }
 
@@ -459,6 +461,8 @@ invoicesRouter.openapi(
     const db = c.get('deps').db
     const [cur] = await db.select().from(costCategories).where(eq(costCategories.id, id))
     if (!cur) throw notFound()
+    // „Pracownicze” ma osobną kolumnę w kosztach per projekt i jest domyślna dla wynagrodzeń — tylko zmiana nazwy.
+    if (cur.staff) throw new HttpProblem(409, 'cost_category_staff')
     const [{ n: invoices }] = (await db.select({ n: count() }).from(costInvoices).where(eq(costInvoices.costCategoryId, id))) as [{ n: number }]
     const [{ n: txs }] = (await db.select({ n: count() }).from(bankTransactions).where(eq(bankTransactions.costCategoryId, id))) as [{ n: number }]
     const n = invoices + txs

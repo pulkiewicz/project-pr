@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { InvoicePaymentDto } from './bank.ts'
 
 /**
  * Faktury kosztowe z inFakt przypisywane do projektów (proporcjonalnie, %).
@@ -110,6 +111,8 @@ export interface CostCategoryDto {
   invoiceCount: number
   /** Liczba operacji z wyciągów z tą kategorią. */
   transactionCount: number
+  /** Kategoria „Pracownicze”: koszty bez projektu z tą kategorią mają osobną kolumnę w „Kosztach per projekt”; nie do usunięcia. */
+  staff: boolean
 }
 
 const categoryName = z.string().trim().min(1).max(100)
@@ -180,6 +183,8 @@ export interface InvoiceDto {
   submittedAt: string | null
   decidedByName: string | null
   decidedAt: string | null
+  /** Suma płatności z wyciągów połączonych z fakturą (grosze). */
+  paidAmount: number
   version: number
 }
 
@@ -194,6 +199,7 @@ export interface InvoiceEventDto {
 
 export interface InvoiceDetailDto extends InvoiceDto {
   events: InvoiceEventDto[]
+  payments: InvoicePaymentDto[]
 }
 
 export interface InvoiceSyncResult {

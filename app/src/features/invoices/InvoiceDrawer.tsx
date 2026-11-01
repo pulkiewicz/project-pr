@@ -6,10 +6,10 @@ import { useTranslation } from 'react-i18next'
 import { INVOICE_EDITABLE, shareAmount, type InvoiceDetailDto } from '#shared'
 import { useAuth, useMe } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
-import { formatDateTime } from '../../lib/format'
+import { formatDate, formatDateTime } from '../../lib/format'
 import { useCostCategories, useInvoice, useInvoiceAttachments, useInvoiceTransition, useSaveAllocation, useSetInvoiceCategory, type InvoiceAction } from './api'
 import { InvoiceDetails } from './InvoiceDetails'
-import { InvoiceStatusBadge, formatMoney } from './status'
+import { InvoiceStatusBadge, PaymentBadge, formatMoney } from './status'
 
 interface Row {
   projectId: string | null
@@ -311,6 +311,42 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
                 {t('invoices.reopen')}
               </Button>
             </Group>
+          )}
+
+          <Divider label={t('invoices.pay.title')} labelPosition="left" />
+          <Group gap="xs">
+            <PaymentBadge inv={d} />
+            {d.paidAmount > 0 && (
+              <Text size="sm">
+                {formatMoney(d.paidAmount, d.currency)}
+                {d.grossPrice != null && ` / ${formatMoney(d.grossPrice, d.currency)}`}
+              </Text>
+            )}
+          </Group>
+          {d.payments.length ? (
+            <Table fz="sm" withRowBorders={false}>
+              <Table.Tbody>
+                {d.payments.map((p) => (
+                  <Table.Tr key={p.transactionId}>
+                    <Table.Td>{formatDate(p.bookingDate)}</Table.Td>
+                    <Table.Td>{t('invoices.pay.statement', { number: p.statementNumber })}</Table.Td>
+                    <Table.Td>{p.counterparty ?? '—'}</Table.Td>
+                    <Table.Td ta="right" style={{ whiteSpace: 'nowrap' }}>
+                      {formatMoney(p.amount, 'PLN')}
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="xs" c="dimmed">
+                        {p.source === 'auto' ? t('bank.linkAuto') : t('bank.linkManual')}
+                      </Text>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          ) : (
+            <Text size="sm" c="dimmed">
+              {t('invoices.pay.none')}
+            </Text>
           )}
 
           <Divider label={t('invoices.history')} labelPosition="left" />

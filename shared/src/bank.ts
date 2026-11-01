@@ -41,6 +41,17 @@ export function defaultCostStatus(kind: BankTxKind, title: string | null): BankT
   return 'pending'
 }
 
+/** Koszty pracownicze (wynagrodzenia, ZUS, zaliczki PIT) — przy imporcie dostają kategorię „Pracownicze” (flaga `staff` w słowniku). */
+export function isStaffCost(kind: BankTxKind, title: string | null): boolean {
+  return kind === 'salary' || kind === 'zus' || (kind === 'tax' && /\bPIT-?\d/i.test(title ?? ''))
+}
+
+/** Stawki VAT kosztu bez faktury; netto liczone z kwoty zapłaconej (domyślnie 0% — wynagrodzenia, ZUS, opłaty). */
+export const BANK_VAT_RATES = [0, 8, 23] as const
+export type BankVatRate = (typeof BANK_VAT_RATES)[number]
+/** Netto z brutto w groszach. */
+export const netOfGross = (gross: number, rate: number) => Math.round((gross * 100) / (100 + rate))
+
 /** Operacja odczytana z wyciągu. */
 export interface BankTxParsed {
   /** Identyfikator operacji banku; wspólny dla operacji powiązanych (przelew + opłata, split payment + przeksięgowanie VAT). */
@@ -115,6 +126,8 @@ export interface BankImportResult {
   statementId: string
   created: number
   duplicates: number
+  /** Dopasowanie automatyczne uruchomione po imporcie (dla operacji z tego wyciągu). */
+  match: BankMatchResult
 }
 
 export interface BankStatementDto extends BankStatementHeader {
@@ -126,16 +139,54 @@ export interface BankStatementDto extends BankStatementHeader {
   importedAt: string
 }
 
+/**
+ * Powód dopasowania operacji do faktury (B2):
+ * - `number` — numer faktury w opisie przelewu (z zgodną kwotą łączy się automatycznie, gdy jednoznaczne),
+ * - `number_sum` — ten sam numer w kilku przelewach, których suma daje brutto (np. „CZĘŚĆ NETTO” + „CZĘŚĆ VAT”),
+ * - `seller_amount` — kwota równa brutto i podobny kontrahent, faktura od 60 dni przed do 30 dni po operacji,
+ * - `amount_date` — sama kwota i data (±7 dni) — karty, BLIK, Przelewy24 / PayU.
+ */
+export const BANK_MATCH_REASONS = ['number', 'number_sum', 'seller_amount', 'amount_date'] as const
+export type BankMatchReason = (typeof BANK_MATCH_REASONS)[number]
+
+/** Powiązanie operacji z fakturą kosztową; `amount` — część operacji rozliczona tą fakturą (grosze, dodatnia). */
+export interface BankLinkDto {
+  invoiceId: string
+  invoiceNumber: string | null
+  sellerName: string | null
+  amount: number
+  /** `auto` — połączone przez aplikację (numer + kwota), `manual` — przez użytkownika (także zatwierdzona propozycja). */
+  source: 'auto' | 'manual'
+}
+
+/** Propozycja połączenia (do zatwierdzenia jednym kliknięciem). */
+export interface BankSuggestionDto {
+  invoiceId: string
+  invoiceNumber: string | null
+  sellerName: string | null
+  issueDate: string | null
+  grossPrice: number | null
+  /** Kwota, która zostanie połączona (mniejsza z: nierozliczona część operacji, niezapłacona część faktury). */
+  amount: number
+  reason: BankMatchReason
+}
+
 export interface BankTransactionDto extends Omit<BankTxParsed, 'seq'> {
   id: string
   statementId: string
   seq: number
+  links: BankLinkDto[]
+  suggestions: BankSuggestionDto[]
+  /** Reguła kontrahenta, którą można utworzyć / która istnieje dla tej operacji (klucz: rachunek, nazwa albo miejsce). */
+  ruleKey: string | null
+  hasRule: boolean
   costStatus: BankTxCostStatus
   costCategoryId: string | null
   costCategoryName: string | null
   /** Projekt kosztu bez faktury; bez projektu: `general` — koszty ogólne, inaczej nieprzypisana. */
   projectId: string | null
   general: boolean
+  vatRate: number
 }
 
 export interface BankStatementDetailDto extends BankStatementDto {
@@ -148,18 +199,92 @@ export const bankTxPatch = z.object({
   costCategoryId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
   general: z.boolean().optional(),
+  vatRate: z.union(BANK_VAT_RATES.map((r) => z.literal(r)) as [z.ZodLiteral<0>, z.ZodLiteral<8>, z.ZodLiteral<23>]).optional(),
 })
 export type BankTxPatch = z.input<typeof bankTxPatch>
 
-/** Koszt bez faktury do „Kosztów per projekt”: kwota zapłacona (dodatnia, grosze), miesiąc z daty operacji. */
+/** Koszt bez faktury do „Kosztów per projekt”: kwota zapłacona i netto wg stawki VAT (dodatnie, grosze), miesiąc z daty operacji. */
 export interface BankCostDto {
   id: string
   bookingDate: string
   amount: number
+  vatRate: number
+  net: number
   currency: string
   projectId: string | null
   projectCode: string | null
   projectName: string | null
   general: boolean
   costCategoryId: string | null
+}
+
+export const bankLinkInput = z.object({ invoiceId: z.uuid() })
+export const bankMatchInput = z.object({ statementId: z.uuid().optional() })
+
+export interface BankMatchResult {
+  /** Połączone automatycznie (numer faktury + kwota). */
+  linked: number
+  /** Operacje z propozycjami do zatwierdzenia. */
+  suggested: number
+  /** Operacje oznaczone regułą kontrahenta jako koszt bez faktury. */
+  ruled: number
+}
+
+/**
+ * Reguła kontrahenta (decyzja W5): operacje „do ustalenia” z tym kontrahentem dostają „koszt bez faktury”
+ * z kategorią, projektem / kosztami ogólnymi i stawką VAT — przy imporcie i od razu po utworzeniu reguły.
+ */
+export interface BankRuleDto {
+  id: string
+  /** Rachunek kontrahenta (26 cyfr) albo znormalizowana nazwa / miejsce zakupu. */
+  key: string
+  label: string
+  costCategoryId: string | null
+  costCategoryName: string | null
+  projectId: string | null
+  projectCode: string | null
+  general: boolean
+  vatRate: number
+  createdByName: string | null
+  createdAt: string
+}
+export const bankRuleInput = z.object({ transactionId: z.uuid() })
+export interface BankRuleResult {
+  rule: BankRuleDto
+  /** Inne operacje „do ustalenia” tego kontrahenta oznaczone od razu. */
+  applied: number
+}
+
+/** Klucz reguły: rachunek kontrahenta, a bez niego nazwa lub miejsce zakupu (wielkie litery, bez znaków diakrytycznych i interpunkcji). */
+export function counterpartyKey(tx: { counterpartyAccount: string | null; counterpartyName: string | null; merchant: string | null }): string | null {
+  if (tx.counterpartyAccount) return tx.counterpartyAccount
+  const name = tx.counterpartyName ?? tx.merchant
+  if (!name) return null
+  const k = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ł/gi, 'L')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim()
+  return k || null
+}
+
+/** Płatność faktury (z wyciągu) — w karcie faktury. */
+export interface InvoicePaymentDto {
+  transactionId: string
+  statementId: string
+  statementNumber: string
+  bookingDate: string
+  /** Część operacji rozliczona tą fakturą (grosze, dodatnia). */
+  amount: number
+  counterparty: string | null
+  source: 'auto' | 'manual'
+}
+
+export type InvoicePaymentState = 'paid' | 'partial' | 'unpaid'
+/** Stan zapłaty z połączonych płatności; faktura bez kwoty brutto z jakąkolwiek płatnością — zapłacona. */
+export function paymentState(grossPrice: number | null, paidAmount: number): InvoicePaymentState {
+  if (paidAmount <= 0) return 'unpaid'
+  return grossPrice == null || paidAmount >= grossPrice ? 'paid' : 'partial'
 }

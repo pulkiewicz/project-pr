@@ -924,11 +924,13 @@ export const costCategories = pgTable(
     name: text('name').notNull(),
     /** Wyłączona: nie do wyboru dla nowych przypisań; faktury z tą kategorią ją zachowują. */
     active: boolean('active').notNull().default(true),
+    /** Kategoria „Pracownicze” (dokładnie jedna) — osobna kolumna w kosztach per projekt, domyślna dla wynagrodzeń i ZUS z wyciągów. */
+    staff: boolean('staff').notNull().default(false),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
     updatedBy: uuid('updated_by'),
   },
-  (t) => [uniqueIndex('cost_categories_name_uq').on(sql`lower(${t.name})`)],
+  (t) => [uniqueIndex('cost_categories_name_uq').on(sql`lower(${t.name})`), uniqueIndex('cost_categories_staff_uq').on(t.staff).where(sql`${t.staff}`)],
 )
 
 export const costInvoices = pgTable(
@@ -1057,6 +1059,8 @@ export const bankTransactions = pgTable(
     projectId: uuid('project_id').references(() => projects.id),
     /** Świadomie koszty ogólne (bez projektu) — jak w fakturach. */
     general: boolean('general').notNull().default(false),
+    /** Stawka VAT kosztu bez faktury (`BANK_VAT_RATES`) — w kosztach per projekt liczy się netto. */
+    vatRate: integer('vat_rate').notNull().default(0),
     updatedAt: ts('updated_at'),
     updatedBy: uuid('updated_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -1067,6 +1071,39 @@ export const bankTransactions = pgTable(
     index('bank_transactions_statement_idx').on(t.statementId, t.seq),
     index('bank_transactions_booking_idx').on(t.bookingDate),
   ],
+)
+
+/** Powiązanie operacji z wyciągu z fakturą kosztową (N:M); `amount` — część operacji rozliczona fakturą (grosze, dodatnia). */
+export const bankTxInvoiceLinks = pgTable(
+  'bank_tx_invoice_links',
+  {
+    transactionId: uuid('transaction_id').notNull().references(() => bankTransactions.id, { onDelete: 'cascade' }),
+    invoiceId: uuid('invoice_id').notNull().references(() => costInvoices.id, { onDelete: 'cascade' }),
+    amount: bigint('amount', { mode: 'number' }).notNull(),
+    /** `auto` — numer faktury + kwota, `manual` — użytkownik (także zatwierdzona propozycja). */
+    source: text('source').$type<'auto' | 'manual'>().notNull(),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.transactionId, t.invoiceId] }), index('bank_tx_invoice_links_invoice_idx').on(t.invoiceId)],
+)
+
+/** Reguła kontrahenta (W5): operacje „do ustalenia” z tym kontrahentem → koszt bez faktury z tymi ustawieniami. */
+export const bankCounterpartyRules = pgTable(
+  'bank_counterparty_rules',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    /** Rachunek kontrahenta albo znormalizowana nazwa / miejsce zakupu (`counterpartyKey`). */
+    key: text('key').notNull(),
+    label: text('label').notNull(),
+    costCategoryId: uuid('cost_category_id').references(() => costCategories.id, { onDelete: 'set null' }),
+    projectId: uuid('project_id').references(() => projects.id),
+    general: boolean('general').notNull().default(false),
+    vatRate: integer('vat_rate').notNull().default(0),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('bank_counterparty_rules_key_uq').on(t.key)],
 )
 
 // ---------------- Zarząd: pracownicy i ewidencja pojazdów (moduły `employees`, `fleet`) ----------------

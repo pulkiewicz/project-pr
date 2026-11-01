@@ -1,8 +1,9 @@
 import { and, count, desc, eq, inArray, sql, type SQL } from 'drizzle-orm'
-import { defaultCostStatus, type BankCostDto, type BankImportPreview, type BankStatementDetailDto, type BankStatementDto, type BankTransactionDto, type BankTxKind } from '#shared'
+import { BANK_TX_NEEDS_INVOICE, counterpartyKey, defaultCostStatus, isStaffCost, netOfGross, type BankCostDto, type BankImportPreview, type BankStatementDetailDto, type BankStatementDto, type BankTransactionDto, type BankTxKind } from '#shared'
 import type { Database } from '../../db/client.ts'
 import { bankStatements, bankTransactions, costCategories, projects, users } from '../../db/schema.ts'
 import type { ParsedStatement } from './pko.ts'
+import { linksFor, ruleKeys, suggestionsFor } from './reconcile.ts'
 
 const key = (t: { operationId: string; type: string; amount: number }) => `${t.operationId}|${t.type}|${t.amount}`
 
@@ -44,11 +45,12 @@ export async function commitImport(db: Database, preview: BankImportPreview, fil
       .values({ ...preview.statement, fileName: file.name, sha256: file.sha256, importedBy: userId })
       .returning({ id: bankStatements.id })
     const fresh = preview.transactions.filter((t) => !t.duplicate)
+    const [staff] = await tx.select({ id: costCategories.id }).from(costCategories).where(eq(costCategories.staff, true))
     let created = 0
     for (let i = 0; i < fresh.length; i += 200) {
       const inserted = await tx
         .insert(bankTransactions)
-        .values(fresh.slice(i, i + 200).map(({ duplicate: _d, ...t }) => ({ ...t, statementId: st!.id, accountNumber: preview.statement.accountNumber, costStatus: defaultCostStatus(t.kind, t.title) })))
+        .values(fresh.slice(i, i + 200).map(({ duplicate: _d, ...t }) => ({ ...t, statementId: st!.id, accountNumber: preview.statement.accountNumber, costStatus: defaultCostStatus(t.kind, t.title), costCategoryId: staff && isStaffCost(t.kind, t.title) ? staff.id : null })))
         .onConflictDoNothing()
         .returning({ id: bankTransactions.id })
       created += inserted.length
@@ -102,7 +104,13 @@ export async function listTransactions(db: Database, where: SQL): Promise<BankTr
     .leftJoin(costCategories, eq(costCategories.id, bankTransactions.costCategoryId))
     .where(where)
     .orderBy(bankTransactions.seq)
-  return rows.map(({ tx: { accountNumber: _a, createdAt: _c, updatedAt: _u, updatedBy: _b, ...t }, costCategoryName }) => ({ ...t, costCategoryName }))
+  const ids = rows.map((r) => r.tx.id)
+  const pending = rows.filter((r) => r.tx.costStatus === 'pending' && BANK_TX_NEEDS_INVOICE.includes(r.tx.kind) && r.tx.amount < 0).map((r) => r.tx.id)
+  const [links, suggestions, rules] = await Promise.all([linksFor(db, ids), suggestionsFor(db, pending), ruleKeys(db)])
+  return rows.map(({ tx: { accountNumber: _a, createdAt: _c, updatedAt: _u, updatedBy: _b, ...t }, costCategoryName }) => {
+    const ruleKey = counterpartyKey(t)
+    return { ...t, costCategoryName, links: links.get(t.id) ?? [], suggestions: suggestions.get(t.id) ?? [], ruleKey, hasRule: !!ruleKey && rules.has(ruleKey) }
+  })
 }
 
 /** Koszty bez faktury (do „Kosztów per projekt”): kwota zapłacona jako dodatnia, waluta rachunku. */
@@ -112,6 +120,7 @@ export async function listBankCosts(db: Database): Promise<BankCostDto[]> {
       id: bankTransactions.id,
       bookingDate: bankTransactions.bookingDate,
       amount: bankTransactions.amount,
+      vatRate: bankTransactions.vatRate,
       currency: bankStatements.currency,
       projectId: bankTransactions.projectId,
       projectCode: projects.code,
@@ -124,7 +133,7 @@ export async function listBankCosts(db: Database): Promise<BankCostDto[]> {
     .leftJoin(projects, eq(projects.id, bankTransactions.projectId))
     .where(eq(bankTransactions.costStatus, 'no_invoice'))
     .orderBy(bankTransactions.bookingDate)
-  return rows.map((r) => ({ ...r, amount: -r.amount }))
+  return rows.map((r) => ({ ...r, amount: -r.amount, net: netOfGross(-r.amount, r.vatRate) }))
 }
 
 export async function statementExists(db: Database, id: string) {

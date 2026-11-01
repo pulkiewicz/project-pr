@@ -53,7 +53,7 @@ z fakturą, a operacje bez połączenia zostaną do ustalenia.
 | Etap | Zakres | Kryterium odbioru |
 |---|---|---|
 | **B1** ✅ | Odczyt PDF PKO BP, tabele `bank_statements` i `bank_transactions`, import z podglądem (kontrola sald, rodzaje operacji, duplikaty), lista wyciągów i operacji w zakładce, usuwanie wyciągu | Wyciąg 9/2026: 133 operacje, salda zgodne. Ten sam plik nie wchodzi drugi raz. Wyciąg za nakładający się okres nie dubluje operacji |
-| **B2** | Rekoncyliacja: powiązania operacja ↔ faktura (N:M z kwotą), silnik dopasowań (reguły niżej), auto-łączenie pewnych, propozycje do zatwierdzenia, ręczne łączenie i rozłączanie, „nie wymaga faktury” z powodem. Status zapłaty faktury (zapłacona / częściowo / niezapłacona) w liście, filtrze i karcie faktury | Dla wyciągu 9/2026 każda operacja z numerem faktury, która jest w inFakt, łączy się sama. Pozostałe wydatki mają propozycję albo trafiają na listę „bez faktury” |
+| **B2** ✅ | Rekoncyliacja: powiązania operacja ↔ faktura (N:M z kwotą), silnik dopasowań (reguły niżej), auto-łączenie pewnych, propozycje do zatwierdzenia, ręczne łączenie i rozłączanie, „nie wymaga faktury” z powodem. Status zapłaty faktury (zapłacona / częściowo / niezapłacona) w liście, filtrze i karcie faktury | Dla wyciągu 9/2026 każda operacja z numerem faktury, która jest w inFakt, łączy się sama. Pozostałe wydatki mają propozycję albo trafiają na listę „bez faktury” |
 | **B3** | Raporty: wydatki bez faktury (do uzupełnienia w inFakt), faktury niezapłacone i po terminie, ciągłość wyciągów (saldo początkowe = końcowe poprzedniego), eksport XLSX | Lista braków za wrzesień do przekazania księgowej |
 
 ## Reguły dopasowania (B2, projekt)

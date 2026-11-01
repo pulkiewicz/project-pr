@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { BankCostDto, BankImportPreview, BankImportResult, BankStatementDetailDto, BankStatementDto, BankTransactionDto, BankTxPatch } from '#shared'
+import type { BankCostDto, BankImportPreview, BankImportResult, BankMatchResult, BankRuleDto, BankRuleResult, BankStatementDetailDto, BankStatementDto, BankTransactionDto, BankTxPatch } from '#shared'
 import { api } from '../../lib/api'
 
 export const useBankStatements = () => useQuery({ queryKey: ['bank', 'statements'], queryFn: () => api<BankStatementDto[]>('/bank/statements') })
@@ -43,5 +43,57 @@ export function useUpdateBankTx() {
       void qc.invalidateQueries({ queryKey: ['bank', 'costs'] })
       void qc.invalidateQueries({ queryKey: ['invoices', 'categories'] })
     },
+  })
+}
+
+/** Odpowiedź zmiany to aktualny wiersz operacji — podmiana w wyciągu; faktury (zapłata) i koszty odświeżane w tle. */
+function useSetTx() {
+  const qc = useQueryClient()
+  return (tx: BankTransactionDto) => {
+    qc.setQueryData<BankStatementDetailDto>(['bank', 'statement', tx.statementId], (old) => old && { ...old, transactions: old.transactions.map((t) => (t.id === tx.id ? tx : t)) })
+    void qc.invalidateQueries({ queryKey: ['bank', 'costs'] })
+    void qc.invalidateQueries({ queryKey: ['invoices'] })
+  }
+}
+
+export function useLinkInvoice() {
+  const setTx = useSetTx()
+  return useMutation({
+    mutationFn: ({ txId, invoiceId }: { txId: string; invoiceId: string }) => api<BankTransactionDto>(`/bank/transactions/${txId}/links`, { method: 'POST', json: { invoiceId } }),
+    onSuccess: setTx,
+  })
+}
+
+export function useUnlinkInvoice() {
+  const setTx = useSetTx()
+  return useMutation({
+    mutationFn: ({ txId, invoiceId }: { txId: string; invoiceId: string }) => api<BankTransactionDto>(`/bank/transactions/${txId}/links/${invoiceId}`, { method: 'DELETE' }),
+    onSuccess: setTx,
+  })
+}
+
+export function useRunMatching() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (statementId?: string) => api<BankMatchResult>('/bank/match', { method: 'POST', json: { statementId } }),
+    onSuccess: () => (void qc.invalidateQueries({ queryKey: ['bank'] }), void qc.invalidateQueries({ queryKey: ['invoices'] })),
+  })
+}
+
+export const useBankRules = () => useQuery({ queryKey: ['bank', 'rules'], queryFn: () => api<BankRuleDto[]>('/bank/rules') })
+
+export function useCreateBankRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (transactionId: string) => api<BankRuleResult>('/bank/rules', { method: 'POST', json: { transactionId } }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['bank'] }),
+  })
+}
+
+export function useDeleteBankRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api<{ ok: true }>(`/bank/rules/${id}`, { method: 'DELETE' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['bank'] }),
   })
 }
