@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { BankCostDto, BankImportPreview, BankImportResult, BankMatchResult, BankRuleDto, BankRuleResult, BankStatementDetailDto, BankStatementDto, BankTransactionDto, BankTxPatch } from '#shared'
+import type { BankCostDto, BankReportDto, BankImportPreview, BankImportResult, BankMatchResult, BankRuleDto, BankRuleResult, BankStatementDetailDto, BankStatementDto, BankTransactionDto, BankTxPatch } from '#shared'
 import { api } from '../../lib/api'
 
 export const useBankStatements = () => useQuery({ queryKey: ['bank', 'statements'], queryFn: () => api<BankStatementDto[]>('/bank/statements') })
@@ -97,3 +97,15 @@ export function useDeleteBankRule() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['bank'] }),
   })
 }
+
+const reportQuery = (range: { from?: string | null; to?: string | null }) => {
+  const q = new URLSearchParams()
+  if (range.from) q.set('from', range.from)
+  if (range.to) q.set('to', range.to)
+  const s = q.toString()
+  return s ? `?${s}` : ''
+}
+export const bankReportPath = (range: { from?: string | null; to?: string | null }, xlsx = false) => `/bank/report${xlsx ? '.xlsx' : ''}${reportQuery(range)}`
+
+export const useBankReport = (range: { from: string | null; to: string | null }) =>
+  useQuery({ queryKey: ['bank', 'report', range.from ?? '', range.to ?? ''], queryFn: () => api<BankReportDto>(bankReportPath(range)) })

@@ -1,5 +1,13 @@
 # Changelog
 
+## Wyciągi bankowe — etap B3: rozliczenia i raporty (01.11.2026)
+
+- **Faktury → Rozliczenia** — raport za okres (domyślnie okres zaimportowanych wyciągów, z wyborem dat):
+  - **Ciągłość wyciągów** (każdy rachunek osobno): brakujący wyciąg między okresami, nakładające się okresy, saldo początkowe różne od końcowego poprzedniego wyciągu.
+  - **Wydatki bez faktury**: przelewy i płatności kartą „do ustalenia” oraz oznaczone „jest faktura” bez połączenia (z adnotacją „faktura do podpięcia”), z sumą — lista do uzupełnienia w inFakt.
+  - **Faktury niezapłacone** (bez połączonych płatności lub zapłacone częściowo) z kwotą do zapłaty i liczbą dni po terminie, najpierw najdłużej po terminie; kliknięcie otwiera kartę faktury.
+- **Eksport XLSX** `rozliczenia-{od}_{do}.xlsx`: arkusze „Bez faktury”, „Niezapłacone”, „Ciągłość wyciągów” (uprawnienie „Eksport” w Fakturach, wpis w audit logu).
+
 ## Wyciągi bankowe — etap B2: rekoncyliacja z fakturami, reguły kontrahentów, „Pracownicze”, VAT (01.11.2026)
 
 - **Łączenie operacji z fakturami kosztowymi** (N:M z kwotą). Po imporcie i przyciskiem **„Dopasuj automatycznie”** aplikacja łączy sama numer faktury z opisu przelewu + zgodną kwotę — tylko gdy dopasowanie jest jednoznaczne. Pozostałe dostają **propozycje** do zatwierdzenia jednym kliknięciem: ten sam numer w kilku przelewach o sumie równej brutto (np. „CZĘŚĆ NETTO” + „CZĘŚĆ VAT”), kwota + podobny kontrahent (faktura od 60 dni przed do 30 dni po operacji — także proformy), kwota + data ±7 dni (karty, BLIK, Przelewy24 / PayU). Ręczne łączenie z wyszukiwarką faktur i rozłączanie. Połączona operacja ma rozliczenie „Jest faktura”; zmiana statusu wymaga rozłączenia. Pasek: do ustalenia / połączone / z propozycją.

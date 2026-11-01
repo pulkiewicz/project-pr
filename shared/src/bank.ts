@@ -288,3 +288,84 @@ export function paymentState(grossPrice: number | null, paidAmount: number): Inv
   if (paidAmount <= 0) return 'unpaid'
   return grossPrice == null || paidAmount >= grossPrice ? 'paid' : 'partial'
 }
+
+// ---------------- Raporty (B3) ----------------
+
+/** Problem ciągłości wyciągów jednego rachunku (kolejne wyciągi wg okresu). */
+export interface BankContinuityIssue {
+  accountNumber: string
+  /** `gap` — brakujące dni między wyciągami, `overlap` — okresy się nakładają, `balance` — saldo początkowe ≠ końcowe poprzedniego. */
+  kind: 'gap' | 'overlap' | 'balance'
+  prevNumber: string
+  nextNumber: string
+  prevTo: string
+  nextFrom: string
+  prevClosing: number
+  nextOpening: number
+}
+
+/** Wydatek bez faktury: „do ustalenia” albo „jest faktura” bez połączenia. */
+export interface BankReportTxDto {
+  id: string
+  statementId: string
+  statementNumber: string
+  bookingDate: string
+  /** Kwota zapłacona (grosze, dodatnia). */
+  amount: number
+  currency: string
+  counterparty: string | null
+  /** Numer faktury z split payment albo tytuł przelewu. */
+  reference: string | null
+  cardHolder: string | null
+  kind: BankTxKind
+  costStatus: BankTxCostStatus
+}
+
+export interface BankReportInvoiceDto {
+  id: string
+  number: string | null
+  sellerName: string | null
+  issueDate: string | null
+  dueDate: string | null
+  currency: string
+  grossPrice: number | null
+  paidAmount: number
+  /** Do zapłaty (brutto − zapłacone); null — faktura bez kwoty. */
+  openAmount: number | null
+  /** Dni po terminie (> 0) albo null, gdy termin nie minął / brak terminu. */
+  overdueDays: number | null
+}
+
+export interface BankReportDto {
+  from: string
+  to: string
+  /** Okres pokryty zaimportowanymi wyciągami (null — brak wyciągów). */
+  coverage: { from: string; to: string } | null
+  continuity: BankContinuityIssue[]
+  missing: BankReportTxDto[]
+  unpaid: BankReportInvoiceDto[]
+}
+
+const nextDay = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)
+
+/** Ciągłość wyciągów: dla każdego rachunku kolejne wyciągi (wg początku okresu) muszą stykać się dniami i saldami. */
+export function statementContinuity(
+  statements: { accountNumber: string; number: string; periodFrom: string; periodTo: string; openingBalance: number; closingBalance: number }[],
+): BankContinuityIssue[] {
+  const out: BankContinuityIssue[] = []
+  const byAccount = new Map<string, typeof statements>()
+  for (const s of statements) byAccount.set(s.accountNumber, [...(byAccount.get(s.accountNumber) ?? []), s])
+  for (const [accountNumber, list] of byAccount) {
+    const sorted = [...list].sort((a, b) => a.periodFrom.localeCompare(b.periodFrom) || a.periodTo.localeCompare(b.periodTo))
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1]!
+      const next = sorted[i]!
+      const base = { accountNumber, prevNumber: prev.number, nextNumber: next.number, prevTo: prev.periodTo, nextFrom: next.periodFrom, prevClosing: prev.closingBalance, nextOpening: next.openingBalance }
+      const expected = nextDay(prev.periodTo)
+      if (next.periodFrom > expected) out.push({ ...base, kind: 'gap' })
+      else if (next.periodFrom < expected) out.push({ ...base, kind: 'overlap' })
+      else if (next.openingBalance !== prev.closingBalance) out.push({ ...base, kind: 'balance' })
+    }
+  }
+  return out
+}

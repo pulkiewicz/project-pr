@@ -1508,7 +1508,8 @@
     "tabs": {
       "list": "Faktury",
       "projects": "Koszty per projekt",
-      "bank": "Wyciągi bankowe"
+      "bank": "Wyciągi bankowe",
+      "reports": "Rozliczenia"
     },
     "onlyMine": "Do mojej akceptacji",
     "number": "Numer",
@@ -1772,6 +1773,29 @@
       "counterparty": "Kontrahent",
       "createdBy": "Utworzył",
       "deleteHint": "Usuń regułę — oznaczone już operacje zostają bez zmian"
+    },
+    "report": {
+      "from": "Od",
+      "to": "Do",
+      "coverage": "Okres wyciągów",
+      "coverageInfo": "Wyciągi: {{from}} – {{to}}",
+      "export": "Eksport XLSX",
+      "noStatements": "Nie zaimportowano jeszcze wyciągów — raport wydatków bez faktury będzie pusty.",
+      "continuityTitle": "Ciągłość wyciągów — do sprawdzenia",
+      "continuityOk": "Wyciągi są ciągłe: okresy stykają się, a saldo początkowe każdego wyciągu równa się końcowemu poprzedniego.",
+      "continuity": {
+        "gap": "Brakuje wyciągu: po nr {{prev}} (do {{prevTo}}) następny nr {{next}} zaczyna się {{nextFrom}}.",
+        "overlap": "Wyciągi nr {{prev}} (do {{prevTo}}) i nr {{next}} (od {{nextFrom}}) mają nakładające się okresy.",
+        "balance": "Saldo początkowe wyciągu nr {{next}} ({{opening}}) ≠ saldo końcowe nr {{prev}} ({{closing}}) — brakuje operacji albo wyciągu."
+      },
+      "missingTitle": "Wydatki bez faktury: {{count}}",
+      "missingHint": "Przelewy i płatności kartą „do ustalenia” oraz oznaczone „jest faktura” bez połączenia — do uzupełnienia w inFakt albo oznaczenia jako koszt bez faktury.",
+      "statement": "Wyciąg",
+      "reference": "Tytuł / nr faktury",
+      "toLink": "faktura do podpięcia",
+      "unpaidTitle": "Faktury niezapłacone: {{count}}",
+      "unpaidHint": "Faktury z okresu bez połączonych płatności z wyciągów (lub zapłacone częściowo); najpierw najdłużej po terminie. Kliknij wiersz, aby otworzyć kartę faktury. Faktury opłacone z innego rachunku albo przed pierwszym wyciągiem też się tu pojawią.",
+      "overdue": "{{count}} dni po terminie"
     }
   }
 }

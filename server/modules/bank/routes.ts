@@ -9,6 +9,8 @@ import { HttpProblem, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
 import { writeAudit } from '../audit/service.ts'
 import { extractPdfItems, parsePkoStatement } from './pko.ts'
+import { todayWarsaw } from '../../lib/dates.ts'
+import { buildReport, reportWorkbook } from './report.ts'
 import { createRule, deleteRule, linkInvoice, linksFor, listRules, runMatching, unlinkInvoice } from './reconcile.ts'
 import { buildPreview, commitImport, getStatement, listBankCosts, listStatements, listTransactions, statementExists } from './service.ts'
 
@@ -200,3 +202,33 @@ bankRouter.openapi(route({ method: 'delete', path: '/bank/rules/{id}', request: 
   await writeAudit(c, { action: 'bank.rule_delete', entity: 'bank_counterparty_rules', entityId: id, changes: r })
   return c.json({ ok: true }, 200)
 })
+
+// ---------------- Raporty (B3) ----------------
+
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+const reportQuery = z.object({ from: isoDate.optional(), to: isoDate.optional() })
+const today = (c: Context<AppEnv>) => todayWarsaw(c.get('deps').now?.() ?? new Date())
+
+bankRouter.openapi(route({ method: 'get', path: '/bank/report', request: { query: reportQuery }, responses: ok }, 'view'), async (c) =>
+  c.json(await buildReport(c.get('deps').db, today(c), c.req.valid('query')), 200),
+)
+
+bankRouter.openapi(
+  route(
+    {
+      method: 'get',
+      path: '/bank/report.xlsx',
+      request: { query: reportQuery },
+      responses: { 200: { description: 'XLSX', content: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { schema: z.any() } } } },
+    },
+    'export',
+  ),
+  async (c) => {
+    const r = await buildReport(c.get('deps').db, today(c), c.req.valid('query'))
+    await writeAudit(c, { action: 'bank.report_xlsx', entity: 'bank_statements', changes: { from: r.from, to: r.to, missing: r.missing.length, unpaid: r.unpaid.length } })
+    return c.body(await reportWorkbook(r), 200, {
+      'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'content-disposition': `attachment; filename="rozliczenia-${r.from}_${r.to}.xlsx"`,
+    })
+  },
+)

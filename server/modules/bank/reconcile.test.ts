@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { BankImportResult, BankMatchResult, BankRuleDto, BankRuleResult, BankStatementDetailDto, BankStatementDto, BankTransactionDto, InvoiceDetailDto, InvoiceListResponse } from '#shared'
-import { counterpartyKey, paymentState } from '#shared'
+import { counterpartyKey, paymentState, statementContinuity, type BankReportDto } from '#shared'
 import { INVOICES_SETTING_KEY } from '../../auth/access.ts'
 import { createUser, eq, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
 import { FIXTURE_PAGES, buildPkoFixture, type FixtureTx } from '../../test/pko-fixture.tsx'
@@ -182,5 +182,53 @@ describe('rekoncyliacja przez API', () => {
     expect(rules).toHaveLength(1)
     expect((await req(h, 'DELETE', `/api/bank/rules/${rule.id}`, ania.headers)).status).toBe(200)
     expect((await txsOf('11/2026'))[0]).toMatchObject({ costStatus: 'no_invoice', hasRule: false })
+  })
+
+  it('raport rozliczeń: ciągłość, wydatki bez faktury, faktury niezapłacone i po terminie; eksport XLSX', async () => {
+    // Przelew split payment rozłączony z FV/1/2026 — wraca na listę braków, a faktura do niezapłaconych.
+    const split = (await txsOf('10/2026'))[2]!
+    await req(h, 'DELETE', `/api/bank/transactions/${split.id}/links/${ids.fv1}`, ania.headers)
+    await h.db.update(schema.costInvoices).set({ issueDate: '2026-10-02', dueDate: '2026-10-10' }).where(eq(schema.costInvoices.id, ids.fv1))
+
+    const res = await req(h, 'GET', '/api/bank/report', ania.headers)
+    expect(res.status).toBe(200)
+    const r = (await res.json()) as BankReportDto
+    expect(r).toMatchObject({ from: '2026-10-01', to: '2026-10-31', coverage: { from: '2026-10-01', to: '2026-10-31' } })
+    // Wyciąg testowy 11/2026 ma w nagłówku ten sam okres co 10/2026 — nakładanie się okresów.
+    expect(r.continuity).toEqual([expect.objectContaining({ kind: 'overlap', prevNumber: expect.any(String), nextNumber: expect.any(String) })])
+    expect(r.missing.map((x) => x.id)).toContain(split.id)
+    expect(r.missing.find((x) => x.id === split.id)).toMatchObject({ amount: 123_000, reference: 'FV/1/2026', counterparty: 'HURTOWNIA TEST S.A.', costStatus: 'pending' })
+    // Połączone i oznaczone jako koszt bez faktury nie są brakami.
+    expect(r.missing.every((x) => x.costStatus === 'pending' || x.costStatus === 'invoice')).toBe(true)
+    const fv1 = r.unpaid.find((x) => x.id === ids.fv1)!
+    expect(fv1).toMatchObject({ number: 'FV/1/2026', grossPrice: 123_000, paidAmount: 0, openAmount: 123_000 })
+    expect(fv1.overdueDays).toBeGreaterThan(0)
+    expect(r.unpaid[0]!.id).toBe(ids.fv1)
+    // Zapłacona (połączona) faktura nie jest na liście.
+    expect(r.unpaid.map((x) => x.number)).not.toContain('FV 12/10/2026')
+
+    // Okres bez operacji.
+    const empty = (await (await req(h, 'GET', '/api/bank/report?from=2025-01-01&to=2025-01-31', ania.headers)).json()) as BankReportDto
+    expect(empty).toMatchObject({ from: '2025-01-01', to: '2025-01-31', missing: [], unpaid: [] })
+    expect((await req(h, 'GET', '/api/bank/report?from=2025-1-1', ania.headers)).status).toBe(422)
+
+    const xlsx = await req(h, 'GET', '/api/bank/report.xlsx', ania.headers)
+    expect(xlsx.status).toBe(200)
+    expect(xlsx.headers.get('content-disposition')).toContain('rozliczenia-2026-10-01_2026-10-31.xlsx')
+    expect((await xlsx.arrayBuffer()).byteLength).toBeGreaterThan(1000)
+    expect((await req(h, 'GET', '/api/bank/report', outsider.headers)).status).toBe(403)
+  })
+})
+
+describe('ciągłość wyciągów', () => {
+  const st = (number: string, periodFrom: string, periodTo: string, openingBalance: number, closingBalance: number, accountNumber = 'A') => ({ accountNumber, number, periodFrom, periodTo, openingBalance, closingBalance })
+  it('styk dni i sald; brakujący miesiąc, nakładanie, niezgodne saldo; rachunki osobno', () => {
+    expect(statementContinuity([st('9/2026', '2026-09-01', '2026-09-30', 0, 100), st('10/2026', '2026-10-01', '2026-10-31', 100, 50)])).toEqual([])
+    expect(statementContinuity([st('10/2026', '2026-10-01', '2026-10-31', 100, 50), st('8/2026', '2026-08-01', '2026-08-31', 0, 100)])).toEqual([
+      expect.objectContaining({ kind: 'gap', prevNumber: '8/2026', nextNumber: '10/2026', prevTo: '2026-08-31', nextFrom: '2026-10-01' }),
+    ])
+    expect(statementContinuity([st('9/2026', '2026-09-01', '2026-09-30', 0, 100), st('9a', '2026-09-15', '2026-10-15', 100, 50)])[0]).toMatchObject({ kind: 'overlap' })
+    expect(statementContinuity([st('9/2026', '2026-09-01', '2026-09-30', 0, 100), st('10/2026', '2026-10-01', '2026-10-31', 90, 50)])[0]).toMatchObject({ kind: 'balance', prevClosing: 100, nextOpening: 90 })
+    expect(statementContinuity([st('9/2026', '2026-09-01', '2026-09-30', 0, 100, 'A'), st('10/2026', '2026-10-01', '2026-10-31', 5, 50, 'B')])).toEqual([])
   })
 })

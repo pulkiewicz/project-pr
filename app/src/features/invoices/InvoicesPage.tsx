@@ -14,6 +14,7 @@ import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime } from '../../lib/format'
 import { BankTab } from './BankTab'
 import { useBankCosts } from './bankApi'
+import { ReportsTab } from './ReportsTab'
 import { useBulkAllocation, useBulkCategory, useCostCategories, useInvoices, useSaveAllocation, useSetInvoiceCategory, useSyncInvoices } from './api'
 import { InvoiceDrawer } from './InvoiceDrawer'
 import { InvoiceStatusBadge, PaymentBadge, formatMoney } from './status'
@@ -677,6 +678,7 @@ export function InvoicesPage() {
             <Tabs.Tab value="list">{t('invoices.tabs.list')}</Tabs.Tab>
             <Tabs.Tab value="projects">{t('invoices.tabs.projects')}</Tabs.Tab>
             <Tabs.Tab value="bank">{t('invoices.tabs.bank')}</Tabs.Tab>
+            <Tabs.Tab value="reports">{t('invoices.tabs.reports')}</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="list" pt="sm">
             <ListTab items={data.items} onOpen={setOpen} />
@@ -686,6 +688,9 @@ export function InvoicesPage() {
           </Tabs.Panel>
           <Tabs.Panel value="bank" pt="sm">
             <BankTab />
+          </Tabs.Panel>
+          <Tabs.Panel value="reports" pt="sm">
+            <ReportsTab onOpen={setOpen} />
           </Tabs.Panel>
         </Tabs>
       )}
