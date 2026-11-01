@@ -1549,8 +1549,8 @@
     "noAmount": "inFakt nie odczytał wszystkich danych z pliku. Uzupełnij przynajmniej kwotę netto — bez niej nie można wysłać faktury do akceptacji.",
     "unsaved": "Masz niezapisane zmiany przypisania — zapisz je przed wysłaniem.",
     "perProject": {
-      "hint": "Netto w walucie faktury, po miesiącu wystawienia (pliki bez daty — miesiąc dodania do inFakt).",
-      "count": "Faktur",
+      "hint": "Faktury: netto w walucie faktury, po miesiącu wystawienia (pliki bez daty — miesiąc dodania do inFakt). Płatności z wyciągów oznaczone „Koszt bez faktury”: kwota zapłacona, miesiąc operacji.",
+      "count": "Faktur i płatności",
       "all": "Wszystkie",
       "approvedOnly": "Tylko zaakceptowane",
       "year": "Rok",
@@ -1559,7 +1559,8 @@
       "total": "Razem",
       "sumPln": "Razem (PLN)",
       "skipped": "Pominięto faktury bez kwoty netto: {{count}} — uzupełnij kwoty w karcie faktury.",
-      "empty": "Brak faktur w wybranym okresie."
+      "empty": "Brak faktur w wybranym okresie.",
+      "month": "Miesiąc"
     },
     "settings": {
       "title": "Faktury kosztowe (inFakt)",
@@ -1617,7 +1618,8 @@
       "active": "Aktywna",
       "inUse": "Kategoria jest używana — można ją tylko wyłączyć",
       "newPlaceholder": "Nowa kategoria, np. Leasing",
-      "add": "Dodaj"
+      "add": "Dodaj",
+      "txCount": "{{count}} oper."
     },
     "generalShort": "Koszty ogólne"
   },
@@ -1671,7 +1673,7 @@
     }
   },
   "bank": {
-    "hint": "Wyciągi PDF z PKO BP (iPKO biznes). Przed zapisem aplikacja sprawdza, czy salda po każdej operacji i saldo końcowe się zgadzają.",
+    "hint": "Wyciągi PDF z PKO BP (iPKO biznes). Przed zapisem aplikacja sprawdza, czy salda po każdej operacji i saldo końcowe się zgadzają. Operacje oznaczone „Koszt bez faktury” wchodzą do „Kosztów per projekt” kwotą zapłaconą.",
     "importPdf": "Importuj wyciąg (PDF)",
     "import": "Importuj",
     "empty": "Nie zaimportowano jeszcze żadnego wyciągu.",
@@ -1714,6 +1716,15 @@
       "turnover": "Niezgodne obroty — {{detail}}",
       "no_transactions": "Wyciąg nie zawiera operacji",
       "already_imported": "Ten plik został już zaimportowany (wyciąg nr {{detail}})"
-    }
+    },
+    "costStatusLabel": "Rozliczenie",
+    "costStatus": {
+      "pending": "Do ustalenia",
+      "invoice": "Jest faktura",
+      "no_invoice": "Koszt bez faktury",
+      "excluded": "Nie jest kosztem"
+    },
+    "projectOnlyNoInvoice": "Projekt przypisuje się tylko kosztom bez faktury — koszt z faktury przypisz w fakturze.",
+    "onlyPending": "Tylko do ustalenia"
   }
 }

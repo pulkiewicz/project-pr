@@ -27,7 +27,7 @@ import {
 } from '#shared'
 import { INVOICES_SETTING_KEY, invoiceSettings } from '../../auth/access.ts'
 import type { AppEnv } from '../../context.ts'
-import { appSettings, costCategories, costInvoiceAllocations, costInvoiceEvents, costInvoices, projects, users } from '../../db/schema.ts'
+import { appSettings, bankTransactions, costCategories, costInvoiceAllocations, costInvoiceEvents, costInvoices, projects, users } from '../../db/schema.ts'
 import { InfaktError } from '../../integrations/infakt/types.ts'
 import { HttpProblem, conflict, forbidden, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
@@ -395,7 +395,16 @@ async function listCategories(c: Context<AppEnv>): Promise<CostCategoryDto[]> {
   const used = new Map(
     (await db.select({ id: costInvoices.costCategoryId, n: count() }).from(costInvoices).groupBy(costInvoices.costCategoryId)).map((r) => [r.id, r.n] as const),
   )
-  return (await db.select().from(costCategories).orderBy(asc(costCategories.name))).map((k) => ({ id: k.id, name: k.name, active: k.active, invoiceCount: used.get(k.id) ?? 0 }))
+  const usedTx = new Map(
+    (await db.select({ id: bankTransactions.costCategoryId, n: count() }).from(bankTransactions).groupBy(bankTransactions.costCategoryId)).map((r) => [r.id, r.n] as const),
+  )
+  return (await db.select().from(costCategories).orderBy(asc(costCategories.name))).map((k) => ({
+    id: k.id,
+    name: k.name,
+    active: k.active,
+    invoiceCount: used.get(k.id) ?? 0,
+    transactionCount: usedTx.get(k.id) ?? 0,
+  }))
 }
 
 
@@ -450,8 +459,10 @@ invoicesRouter.openapi(
     const db = c.get('deps').db
     const [cur] = await db.select().from(costCategories).where(eq(costCategories.id, id))
     if (!cur) throw notFound()
-    const [{ n }] = (await db.select({ n: count() }).from(costInvoices).where(eq(costInvoices.costCategoryId, id))) as [{ n: number }]
-    // Używanej kategorii nie usuwamy (faktury straciłyby klasyfikację) — można ją wyłączyć.
+    const [{ n: invoices }] = (await db.select({ n: count() }).from(costInvoices).where(eq(costInvoices.costCategoryId, id))) as [{ n: number }]
+    const [{ n: txs }] = (await db.select({ n: count() }).from(bankTransactions).where(eq(bankTransactions.costCategoryId, id))) as [{ n: number }]
+    const n = invoices + txs
+    // Używanej kategorii nie usuwamy (faktury i operacje z wyciągów straciłyby klasyfikację) — można ją wyłączyć.
     if (n > 0) throw new HttpProblem(409, 'cost_category_in_use', String(n))
     await db.delete(costCategories).where(eq(costCategories.id, id))
     await writeAudit(c, { action: 'settings.cost_category_delete', entity: 'cost_categories', entityId: id, changes: { name: cur.name } })

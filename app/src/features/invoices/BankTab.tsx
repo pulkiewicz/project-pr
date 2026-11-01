@@ -1,14 +1,15 @@
-import { ActionIcon, Alert, Badge, Button, FileButton, Group, List, Loader, Modal, MultiSelect, Stack, Table, Text, TextInput, Tooltip } from '@mantine/core'
+import { ActionIcon, Alert, Badge, Button, FileButton, Group, List, Loader, Modal, MultiSelect, Select, Stack, Switch, Table, Text, TextInput, Tooltip } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
 import { IconAlertTriangle, IconCircleCheck, IconSearch, IconTrash, IconUpload } from '@tabler/icons-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BANK_TX_KINDS, type BankImportPreview, type BankTransactionDto, type BankTxKind } from '#shared'
-import { useAuth } from '../../auth/AuthProvider'
+import { BANK_TX_COST_STATUSES, BANK_TX_KINDS, type BankImportPreview, type BankTransactionDto, type BankTxCostStatus, type BankTxKind, type BankTxPatch } from '#shared'
+import { useAuth, useMe } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime } from '../../lib/format'
-import { previewBankStatement, useBankStatement, useBankStatements, useDeleteBankStatement, useImportBankStatement } from './bankApi'
+import { useCostCategories } from './api'
+import { previewBankStatement, useBankStatement, useBankStatements, useDeleteBankStatement, useImportBankStatement, useUpdateBankTx } from './bankApi'
 import { formatMoney } from './status'
 
 const KIND_COLOR: Record<BankTxKind, string> = {
@@ -133,16 +134,75 @@ function TxDescription({ tx }: { tx: BankTransactionDto }) {
   )
 }
 
+const GENERAL = 'general'
+
+/** Rozliczenie, kategoria i projekt operacji — edycja w wierszu (uprawnienie „Edycja” w Fakturach). */
+function TxCostCells({ tx }: { tx: BankTransactionDto }) {
+  const { t } = useTranslation()
+  const { can } = useAuth()
+  const me = useMe()
+  const categories = useCostCategories().data ?? []
+  const update = useUpdateBankTx()
+  const editable = can('invoices', 'edit') && !update.isPending
+  const save = (patch: BankTxPatch) => update.mutate({ id: tx.id, patch }, { onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }) })
+  const categoryData = categories.filter((k) => k.active || k.id === tx.costCategoryId).map((k) => ({ value: k.id, label: k.name }))
+  const isCost = tx.costStatus === 'no_invoice'
+  return (
+    <>
+      <Table.Td>
+        <Select
+          size="xs"
+          allowDeselect={false}
+          disabled={!editable}
+          aria-label={t('bank.costStatusLabel')}
+          data={BANK_TX_COST_STATUSES.map((v) => ({ value: v, label: t(`bank.costStatus.${v}`) }))}
+          value={tx.costStatus}
+          onChange={(v) => v && v !== tx.costStatus && save({ costStatus: v as BankTxCostStatus })}
+          styles={{ input: { color: tx.costStatus === 'pending' ? 'var(--mantine-color-orange-8)' : undefined } }}
+        />
+      </Table.Td>
+      <Table.Td>
+        <Select
+          size="xs"
+          clearable
+          searchable
+          disabled={!editable}
+          placeholder={t('invoices.categoryPick')}
+          aria-label={t('invoices.category')}
+          data={categoryData}
+          value={tx.costCategoryId}
+          onChange={(v) => v !== tx.costCategoryId && save({ costCategoryId: v })}
+        />
+      </Table.Td>
+      <Table.Td>
+        <Select
+          size="xs"
+          clearable
+          searchable
+          disabled={!editable || !isCost}
+          title={isCost ? undefined : t('bank.projectOnlyNoInvoice')}
+          placeholder={isCost ? t('invoices.unassigned') : '—'}
+          aria-label={t('invoices.project')}
+          data={[{ value: GENERAL, label: t('invoices.general') }, ...me.projects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` }))]}
+          value={isCost ? (tx.projectId ?? (tx.general ? GENERAL : null)) : null}
+          onChange={(v) => save(v === GENERAL ? { projectId: null, general: true } : { projectId: v, general: false })}
+        />
+      </Table.Td>
+    </>
+  )
+}
+
 function Transactions({ id }: { id: string }) {
   const { t } = useTranslation()
   const q = useBankStatement(id)
   const [search, setSearch] = useState('')
   // Domyślnie bez przeksięgowań VAT i opłat — zostają wydatki i wpływy.
   const [kinds, setKinds] = useState<string[]>(BANK_TX_KINDS.filter((k) => k !== 'vat_transfer' && k !== 'bank_fee'))
+  const [onlyPending, setOnlyPending] = useState(false)
   const rows = useMemo(() => {
     const s = norm(search)
-    return (q.data?.transactions ?? []).filter((tx) => kinds.includes(tx.kind) && (!s || norm(tx.description).includes(s) || norm(tx.type).includes(s) || String(tx.amount / 100).includes(s)))
-  }, [q.data, search, kinds])
+    return (q.data?.transactions ?? []).filter((tx) => kinds.includes(tx.kind) && (!onlyPending || tx.costStatus === 'pending') && (!s || norm(tx.description).includes(s) || norm(tx.type).includes(s) || String(tx.amount / 100).includes(s)))
+  }, [q.data, search, kinds, onlyPending])
   if (q.isLoading) return <Loader />
   if (q.error) return <Alert color="red">{errorMessage(q.error)}</Alert>
   const st = q.data!
@@ -151,6 +211,7 @@ function Transactions({ id }: { id: string }) {
       <Group gap="sm" align="flex-end">
         <TextInput w={260} leftSection={<IconSearch size={16} />} placeholder={t('bank.search')} value={search} onChange={(e) => setSearch(e.currentTarget.value)} aria-label={t('bank.search')} />
         <MultiSelect w={480} placeholder={t('bank.kindLabel')} data={BANK_TX_KINDS.map((k) => ({ value: k, label: t(`bank.kind.${k}`) }))} value={kinds} onChange={setKinds} clearable />
+        <Switch label={t('bank.onlyPending')} checked={onlyPending} onChange={(e) => setOnlyPending(e.currentTarget.checked)} />
         <Text size="sm" c="dimmed">
           {t('bank.shown', { shown: rows.length, total: st.transactions.length })}
         </Text>
@@ -162,10 +223,13 @@ function Transactions({ id }: { id: string }) {
             <Table.Th w={100}>{t('bank.date')}</Table.Th>
             <Table.Th w={200}>{t('bank.type')}</Table.Th>
             <Table.Th>{t('bank.description')}</Table.Th>
-            <Table.Th w={140}>{t('bank.kindLabel')}</Table.Th>
-            <Table.Th w={140} ta="right">
+            <Table.Th w={130}>{t('bank.kindLabel')}</Table.Th>
+            <Table.Th w={130} ta="right">
               {t('bank.amount')}
             </Table.Th>
+            <Table.Th w={150}>{t('bank.costStatusLabel')}</Table.Th>
+            <Table.Th w={170}>{t('invoices.category')}</Table.Th>
+            <Table.Th w={190}>{t('invoices.project')}</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -185,6 +249,7 @@ function Transactions({ id }: { id: string }) {
               <Table.Td ta="right" fw={600} c={tx.amount > 0 ? 'green' : undefined} style={{ whiteSpace: 'nowrap' }}>
                 {formatMoney(tx.amount, st.currency)}
               </Table.Td>
+              <TxCostCells tx={tx} />
             </Table.Tr>
           ))}
         </Table.Tbody>

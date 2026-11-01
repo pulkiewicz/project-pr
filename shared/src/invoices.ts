@@ -108,6 +108,8 @@ export interface CostCategoryDto {
   active: boolean
   /** Liczba faktur z tą kategorią (kategorii używanej nie można usunąć — tylko wyłączyć). */
   invoiceCount: number
+  /** Liczba operacji z wyciągów z tą kategorią. */
+  transactionCount: number
 }
 
 const categoryName = z.string().trim().min(1).max(100)

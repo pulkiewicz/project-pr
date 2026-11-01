@@ -13,6 +13,7 @@ import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime } from '../../lib/format'
 import { BankTab } from './BankTab'
+import { useBankCosts } from './bankApi'
 import { useBulkAllocation, useBulkCategory, useCostCategories, useInvoices, useSaveAllocation, useSetInvoiceCategory, useSyncInvoices } from './api'
 import { InvoiceDrawer } from './InvoiceDrawer'
 import { InvoiceStatusBadge, formatMoney } from './status'
@@ -434,7 +435,12 @@ function ProjectsTab({ items }: { items: InvoiceDto[] }) {
   const { t } = useTranslation()
   const me = useMe()
   const [scope, setScope] = useState<'all' | 'approved'>('all')
-  const years = useMemo(() => [...new Set(items.map((i) => costMonth(i).slice(0, 4)).filter(Boolean))].sort().reverse(), [items])
+  const bankCosts = useBankCosts()
+  const payments = useMemo(() => bankCosts.data ?? [], [bankCosts.data])
+  const years = useMemo(
+    () => [...new Set([...items.map((i) => costMonth(i).slice(0, 4)), ...payments.map((p) => p.bookingDate.slice(0, 4))].filter(Boolean))].sort().reverse(),
+    [items, payments],
+  )
   const [year, setYear] = useState<string | null>(null)
   const activeYear = year ?? years[0] ?? null
 
@@ -442,7 +448,7 @@ function ProjectsTab({ items }: { items: InvoiceDto[] }) {
     const acc = new Map<string, CostRow>()
     const monthsSet = new Set<string>()
     let skipped = 0
-    const add = (kind: CostRowKind, key: string, label: string, i: InvoiceDto, month: string, cents: number) => {
+    const add = (kind: CostRowKind, key: string, label: string, i: { id: string; currency: string }, month: string, cents: number) => {
       const k = `${key}|${i.currency}`
       const r = acc.get(k) ?? { kind, label, currency: i.currency, byMonth: new Map(), total: 0, invoices: new Set() }
       r.byMonth.set(month, (r.byMonth.get(month) ?? 0) + cents)
@@ -450,10 +456,11 @@ function ProjectsTab({ items }: { items: InvoiceDto[] }) {
       r.invoices.add(i.id)
       acc.set(k, r)
     }
+    const inYear = (month: string) => !activeYear || year === 'all' || month.startsWith(activeYear)
     for (const i of items) {
       if (scope === 'approved' && i.status !== 'approved') continue
       const month = costMonth(i)
-      if (activeYear && year !== 'all' && !month.startsWith(activeYear)) continue
+      if (!inYear(month)) continue
       if (i.netPrice == null) {
         skipped += 1
         continue
@@ -466,6 +473,15 @@ function ProjectsTab({ items }: { items: InvoiceDto[] }) {
       if (!i.allocations.length && !i.general) add('unassigned', 'unassigned', t('invoices.perProject.unassigned'), i, month, rest)
       else add('general', 'general', t('invoices.general'), i, month, rest)
     }
+    // Płatności z wyciągów oznaczone „bez faktury” — kwota zapłacona, miesiąc operacji (bez akceptacji, więc w obu zakresach).
+    for (const p of payments) {
+      const month = p.bookingDate.slice(0, 7)
+      if (!inYear(month)) continue
+      monthsSet.add(month)
+      if (p.projectId) add('project', p.projectId, `${p.projectCode} — ${p.projectName}`, p, month, p.amount)
+      else if (p.general) add('general', 'general', t('invoices.general'), p, month, p.amount)
+      else add('unassigned', 'unassigned', t('invoices.perProject.unassigned'), p, month, p.amount)
+    }
     // Projekty w kolejności z menu, potem „Ogólne” i „Nieprzypisane”; w obrębie grupy PLN przed walutami obcymi.
     const order = new Map<string, number>(me.projects.map((p, idx) => [p.id, idx]))
     const rank = (key: string, r: CostRow) => [r.kind === 'project' ? (order.get(key.split('|')[0]!) ?? 0) : r.kind === 'general' ? 1e6 : 1e6 + 1, r.currency === 'PLN' ? '' : r.currency] as const
@@ -475,7 +491,7 @@ function ProjectsTab({ items }: { items: InvoiceDto[] }) {
       return pa - pb || ca.localeCompare(cb)
     })
     return { rows, months: [...monthsSet].sort(), skipped }
-  }, [items, scope, activeYear, year, me.projects, t])
+  }, [items, payments, scope, activeYear, year, me.projects, t])
 
   // Wiersz „Razem” tylko dla PLN (sumowanie walut nie ma sensu).
   const pln = rows.filter(([, r]) => r.currency === 'PLN')
@@ -513,52 +529,61 @@ function ProjectsTab({ items }: { items: InvoiceDto[] }) {
           {t('invoices.perProject.skipped', { count: skipped })}
         </Text>
       )}
+      {/* Projekty w kolumnach, miesiące w wierszach; przy wielu projektach tabela przewija się w poziomie. */}
       <Table.ScrollContainer minWidth={600}>
         <Table withTableBorder striped fz="sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
           <Table.Thead>
             <Table.Tr>
-              <Table.Th>{t('invoices.project')}</Table.Th>
-              {months.map((m) => (
-                <Table.Th key={m} ta="right" style={{ whiteSpace: 'nowrap' }}>
-                  {monthLabel(m)}
+              <Table.Th>{t('invoices.perProject.month')}</Table.Th>
+              {rows.map(([key, r]) => (
+                <Table.Th key={key} ta="right" c={r.kind === 'unassigned' ? 'orange.8' : r.kind === 'general' ? 'dimmed' : undefined} style={{ whiteSpace: 'nowrap' }}>
+                  {r.label}
+                  {r.currency !== 'PLN' ? ` (${r.currency})` : ''}
                 </Table.Th>
               ))}
-              <Table.Th ta="right">{t('invoices.perProject.total')}</Table.Th>
-              <Table.Th ta="right">{t('invoices.perProject.count')}</Table.Th>
+              {pln.length > 0 && <Table.Th ta="right">{t('invoices.perProject.sumPln')}</Table.Th>}
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {rows.map(([key, r]) => (
-              <Table.Tr key={key}>
-                <Table.Td c={r.kind === 'unassigned' ? 'orange.8' : r.kind === 'general' ? 'dimmed' : undefined} style={{ whiteSpace: 'nowrap' }}>
-                  {r.label}
-                  {r.currency !== 'PLN' ? ` (${r.currency})` : ''}
-                </Table.Td>
-                {months.map((m) => (
-                  <Table.Td key={m} ta="right" c={r.byMonth.get(m) ? undefined : 'dimmed'} style={{ whiteSpace: 'nowrap' }}>
+            {months.map((m) => (
+              <Table.Tr key={m}>
+                <Table.Td style={{ whiteSpace: 'nowrap' }}>{monthLabel(m)}</Table.Td>
+                {rows.map(([key, r]) => (
+                  <Table.Td key={key} ta="right" c={r.byMonth.get(m) ? undefined : 'dimmed'} style={{ whiteSpace: 'nowrap' }}>
                     {r.byMonth.get(m) ? formatMoney(r.byMonth.get(m)!, r.currency) : '·'}
                   </Table.Td>
                 ))}
-                <Table.Td ta="right" fw={600} style={{ whiteSpace: 'nowrap' }}>
-                  {formatMoney(r.total, r.currency)}
-                </Table.Td>
-                <Table.Td ta="right">{r.invoices.size}</Table.Td>
+                {pln.length > 0 && (
+                  <Table.Td ta="right" fw={600} style={{ whiteSpace: 'nowrap' }}>
+                    {formatMoney(pln.reduce((s, [, r]) => s + (r.byMonth.get(m) ?? 0), 0), 'PLN')}
+                  </Table.Td>
+                )}
               </Table.Tr>
             ))}
           </Table.Tbody>
-          {pln.length > 0 && (
+          {rows.length > 0 && (
             <Table.Tfoot>
               <Table.Tr style={{ fontWeight: 600 }}>
-                <Table.Td>{t('invoices.perProject.sumPln')}</Table.Td>
-                {months.map((m) => (
-                  <Table.Td key={m} ta="right" style={{ whiteSpace: 'nowrap' }}>
-                    {formatMoney(pln.reduce((s, [, r]) => s + (r.byMonth.get(m) ?? 0), 0), 'PLN')}
+                <Table.Td>{t('invoices.perProject.total')}</Table.Td>
+                {rows.map(([key, r]) => (
+                  <Table.Td key={key} ta="right" style={{ whiteSpace: 'nowrap' }}>
+                    {formatMoney(r.total, r.currency)}
                   </Table.Td>
                 ))}
-                <Table.Td ta="right" style={{ whiteSpace: 'nowrap' }}>
-                  {formatMoney(pln.reduce((s, [, r]) => s + r.total, 0), 'PLN')}
-                </Table.Td>
-                <Table.Td />
+                {pln.length > 0 && (
+                  <Table.Td ta="right" style={{ whiteSpace: 'nowrap' }}>
+                    {formatMoney(pln.reduce((s, [, r]) => s + r.total, 0), 'PLN')}
+                  </Table.Td>
+                )}
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td>{t('invoices.perProject.count')}</Table.Td>
+                {rows.map(([key, r]) => (
+                  <Table.Td key={key} ta="right">
+                    {r.invoices.size}
+                  </Table.Td>
+                ))}
+                {pln.length > 0 && <Table.Td />}
               </Table.Tr>
             </Table.Tfoot>
           )}

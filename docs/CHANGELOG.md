@@ -1,5 +1,12 @@
 # Changelog
 
+## Wyciągi: kategoria i rozliczenie operacji, płatności bez faktury w kosztach per projekt (01.11.2026)
+
+- **Rozliczenie operacji** w tabeli wyciągu: „Do ustalenia”, „Jest faktura” (koszt liczy się z faktury — bez podwójnego liczenia), „Koszt bez faktury”, „Nie jest kosztem”. Domyślnie przy imporcie: wynagrodzenia, ZUS, opłaty bankowe i PIT — koszt bez faktury; przeksięgowania VAT, wpływy, VAT i CIT — nie jest kosztem; przelewy i karty — do ustalenia. Przełącznik „Tylko do ustalenia”.
+- **Kategoria kosztu** (ten sam słownik co faktury) dla każdej operacji i **projekt / koszty ogólne** dla kosztu bez faktury — wybór w wierszu, zmiany w audit logu. Kategorii używanej na operacjach nie można usunąć (licznik w Ustawieniach).
+- **Koszty per projekt** liczą też płatności „bez faktury”: kwota zapłacona, w miesiącu operacji, w obu zakresach („Wszystkie” i „Tylko zaakceptowane”); nieprzypisane trafiają do „Nieprzypisane”. Tabela odwrócona: projekty w kolumnach, miesiące w wierszach, na dole „Razem” i „Faktur i płatności”.
+- Migracja `20261101070725_bank_transaction_costs` (z domyślnym rozliczeniem dla już zaimportowanych operacji).
+
 ## Faktury: koszty per projekt po miesiącach (01.11.2026)
 
 - Zakładka **Koszty per projekt**: kolumny = miesiące (data wystawienia, a dla plików bez niej — dodania do inFakt), wiersze = projekty, **Ogólne** (świadomie przypisane do kosztów ogólnych i reszta z podziału %) oraz **Nieprzypisane** (bez projektu i bez decyzji); suma, liczba faktur i wiersz „Razem (PLN)”. Przełącznik „Wszystkie / Tylko zaakceptowane” i wybór roku; faktury bez kwoty netto są pomijane z informacją, ile ich jest. Wcześniej faktury przypisane w całości do kosztów ogólnych nie były tu widoczne.

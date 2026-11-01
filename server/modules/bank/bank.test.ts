@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { BankImportPreview, BankImportResult, BankStatementDetailDto, BankStatementDto } from '#shared'
+import { defaultCostStatus, type BankCostDto, type BankImportPreview, type BankImportResult, type BankStatementDetailDto, type BankStatementDto, type BankTransactionDto, type CostCategoryDto } from '#shared'
 import { INVOICES_SETTING_KEY } from '../../auth/access.ts'
+import { SEED_PROJECT_ID } from '../../db/seed-sql.ts'
 import { createUser, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
 import { FIXTURE_ACCOUNT, FIXTURE_OPENING, FIXTURE_PAGES, buildPkoFixture, type FixtureTx } from '../../test/pko-fixture.tsx'
 import { classify, describe as describeTx, extractPdfItems, parseMoney, parsePkoStatement } from './pko.ts'
@@ -18,6 +19,13 @@ beforeAll(async () => {
   pdf = await buildPkoFixture()
 })
 afterAll(() => h.stop())
+
+const txsOf = async (number: string) => {
+  const list = (await (await req(h, 'GET', '/api/bank/statements', ania.headers)).json()) as BankStatementDto[]
+  const st = list.find((x) => x.number === number)!
+  return ((await (await req(h, 'GET', `/api/bank/statements/${st.id}`, ania.headers)).json()) as BankStatementDetailDto).transactions
+}
+const bankCosts = async () => (await (await req(h, 'GET', '/api/bank/costs', ania.headers)).json()) as BankCostDto[]
 
 const upload = (path: string, user: TestUser, data: Uint8Array, name = 'Wyciag_10.pdf') => {
   const form = new FormData()
@@ -123,6 +131,55 @@ describe('import przez API', () => {
     const bad = await upload('/bank/import/preview', ania, new Uint8Array([1, 2, 3]), 'wyciag.pdf')
     expect(bad.status).toBe(422)
     expect(((await bad.json()) as { code: string }).code).toBe('bank_file_invalid')
+  })
+
+  it('rozliczenie domyślne: koszty bez faktury (opłaty, wynagrodzenia), VAT i wpływy poza kosztami, reszta do ustalenia', async () => {
+    const tx = await txsOf('10/2026')
+    expect(tx.map((t) => t.costStatus)).toEqual(['pending', 'excluded', 'pending', 'no_invoice', 'pending', 'excluded', 'no_invoice'])
+    expect(defaultCostStatus('tax', 'N 9512591569 26M08 VAT-7')).toBe('excluded')
+    expect(defaultCostStatus('tax', 'N 9512591569 26M08 CIT-8E')).toBe('excluded')
+    expect(defaultCostStatus('tax', 'N 9512591569 26M08 PIT-4')).toBe('no_invoice')
+    expect(defaultCostStatus('tax', 'MANDAT')).toBe('pending')
+    const costs = await bankCosts()
+    expect(costs.map((c) => c.amount).sort((a, b) => a - b)).toEqual([110, 300_000])
+    expect(costs.every((c) => !c.projectId && !c.general)).toBe(true)
+  })
+
+  it('kategoria, projekt i koszty ogólne; zmiana rozliczenia czyści projekt', async () => {
+    const tx = await txsOf('10/2026')
+    const salary = tx.find((t) => t.kind === 'salary')!
+    const card = tx.find((t) => t.kind === 'card')!
+    const categories = (await (await req(h, 'GET', '/api/invoices/categories', ania.headers)).json()) as CostCategoryDto[]
+    const fuel = categories.find((k) => k.name === 'Paliwo')!
+
+    const patch = (id: string, body: object, user = ania) => req(h, 'PATCH', `/api/bank/transactions/${id}`, user.headers, body)
+    let res = await patch(salary.id, { projectId: SEED_PROJECT_ID, costCategoryId: categories.find((k) => k.name === 'Pensje')!.id })
+    expect(res.status).toBe(200)
+    expect((await res.json()) as BankTransactionDto).toMatchObject({ projectId: SEED_PROJECT_ID, general: false, costCategoryName: 'Pensje' })
+
+    res = await patch(card.id, { costStatus: 'no_invoice', general: true, costCategoryId: fuel.id })
+    expect((await res.json()) as BankTransactionDto).toMatchObject({ costStatus: 'no_invoice', projectId: null, general: true, costCategoryId: fuel.id })
+
+    const costs = await bankCosts()
+    expect(costs).toHaveLength(3)
+    expect(costs.find((c) => c.id === salary.id)).toMatchObject({ amount: 300_000, projectCode: expect.any(String) })
+    expect(costs.find((c) => c.id === card.id)).toMatchObject({ amount: 10_050, general: true })
+
+    // Koszt z faktury przypisuje się w fakturze — operacja traci projekt, kategoria zostaje.
+    res = await patch(salary.id, { costStatus: 'invoice' })
+    expect((await res.json()) as BankTransactionDto).toMatchObject({ costStatus: 'invoice', projectId: null, general: false, costCategoryName: 'Pensje' })
+    expect(await bankCosts()).toHaveLength(2)
+
+    expect((await patch(card.id, { costCategoryId: crypto.randomUUID() })).status).toBe(422)
+    expect((await patch(card.id, { projectId: crypto.randomUUID() })).status).toBe(422)
+    expect((await patch(card.id, { costStatus: 'paid' })).status).toBe(422)
+    expect((await patch(card.id, { general: false }, outsider)).status).toBe(403)
+
+    // Kategoria używana na operacji nie może zostać usunięta.
+    const cats = (await (await req(h, 'GET', '/api/invoices/categories', ania.headers)).json()) as CostCategoryDto[]
+    expect(cats.find((k) => k.id === fuel.id)).toMatchObject({ invoiceCount: 0, transactionCount: 1 })
+    const admin = await createUser(h, 'Admin')
+    expect((await req(h, 'DELETE', `/api/admin/settings/cost-categories/${fuel.id}`, admin.headers)).status).toBe(409)
   })
 
   it('usunięcie wyciągu usuwa jego operacje (z wpisem w audit logu)', async () => {

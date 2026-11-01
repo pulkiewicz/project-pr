@@ -1,7 +1,7 @@
-import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
-import type { BankImportPreview, BankStatementDetailDto, BankStatementDto, BankTxKind } from '#shared'
+import { and, count, desc, eq, inArray, sql, type SQL } from 'drizzle-orm'
+import { defaultCostStatus, type BankCostDto, type BankImportPreview, type BankStatementDetailDto, type BankStatementDto, type BankTransactionDto, type BankTxKind } from '#shared'
 import type { Database } from '../../db/client.ts'
-import { bankStatements, bankTransactions, users } from '../../db/schema.ts'
+import { bankStatements, bankTransactions, costCategories, projects, users } from '../../db/schema.ts'
 import type { ParsedStatement } from './pko.ts'
 
 const key = (t: { operationId: string; type: string; amount: number }) => `${t.operationId}|${t.type}|${t.amount}`
@@ -48,7 +48,7 @@ export async function commitImport(db: Database, preview: BankImportPreview, fil
     for (let i = 0; i < fresh.length; i += 200) {
       const inserted = await tx
         .insert(bankTransactions)
-        .values(fresh.slice(i, i + 200).map(({ duplicate: _d, ...t }) => ({ ...t, statementId: st!.id, accountNumber: preview.statement.accountNumber })))
+        .values(fresh.slice(i, i + 200).map(({ duplicate: _d, ...t }) => ({ ...t, statementId: st!.id, accountNumber: preview.statement.accountNumber, costStatus: defaultCostStatus(t.kind, t.title) })))
         .onConflictDoNothing()
         .returning({ id: bankTransactions.id })
       created += inserted.length
@@ -92,11 +92,39 @@ export async function listStatements(db: Database): Promise<BankStatementDto[]> 
 export async function getStatement(db: Database, id: string): Promise<BankStatementDetailDto | null> {
   const [row] = await db.select(statementCols).from(bankStatements).leftJoin(users, eq(users.id, bankStatements.importedBy)).where(eq(bankStatements.id, id))
   if (!row) return null
-  const txs = await db.select().from(bankTransactions).where(eq(bankTransactions.statementId, id)).orderBy(bankTransactions.seq)
-  return {
-    ...toDto(row),
-    transactions: txs.map(({ accountNumber: _a, createdAt: _c, ...t }) => t),
-  }
+  return { ...toDto(row), transactions: await listTransactions(db, eq(bankTransactions.statementId, id)) }
+}
+
+export async function listTransactions(db: Database, where: SQL): Promise<BankTransactionDto[]> {
+  const rows = await db
+    .select({ tx: bankTransactions, costCategoryName: costCategories.name })
+    .from(bankTransactions)
+    .leftJoin(costCategories, eq(costCategories.id, bankTransactions.costCategoryId))
+    .where(where)
+    .orderBy(bankTransactions.seq)
+  return rows.map(({ tx: { accountNumber: _a, createdAt: _c, updatedAt: _u, updatedBy: _b, ...t }, costCategoryName }) => ({ ...t, costCategoryName }))
+}
+
+/** Koszty bez faktury (do „Kosztów per projekt”): kwota zapłacona jako dodatnia, waluta rachunku. */
+export async function listBankCosts(db: Database): Promise<BankCostDto[]> {
+  const rows = await db
+    .select({
+      id: bankTransactions.id,
+      bookingDate: bankTransactions.bookingDate,
+      amount: bankTransactions.amount,
+      currency: bankStatements.currency,
+      projectId: bankTransactions.projectId,
+      projectCode: projects.code,
+      projectName: projects.name,
+      general: bankTransactions.general,
+      costCategoryId: bankTransactions.costCategoryId,
+    })
+    .from(bankTransactions)
+    .innerJoin(bankStatements, eq(bankStatements.id, bankTransactions.statementId))
+    .leftJoin(projects, eq(projects.id, bankTransactions.projectId))
+    .where(eq(bankTransactions.costStatus, 'no_invoice'))
+    .orderBy(bankTransactions.bookingDate)
+  return rows.map((r) => ({ ...r, amount: -r.amount }))
 }
 
 export async function statementExists(db: Database, id: string) {

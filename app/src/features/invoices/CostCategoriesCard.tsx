@@ -62,6 +62,11 @@ export function CostCategoriesCard() {
                       {t('invoices.categories.count', { count: k.invoiceCount })}
                     </Badge>
                   )}
+                  {k.transactionCount > 0 && (
+                    <Badge size="xs" variant="light" color="gray">
+                      {t('invoices.categories.txCount', { count: k.transactionCount })}
+                    </Badge>
+                  )}
                 </Group>
               )}
               <Group gap={4} wrap="nowrap">
@@ -90,8 +95,8 @@ export function CostCategoriesCard() {
                   size="sm"
                   variant="subtle"
                   color="red"
-                  disabled={k.invoiceCount > 0}
-                  title={k.invoiceCount > 0 ? t('invoices.categories.inUse') : t('app.delete')}
+                  disabled={k.invoiceCount + k.transactionCount > 0}
+                  title={k.invoiceCount + k.transactionCount > 0 ? t('invoices.categories.inUse') : t('app.delete')}
                   aria-label={t('app.delete')}
                   onClick={() => remove.mutate(k.id, { onError })}
                 >

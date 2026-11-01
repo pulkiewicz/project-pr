@@ -41,6 +41,13 @@ Wyciąg wrześniowy: 133 operacje, salda i obroty zgodne co do grosza.
 Przy split payment kwotą do porównania z fakturą jest **cały przelew split-payment** (brutto). Przeksięgowanie VAT obok
 niego ma ten sam identyfikator operacji i jest pomijane.
 
+## Rozliczenie operacji w kosztach (01.11.2026, poza etapami)
+
+Każda operacja ma rozliczenie: **do ustalenia / jest faktura / koszt bez faktury / nie jest kosztem**, kategorię kosztu
+(słownik faktur) oraz — dla kosztu bez faktury — projekt albo koszty ogólne. „Koszty per projekt” sumują faktury (netto)
+i koszty bez faktury (kwota zapłacona, miesiąc operacji). W B2 status „jest faktura” będzie ustawiany przez połączenie
+z fakturą, a operacje bez połączenia zostaną do ustalenia.
+
 ## Etapy
 
 | Etap | Zakres | Kryterium odbioru |
@@ -67,12 +74,12 @@ Kolejność od najpewniejszej. Kwoty zawsze w walucie faktury, porównanie z bru
 Zastrzeżenie: wiele dokumentów w inFakt to pliki (`document_scan`) bez numeru i kwot. Dopasowanie wymaga ich
 uzupełnienia (ręczne pola w karcie faktury). B2 pokaże, ile faktur nie ma kwoty i dlatego nie może się połączyć.
 
-## Pytania otwarte (przed B2)
+## Decyzje przed B2 (01.11.2026)
 
-- **Wydatki zwykle bez faktury w inFakt**: najem i media od osoby prywatnej („RACHUNEK 1/08/2026 NAJEM”), umowy
-  zlecenia, zwroty wydatków pracownikom, polisy. Czy oznaczać je automatycznie jako „nie wymaga faktury” (reguły po
-  kontrahencie lub tytule), czy każdy ręcznie?
-- **Przelewy24 / PayU** (zakupy internetowe, w wyciągu tylko „PAYPRO S.A.” i numer zamówienia): dopasowanie wyłącznie po
-  kwocie i dacie, więc zawsze jako propozycja. Czy to wystarczy?
-- **Inne rachunki**: rachunek VAT (53 1020 … 6338) ma osobny wyciąg. Czy też go importujemy? Z punktu widzenia faktur
-  nie jest potrzebny, bo przelew split-payment z rachunku głównego ma pełną kwotę brutto.
+| # | Temat | Decyzja |
+|---|---|---|
+| W5 | Stałe wydatki bez faktury (najem od osoby prywatnej, zlecenia, zwroty, polisy) | Reguły **według kontrahenta**: dla wskazanego kontrahenta (rachunek / nazwa) operacja dostaje „koszt bez faktury” i jego domyślną kategorię i projekt. |
+| W6 | Przelewy24 / PayU | Dopasowanie po kwocie i dacie, zawsze jako propozycja — wystarczy. |
+| W7 | Rachunek VAT | Nie importujemy osobnego wyciągu rachunku VAT. |
+| W8 | Wynagrodzenia i ZUS | Nowa kategoria kosztów **„Pracownicze”**. |
+| W9 | Zakup z VAT bez faktury | W „Kosztach per projekt” liczony **netto** (jak faktury). |

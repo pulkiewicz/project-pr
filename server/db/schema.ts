@@ -18,7 +18,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { ACTIVITY_KINDS, AI_JOB_KINDS, AI_JOB_STATUSES, INPUT_KINDS, QUESTION_AUDIENCES, QUESTION_STATUSES, SUGGESTION_STATUSES, type SuggestionPayload, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type QuoteInfo, type QuoteParams, HRF_STATUSES, ID_DOC_TYPES, INVOICE_EVENT_KINDS, INVOICE_STATUSES, type InvoiceManual, type BankTxKind, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
+import { ACTIVITY_KINDS, AI_JOB_KINDS, AI_JOB_STATUSES, INPUT_KINDS, QUESTION_AUDIENCES, QUESTION_STATUSES, SUGGESTION_STATUSES, type SuggestionPayload, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type QuoteInfo, type QuoteParams, HRF_STATUSES, ID_DOC_TYPES, INVOICE_EVENT_KINDS, INVOICE_STATUSES, type InvoiceManual, type BankTxKind, type BankTxCostStatus, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -1051,9 +1051,18 @@ export const bankTransactions = pgTable(
     cardHolder: text('card_holder'),
     merchant: text('merchant'),
     kind: text('kind').$type<BankTxKind>().notNull(),
+    /** Rozliczenie w kosztach (`BANK_TX_COST_STATUSES`); koszty bez faktury wchodzą do „Kosztów per projekt”. */
+    costStatus: text('cost_status').$type<BankTxCostStatus>().notNull().default('pending'),
+    costCategoryId: uuid('cost_category_id').references(() => costCategories.id, { onDelete: 'set null' }),
+    projectId: uuid('project_id').references(() => projects.id),
+    /** Świadomie koszty ogólne (bez projektu) — jak w fakturach. */
+    general: boolean('general').notNull().default(false),
+    updatedAt: ts('updated_at'),
+    updatedBy: uuid('updated_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [
+    index('bank_transactions_cost_idx').on(t.costStatus, t.projectId),
     uniqueIndex('bank_transactions_natural_uq').on(t.accountNumber, t.operationId, t.type, t.amount),
     index('bank_transactions_statement_idx').on(t.statementId, t.seq),
     index('bank_transactions_booking_idx').on(t.bookingDate),
