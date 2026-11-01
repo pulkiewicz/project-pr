@@ -1,5 +1,16 @@
 # Changelog
 
+## CRM: usuwanie szansy (01.11.2026)
+
+- W karcie szansy przycisk **„Usuń szansę”** dla osób z uprawnieniem „Usuwanie” w CRM (domyślnie tylko Admin). Potwierdzenie podaje, ile wycen zostanie usuniętych razem z szansą.
+- Usunięcie jest miękkie (rekord zostaje w bazie z datą usunięcia) i obejmuje wyceny szansy; wpis w audit logu z kodem, nazwą i liczbą wycen. Kod usuniętej szansy nie wraca do numeracji.
+- Szansy, z której założono projekt, nie można usunąć.
+
+## Pomoc dla Zarządu (01.11.2026)
+
+- **Zarząd → Pomoc** (`/pomoc-zarzad`, tylko osoby z listy „Zarząd — pojazdy i pracownicy”): instrukcja dla osoby prowadzącej pracowników i koszty — Pracownicy, Pojazdy, Czas pracy, Faktury kosztowe (przypisanie, kategorie, akceptacja, koszty per projekt), Wyciągi bankowe (import, rozliczanie operacji, propozycje, reguły kontrahentów), Rozliczenia; miesięczny plan pracy i częste pytania.
+- Treść w pliku `app/src/help/zarzad.md` (zmiana instrukcji = edycja pliku i wdrożenie), renderowana biblioteką `marked`.
+
 ## Wyciągi bankowe — etap B3: rozliczenia i raporty (01.11.2026)
 
 - **Faktury → Rozliczenia** — raport za okres (domyślnie okres zaimportowanych wyciągów, z wyborem dat):

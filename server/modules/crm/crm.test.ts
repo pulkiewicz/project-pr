@@ -174,3 +174,39 @@ describe('dostęp', () => {
     expect(audit).toHaveLength(1)
   })
 })
+
+describe('usuwanie szansy', () => {
+  const create = async (name: string) => (await (await req(h, 'POST', '/api/crm/opportunities', staff.headers, { name })).json()) as OpportunityDetailDto
+
+  it('tylko Admin; razem z wycenami, z wpisem w audit logu; znika z listy, kod nie wraca do puli', async () => {
+    const opp = await create('Do usunięcia')
+    expect((await req(h, 'POST', '/api/quotes', staff.headers, { opportunityId: opp.id })).status).toBe(201)
+    const detail = (await (await req(h, 'GET', `/api/crm/opportunities/${opp.id}`, staff.headers)).json()) as OpportunityDetailDto
+    expect(detail.quoteCount).toBe(1)
+
+    expect((await req(h, 'DELETE', `/api/crm/opportunities/${opp.id}`, staff.headers)).status).toBe(403)
+    const res = await req(h, 'DELETE', `/api/crm/opportunities/${opp.id}`, admin.headers)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true, quotesDeleted: 1 })
+
+    expect((await list()).some((o) => o.id === opp.id)).toBe(false)
+    expect((await req(h, 'GET', `/api/crm/opportunities/${opp.id}`, staff.headers)).status).toBe(404)
+    expect((await req(h, 'DELETE', `/api/crm/opportunities/${opp.id}`, admin.headers)).status).toBe(404)
+    const quotes = await h.db.select().from(schema.quotes).where(eq(schema.quotes.opportunityId, opp.id))
+    expect(quotes.every((q) => q.deletedAt)).toBe(true)
+    const [audit] = await h.db.select().from(schema.auditLog).where(and(eq(schema.auditLog.action, 'crm.opportunity_delete'), eq(schema.auditLog.entityId, opp.id)))
+    expect(audit?.changes).toMatchObject({ code: opp.code, quotesDeleted: 1 })
+
+    // Kolejna szansa nie dostaje kodu usuniętej.
+    const next = await create('Następna')
+    expect(next.code).not.toBe(opp.code)
+  })
+
+  it('szansy z założonym projektem nie można usunąć', async () => {
+    const opp = await create('Z projektem')
+    await h.db.update(schema.opportunities).set({ projectId: SEED_PROJECT_ID }).where(eq(schema.opportunities.id, opp.id))
+    const res = await req(h, 'DELETE', `/api/crm/opportunities/${opp.id}`, admin.headers)
+    expect(res.status).toBe(409)
+    expect(((await res.json()) as { code: string }).code).toBe('opportunity_has_project')
+  })
+})

@@ -127,7 +127,8 @@
     "management": "Zarząd",
     "fleet": "Pojazdy",
     "employees": "Pracownicy",
-    "timesheets": "Czas pracy"
+    "timesheets": "Czas pracy",
+    "managementHelp": "Pomoc"
   },
   "roles": {
     "Admin": "Administrator",
@@ -320,7 +321,7 @@
     "nip_not_found": "Brak podmiotu o tym NIP w wykazie VAT",
     "nip_lookup_failed": "Wykaz VAT jest chwilowo niedostępny — uzupełnij dane ręcznie",
     "opportunity_not_won": "Projekt można utworzyć tylko z wygranej szansy",
-    "opportunity_has_project": "Szansa ma już projekt",
+    "opportunity_has_project": "Z tej szansy założono projekt — nie można jej usunąć",
     "project_code_exists": "Projekt o kodzie {{detail}} już istnieje",
     "quote_locked": "Wycena zatwierdzona, wysłana lub historyczna — tylko do odczytu",
     "pricing_forbidden": "Brak uprawnień do marży, rezerwy i ceny",
@@ -1082,7 +1083,16 @@
       "Stały klient",
       "Strona www",
       "Targi"
-    ]
+    ],
+    "deleteOpportunity": "Usuń szansę",
+    "deleteOpportunityTitle": "Usunąć szansę {{code}}?",
+    "deleteOpportunityBody": "Szansa „{{name}}” zniknie z listy i kanbanu (z wpisem w audit logu).",
+    "deleteOpportunityQuotes_one": "Razem z nią zostanie usunięta {{count}} wycena.",
+    "deleteOpportunityQuotes_few": "Razem z nią zostaną usunięte {{count}} wyceny.",
+    "deleteOpportunityQuotes_many": "Razem z nią zostanie usuniętych {{count}} wycen.",
+    "deleteOpportunityQuotes_other": "Razem z nią zostaną usunięte wyceny: {{count}}.",
+    "deleteOpportunityHasProject": "Z tej szansy założono projekt — nie można jej usunąć.",
+    "opportunityDeleted": "Usunięto szansę {{code}}"
   },
   "quotes": {
     "title": "Wyceny",

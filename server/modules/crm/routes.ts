@@ -1,5 +1,5 @@
 import { z, type RouteConfig } from '@hono/zod-openapi'
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNull, sql } from 'drizzle-orm'
 import ExcelJS from 'exceljs'
 import type { Context } from 'hono'
 import {
@@ -21,7 +21,7 @@ import {
 import i18nPl from '../../../shared/i18n/pl.json' with { type: 'json' }
 import type { AppEnv } from '../../context.ts'
 import type { Database } from '../../db/client.ts'
-import { companies, contacts, crmActivities, opportunities, projects, users } from '../../db/schema.ts'
+import { companies, contacts, crmActivities, opportunities, projects, quotes, users } from '../../db/schema.ts'
 import { todayWarsaw } from '../../lib/dates.ts'
 import { HttpProblem, conflict, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
@@ -48,7 +48,9 @@ async function opportunityOr404(c: Context<AppEnv>, id: string) {
 
 async function detail(c: Context<AppEnv>, id: string): Promise<OpportunityDetailDto> {
   const dto = await opportunityOr404(c, id)
-  return { ...dto, activities: await listActivities(c.get('deps').db, id) }
+  const db = c.get('deps').db
+  const [q] = await db.select({ n: count() }).from(quotes).where(and(eq(quotes.opportunityId, id), isNull(quotes.deletedAt)))
+  return { ...dto, activities: await listActivities(db, id), quoteCount: q?.n ?? 0 }
 }
 
 /** Firma i kontakt muszą istnieć, a kontakt należeć do firmy szansy. */
@@ -388,18 +390,32 @@ crmRouter.openapi(
   },
 )
 
+/**
+ * Usunięcie szansy (domyślnie tylko Admin — `crm:delete`): miękkie, razem z jej wycenami, z wpisem w audit logu.
+ * Szansy z założonym projektem nie usuwamy — projekt wskazuje na nią jako źródło.
+ */
 crmRouter.openapi(route({ method: 'delete', path: '/crm/opportunities/{id}', request: { params: idParam }, responses: ok }, 'delete'), async (c) => {
   const { id } = c.req.valid('param')
-  await c.get('deps').db.transaction(async (tx) => {
+  const userId = c.get('user').id
+  const quotesDeleted = await c.get('deps').db.transaction(async (tx) => {
+    const [cur] = await tx.select({ projectId: opportunities.projectId }).from(opportunities).where(and(eq(opportunities.id, id), isNull(opportunities.deletedAt)))
+    if (!cur) throw notFound()
+    if (cur.projectId) throw new HttpProblem(409, 'opportunity_has_project')
     const [r] = await tx
       .update(opportunities)
-      .set({ deletedAt: sql`now()`, deletedBy: c.get('user').id })
+      .set({ deletedAt: sql`now()`, deletedBy: userId })
       .where(and(eq(opportunities.id, id), isNull(opportunities.deletedAt)))
       .returning({ code: opportunities.code, name: opportunities.name })
     if (!r) throw notFound()
-    await writeAudit(c, { action: 'crm.opportunity_delete', entity: 'opportunities', entityId: id, changes: r }, tx)
+    const qs = await tx
+      .update(quotes)
+      .set({ deletedAt: sql`now()`, deletedBy: userId })
+      .where(and(eq(quotes.opportunityId, id), isNull(quotes.deletedAt)))
+      .returning({ id: quotes.id })
+    await writeAudit(c, { action: 'crm.opportunity_delete', entity: 'opportunities', entityId: id, changes: { ...r, quotesDeleted: qs.length } }, tx)
+    return qs.length
   })
-  return c.json({ ok: true }, 200)
+  return c.json({ ok: true, quotesDeleted }, 200)
 })
 
 /** Wygrana szansa → projekt (kod projektu = kod oferty). Zakłada projekt tylko Admin (`crm:approve`). */

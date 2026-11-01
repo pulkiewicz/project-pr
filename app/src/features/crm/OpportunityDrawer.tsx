@@ -19,8 +19,9 @@ import {
   Timeline,
 } from '@mantine/core'
 import { DateInput } from '@mantine/dates'
+import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
-import { IconCalendarEvent, IconExternalLink, IconMail, IconNote, IconPhone, IconSwitchHorizontal, IconUsers } from '@tabler/icons-react'
+import { IconCalendarEvent, IconExternalLink, IconMail, IconNote, IconPhone, IconSwitchHorizontal, IconTrash, IconUsers } from '@tabler/icons-react'
 import { format } from 'date-fns'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -42,7 +43,7 @@ import { projectPath } from '../../lib/project'
 import { useQuotes } from '../quotes/api'
 import { FolderLink } from '../quotes/AiPanels'
 import { useCreateFolder, useDriveStatus } from '../quotes/ai-api'
-import { useAddActivity, useCompanies, useCompany, useCreateProject, useOpportunity, useOwners, useSaveOpportunity } from './api'
+import { useAddActivity, useCompanies, useCompany, useCreateProject, useDeleteOpportunity, useOpportunity, useOwners, useSaveOpportunity } from './api'
 import { NoResponseBadge, StageBadge, useStageChange } from './stage'
 
 const toDate = (d: string | null | undefined) => (d ? new Date(`${d}T00:00:00`) : null)
@@ -182,6 +183,7 @@ export function OpportunityDrawer({ id, opened, onClose, onCreated }: { id: stri
   const companies = useCompanies()
   const owners = useOwners()
   const save = useSaveOpportunity()
+  const del = useDeleteOpportunity()
   const addActivity = useAddActivity()
   const [changeStage, lossModal] = useStageChange()
   const [f, setF] = useState<OpportunityInput>(EMPTY)
@@ -220,6 +222,26 @@ export function OpportunityDrawer({ id, opened, onClose, onCreated }: { id: stri
     )
 
   const sourceSuggestions = t('crm.sourceSuggestions', { returnObjects: true }) as string[]
+
+  // Usunięcie (domyślnie tylko Admin): razem z wycenami szansy; szansy z projektem nie można usunąć.
+  const confirmDelete = () =>
+    o &&
+    modals.openConfirmModal({
+      title: t('crm.deleteOpportunityTitle', { code: o.code }),
+      children: (
+        <Text size="sm">
+          {t('crm.deleteOpportunityBody', { name: o.name })}
+          {o.quoteCount > 0 && ` ${t('crm.deleteOpportunityQuotes', { count: o.quoteCount })}`}
+        </Text>
+      ),
+      labels: { confirm: t('app.delete'), cancel: t('app.cancel') },
+      confirmProps: { color: 'red' },
+      onConfirm: () =>
+        del.mutate(o.id, {
+          onSuccess: () => (notifications.show({ color: 'green', message: t('crm.opportunityDeleted', { code: o.code }) }), onClose()),
+          onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+        }),
+    })
 
   return (
     <Drawer
@@ -332,6 +354,20 @@ export function OpportunityDrawer({ id, opened, onClose, onCreated }: { id: stri
           />
           <Textarea label={t('crm.notes')} autosize minRows={2} disabled={!editable} value={f.notes ?? ''} onChange={(e) => set('notes', e.currentTarget.value || null)} />
           <Group justify="flex-end">
+            {o && can('crm', 'delete') && (
+              <Button
+                mr="auto"
+                variant="subtle"
+                color="red"
+                leftSection={<IconTrash size={16} />}
+                loading={del.isPending}
+                disabled={!!o.projectCode}
+                title={o.projectCode ? t('crm.deleteOpportunityHasProject') : undefined}
+                onClick={confirmDelete}
+              >
+                {t('crm.deleteOpportunity')}
+              </Button>
+            )}
             <Button variant="default" onClick={onClose}>
               {t('app.close')}
             </Button>

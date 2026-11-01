@@ -203,6 +203,8 @@ export interface ActivityDto {
 
 export interface OpportunityDetailDto extends OpportunityDto {
   activities: ActivityDto[]
+  /** Wyceny szansy (usuwane razem z nią). */
+  quoteCount: number
 }
 
 export interface NipLookupResult {
