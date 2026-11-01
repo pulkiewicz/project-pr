@@ -6,12 +6,12 @@ import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mj
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { INVOICE_EDITABLE, INVOICE_STATUSES, type InvoiceDto } from '#shared'
+import { INVOICE_EDITABLE, INVOICE_STATUSES, type CostCategoryDto, type InvoiceDto } from '#shared'
 import { useAuth, useMe } from '../../auth/AuthProvider'
 import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime } from '../../lib/format'
-import { useBulkAllocation, useInvoices, useSaveAllocation, useSyncInvoices } from './api'
+import { useBulkAllocation, useBulkCategory, useCostCategories, useInvoices, useSaveAllocation, useSetInvoiceCategory, useSyncInvoices } from './api'
 import { InvoiceDrawer } from './InvoiceDrawer'
 import { InvoiceStatusBadge, formatMoney } from './status'
 
@@ -26,6 +26,11 @@ function AllocationBadges({ inv }: { inv: InvoiceDto }) {
           {a.projectCode} {a.share.toLocaleString('pl-PL')}%
         </Badge>
       ))}
+      {inv.general && (
+        <Badge variant="outline" color="gray" title={t('invoices.generalHint')}>
+          {t('invoices.general')} 100%
+        </Badge>
+      )}
       {inv.allocatedShare < 100 && inv.allocatedShare > 0 && (
         <Badge variant="outline" color="gray">
           {t('invoices.general')} {(Math.round((100 - inv.allocatedShare) * 100) / 100).toLocaleString('pl-PL')}%
@@ -85,8 +90,10 @@ function DescriptionCell({ inv }: { inv: InvoiceDto }) {
   )
 }
 
+const GENERAL = '__general'
+
 /**
- * Przypisanie z listy: jeden projekt = 100% (najczęstszy przypadek). Podział na kilka projektów
+ * Przypisanie z listy: jeden projekt = 100% (najczęstszy przypadek) albo koszty ogólne (bez projektu). Podział na kilka projektów
  * i faktury po wysłaniu do akceptacji — tylko odznaki; edycja w karcie faktury.
  */
 function ProjectCell({ inv, options }: { inv: InvoiceDto; options: { value: string; label: string }[] }) {
@@ -104,14 +111,14 @@ function ProjectCell({ inv, options }: { inv: InvoiceDto; options: { value: stri
         clearable
         placeholder={t('invoices.assignProject')}
         aria-label={t('invoices.project')}
-        data={options}
-        value={inv.allocations[0]?.projectId ?? null}
+        data={[{ value: GENERAL, label: t('invoices.generalShort') }, ...options]}
+        value={inv.allocations[0]?.projectId ?? (inv.general ? GENERAL : null)}
         disabled={save.isPending}
         rightSection={save.isPending ? <Loader size={12} /> : undefined}
         comboboxProps={{ withinPortal: true }}
         onChange={(v) =>
           save.mutate(
-            { id: inv.id, data: { allocations: v ? [{ projectId: v, share: 100, description }] : [], version: inv.version } },
+            { id: inv.id, data: { allocations: v && v !== GENERAL ? [{ projectId: v, share: 100, description }] : [], general: v === GENERAL, version: inv.version } },
             { onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }) },
           )
         }
@@ -120,12 +127,38 @@ function ProjectCell({ inv, options }: { inv: InvoiceDto; options: { value: stri
   )
 }
 
-const GENERAL = '__general'
+/** Kategoria kosztu — wybór w wierszu (w każdym statusie); wyłączone kategorie tylko pokazywane. */
+function CategoryCell({ inv, categories }: { inv: InvoiceDto; categories: CostCategoryDto[] }) {
+  const { t } = useTranslation()
+  const { can } = useAuth()
+  const set = useSetInvoiceCategory()
+  if (!can('invoices', 'edit')) return <Text size="sm">{inv.costCategoryName ?? ''}</Text>
+  const data = categories.filter((k) => k.active || k.id === inv.costCategoryId).map((k) => ({ value: k.id, label: k.active ? k.name : `${k.name} ${t('invoices.categoryInactive')}` }))
+  return (
+    <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} style={{ width: '100%' }}>
+      <Select
+        size="xs"
+        searchable
+        clearable
+        placeholder={t('invoices.categoryPick')}
+        aria-label={t('invoices.category')}
+        data={data}
+        value={inv.costCategoryId}
+        disabled={set.isPending}
+        rightSection={set.isPending ? <Loader size={12} /> : undefined}
+        comboboxProps={{ withinPortal: true }}
+        onChange={(v) => set.mutate({ id: inv.id, costCategoryId: v }, { onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }) })}
+      />
+    </div>
+  )
+}
 
 /** Zbiorcza zmiana przypisania zaznaczonych faktur: jeden projekt (100%) albo koszty ogólne. */
-function BulkBar({ ids, options, onDone }: { ids: string[]; options: { value: string; label: string }[]; onDone: () => void }) {
+function BulkBar({ ids, options, categories, onDone }: { ids: string[]; options: { value: string; label: string }[]; categories: CostCategoryDto[]; onDone: () => void }) {
   const { t } = useTranslation()
   const bulk = useBulkAllocation()
+  const bulkCategory = useBulkCategory()
+  const [category, setCategory] = useState<string | null>(null)
   const [project, setProject] = useState<string | null>(null)
   const [description, setDescription] = useState('')
   return (
@@ -165,12 +198,44 @@ function BulkBar({ ids, options, onDone }: { ids: string[]; options: { value: st
       >
         {t('invoices.bulk.apply')}
       </Button>
+      <Select
+        w={190}
+        size="xs"
+        searchable
+        aria-label={t('invoices.category')}
+        placeholder={t('invoices.category')}
+        data={[{ value: NO_CATEGORY, label: t('invoices.categoryNone') }, ...categories.filter((k) => k.active).map((k) => ({ value: k.id, label: k.name }))]}
+        value={category}
+        onChange={setCategory}
+      />
+      <Button
+        size="xs"
+        variant="light"
+        disabled={!category}
+        loading={bulkCategory.isPending}
+        onClick={() =>
+          bulkCategory.mutate(
+            { ids, costCategoryId: category === NO_CATEGORY ? null : category },
+            {
+              onSuccess: (r) => {
+                notifications.show({ color: 'green', message: t('invoices.bulk.categoryDone', { updated: r.updated }) })
+                setCategory(null)
+              },
+              onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+            },
+          )
+        }
+      >
+        {t('invoices.bulk.setCategory')}
+      </Button>
       <Button size="xs" variant="subtle" onClick={onDone}>
         {t('invoices.bulk.clear')}
       </Button>
     </Group>
   )
 }
+
+const NO_CATEGORY = '__none'
 
 function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) => void }) {
   const { t } = useTranslation()
@@ -181,6 +246,9 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
   const [search, setSearch] = useState('')
   const [statuses, setStatuses] = useState<string[]>(['new', 'pending', 'rejected'])
   const [project, setProject] = useState<string | null>(null)
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([])
+  const categoriesQ = useCostCategories()
+  const categories = useMemo(() => categoriesQ.data ?? [], [categoriesQ.data])
   const [mine, setMine] = useState(false)
   const [missing, setMissing] = useState(false)
 
@@ -188,13 +256,15 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
     const s = norm(search.trim())
     return items.filter(
       (i) =>
-        (!s || [i.number, i.sellerName, i.description, i.category, ...i.allocations.map((a) => a.description)].some((x) => norm(x).includes(s))) &&
+        (!s || [i.number, i.sellerName, i.description, i.category, i.costCategoryName, ...i.allocations.map((a) => a.description)].some((x) => norm(x).includes(s))) &&
         (!missing || i.netPrice == null || !i.number || !i.sellerName) &&
         (!statuses.length || statuses.includes(i.status)) &&
-        (!project || (project === 'general' ? i.allocatedShare < 100 : i.allocations.some((a) => a.projectId === project))) &&
+        (!project ||
+          (project === 'general' ? i.general || (i.allocatedShare > 0 && i.allocatedShare < 100) : project === 'unassigned' ? !i.allocations.length && !i.general : i.allocations.some((a) => a.projectId === project))) &&
+        (!categoryFilter.length || categoryFilter.includes(i.costCategoryId ?? NO_CATEGORY)) &&
         (!mine || (i.status === 'pending' && i.submittedBy !== me.user.id)),
     )
-  }, [items, search, statuses, project, mine, missing, me.user.id])
+  }, [items, search, statuses, project, categoryFilter, mine, missing, me.user.id])
 
   const projectOptions = useMemo(() => me.projects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })), [me.projects])
 
@@ -250,6 +320,13 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
         Cell: ({ row }) => <ProjectCell inv={row.original} options={projectOptions} />,
       },
       {
+        id: 'category',
+        accessorFn: (r) => r.costCategoryName ?? '',
+        header: t('invoices.category'),
+        size: 170,
+        Cell: ({ row }) => <CategoryCell inv={row.original} categories={categories} />,
+      },
+      {
         id: 'description',
         accessorFn: (r) => r.allocations.map((a) => a.description).filter(Boolean).join('; '),
         header: t('invoices.allocationDescription'),
@@ -259,7 +336,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
       },
       { accessorKey: 'status', header: t('invoices.statusLabel'), size: 150, Cell: ({ row }) => <InvoiceStatusBadge status={row.original.status} /> },
     ],
-    [t, projectOptions],
+    [t, projectOptions, categories],
   )
 
   // Zaznaczone i nadal widoczne po filtrach.
@@ -289,7 +366,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
     positionToolbarAlertBanner: 'none',
     renderTopToolbarCustomActions: () =>
       selectedIds.length > 0 ? (
-        <BulkBar ids={selectedIds} options={projectOptions} onDone={() => setSelection({})} />
+        <BulkBar ids={selectedIds} options={projectOptions} categories={categories} onDone={() => setSelection({})} />
       ) : (
         canEdit && (
           <Text size="xs" c="dimmed" mt={6}>
@@ -309,9 +386,22 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
           placeholder={t('invoices.project')}
           clearable
           searchable
-          data={[{ value: 'general', label: t('invoices.general') }, ...me.projects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` }))]}
+          data={[
+            { value: 'unassigned', label: t('invoices.unassigned') },
+            { value: 'general', label: t('invoices.general') },
+            ...me.projects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })),
+          ]}
           value={project}
           onChange={setProject}
+        />
+        <MultiSelect
+          w={240}
+          placeholder={t('invoices.category')}
+          clearable
+          searchable
+          data={[{ value: NO_CATEGORY, label: t('invoices.categoryNone') }, ...categories.map((k) => ({ value: k.id, label: k.name }))]}
+          value={categoryFilter}
+          onChange={setCategoryFilter}
         />
         <Switch label={t('invoices.onlyMine')} checked={mine} onChange={(e) => setMine(e.currentTarget.checked)} />
         <Switch label={t('invoices.onlyMissing')} checked={missing} onChange={(e) => setMissing(e.currentTarget.checked)} />

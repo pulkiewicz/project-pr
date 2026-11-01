@@ -1,5 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { InvoiceAllocationInput, InvoiceBulkAllocationInput, InvoiceBulkResult, InvoiceDetailDto, InvoiceDetailsInput, InvoiceListResponse, InvoiceSettings, InvoiceSyncResult, InvoiceUserOption } from '#shared'
+import type {
+  CostCategoryDto,
+  InvoiceAllocationInput,
+  InvoiceBulkAllocationInput,
+  InvoiceBulkResult,
+  InvoiceDetailDto,
+  InvoiceDetailsInput,
+  InvoiceListResponse,
+  InvoiceSettings,
+  InvoiceSyncResult,
+  InvoiceUserOption,
+} from '#shared'
 import { api } from '../../lib/api'
 
 export const useInvoices = () => useQuery({ queryKey: ['invoices', 'list'], queryFn: () => api<InvoiceListResponse>('/invoices') })
@@ -80,4 +91,47 @@ export function useSaveInvoiceSettings() {
     mutationFn: (s: InvoiceSettings) => api<InvoiceSettings>('/admin/settings/invoices', { method: 'PUT', json: s }),
     onSettled: () => void qc.invalidateQueries({ queryKey: ['admin', 'settings', 'invoices'] }),
   })
+}
+
+// ---------------- Kategorie kosztów ----------------
+
+export const useCostCategories = (enabled = true) =>
+  useQuery({ queryKey: ['invoices', 'categories'], queryFn: () => api<CostCategoryDto[]>('/invoices/categories'), staleTime: 60_000, enabled })
+
+export function useSetInvoiceCategory() {
+  const invalidate = useInvalidate()
+  const setDetail = useSetDetail()
+  return useMutation({
+    mutationFn: (v: { id: string; costCategoryId: string | null }) => api<InvoiceDetailDto>(`/invoices/${v.id}/category`, { method: 'PATCH', json: { costCategoryId: v.costCategoryId } }),
+    onSuccess: setDetail,
+    onSettled: invalidate,
+  })
+}
+
+export function useBulkCategory() {
+  const invalidate = useInvalidate()
+  return useMutation({
+    mutationFn: (data: { ids: string[]; costCategoryId: string | null }) => api<InvoiceBulkResult>('/invoices/bulk-category', { method: 'POST', json: data }),
+    onSettled: invalidate,
+  })
+}
+
+/** Ustawienia (Admin): słownik kategorii. */
+export const useAdminCostCategories = () =>
+  useQuery({ queryKey: ['admin', 'settings', 'cost-categories'], queryFn: () => api<CostCategoryDto[]>('/admin/settings/cost-categories') })
+
+export function useCostCategoryMutations() {
+  const qc = useQueryClient()
+  const onSettled = () => {
+    void qc.invalidateQueries({ queryKey: ['admin', 'settings', 'cost-categories'] })
+    void qc.invalidateQueries({ queryKey: ['invoices'] })
+  }
+  return {
+    create: useMutation({ mutationFn: (name: string) => api<CostCategoryDto[]>('/admin/settings/cost-categories', { method: 'POST', json: { name } }), onSettled }),
+    update: useMutation({
+      mutationFn: (v: { id: string; patch: { name?: string; active?: boolean } }) => api<CostCategoryDto[]>(`/admin/settings/cost-categories/${v.id}`, { method: 'PATCH', json: v.patch }),
+      onSettled,
+    }),
+    remove: useMutation({ mutationFn: (id: string) => api<CostCategoryDto[]>(`/admin/settings/cost-categories/${id}`, { method: 'DELETE' }), onSettled }),
+  }
 }

@@ -1,5 +1,5 @@
 import { z, type RouteConfig } from '@hono/zod-openapi'
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNull, sql } from 'drizzle-orm'
 import ExcelJS from 'exceljs'
 import type { Context } from 'hono'
 import {
@@ -10,6 +10,11 @@ import {
   STAFF_ROLES,
   invoiceAllocationInput,
   invoiceBulkAllocationInput,
+  invoiceBulkCategoryInput,
+  invoiceCategoryInput,
+  costCategoryInput,
+  costCategoryPatch,
+  type CostCategoryDto,
   type InvoiceBulkResult,
   invoiceRejectInput,
   invoiceSettingsInput,
@@ -22,7 +27,7 @@ import {
 } from '#shared'
 import { INVOICES_SETTING_KEY, invoiceSettings } from '../../auth/access.ts'
 import type { AppEnv } from '../../context.ts'
-import { appSettings, costInvoiceAllocations, costInvoiceEvents, costInvoices, projects, users } from '../../db/schema.ts'
+import { appSettings, costCategories, costInvoiceAllocations, costInvoiceEvents, costInvoices, projects, users } from '../../db/schema.ts'
 import { InfaktError } from '../../integrations/infakt/types.ts'
 import { HttpProblem, conflict, forbidden, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
@@ -110,6 +115,9 @@ invoicesRouter.openapi(route({ method: 'post', path: '/invoices/sync', responses
   }
 })
 
+// Słownik kategorii (przed `/invoices/{id}`, żeby „categories” nie trafiło do trasy z ID).
+invoicesRouter.openapi(route({ method: 'get', path: '/invoices/categories', responses: ok }, 'view'), async (c) => c.json(await listCategories(c), 200))
+
 // ---------------- Eksport ----------------
 
 invoicesRouter.openapi(
@@ -131,6 +139,7 @@ invoicesRouter.openapi(
       { header: 'Waluta', key: 'currency', width: 8 },
       { header: 'Netto faktury', key: 'net', width: 14, style: { numFmt: money } },
       { header: 'Brutto faktury', key: 'gross', width: 14, style: { numFmt: money } },
+      { header: 'Kategoria', key: 'category', width: 20 },
       { header: 'Projekt', key: 'project', width: 14 },
       { header: 'Udział %', key: 'share', width: 10 },
       { header: 'Netto udziału', key: 'shareNet', width: 14, style: { numFmt: money } },
@@ -151,16 +160,19 @@ invoicesRouter.openapi(
         net: pln(i.netPrice),
         gross: pln(i.grossPrice),
         status: STATUS[i.status],
+        category: i.costCategoryName ?? '',
         decidedBy: i.status === 'approved' ? (i.decidedByName ?? '') : '',
       }
       for (const a of i.allocations) ws.addRow({ ...base, project: a.projectCode, share: a.share, shareNet: pln(a.netAmount), description: a.description ?? '' })
       const rest = Math.round((100 - i.allocatedShare) * 100) / 100
-      if (rest > 0) {
+      if (rest > 0 && (i.allocations.length || i.general)) {
         const restNet = i.netPrice == null ? null : i.netPrice - i.allocations.reduce((s, a) => s + (a.netAmount ?? 0), 0)
         ws.addRow({ ...base, project: 'Ogólne', share: rest, shareNet: pln(restNet) })
       }
+      // Nieprzypisana (jeszcze nie zdecydowano: projekt czy koszty ogólne).
+      if (!i.allocations.length && !i.general) ws.addRow({ ...base, project: '—', description: 'do przypisania' })
     }
-    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 13 } }
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 14 } }
     await writeAudit(c, { action: 'invoices.export_xlsx', entity: 'cost_invoices', changes: { invoices: items.length } })
     return c.body((await wb.xlsx.writeBuffer()) as ArrayBuffer, 200, {
       'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -194,7 +206,7 @@ invoicesRouter.openapi(
   route({ method: 'put', path: '/invoices/{id}/allocation', request: { params: idParam, body: body(invoiceAllocationInput) }, responses: ok }, 'edit'),
   async (c) => {
     const { id } = c.req.valid('param')
-    const { allocations, note, version } = c.req.valid('json')
+    const { allocations, note, general, version } = c.req.valid('json')
     const deps = c.get('deps')
     const user = c.get('user')
     const [cur] = await deps.db.select().from(costInvoices).where(eq(costInvoices.id, id))
@@ -208,14 +220,20 @@ invoicesRouter.openapi(
     const updated = await deps.db.transaction(async (tx) => {
       const [r] = await tx
         .update(costInvoices)
-        .set({ ...(note !== undefined ? { note } : {}), version: sql`${costInvoices.version} + 1`, updatedAt: sql`now()`, updatedBy: user.id })
+        .set({
+          ...(note !== undefined ? { note } : {}),
+          general: !allocations.length && general === true,
+          version: sql`${costInvoices.version} + 1`,
+          updatedAt: sql`now()`,
+          updatedBy: user.id,
+        })
         .where(and(eq(costInvoices.id, id), eq(costInvoices.version, version)))
         .returning({ id: costInvoices.id })
       if (!r) return null
       await tx.delete(costInvoiceAllocations).where(eq(costInvoiceAllocations.invoiceId, id))
       if (allocations.length) await tx.insert(costInvoiceAllocations).values(allocations.map((a) => ({ invoiceId: id, projectId: a.projectId, share: a.share, description: a.description || null })))
-      await tx.insert(costInvoiceEvents).values({ invoiceId: id, kind: 'allocated', userId: user.id, meta: { allocations } })
-      await writeAudit(c, { action: 'invoices.allocate', entity: 'cost_invoices', entityId: id, changes: { allocations, note } }, tx)
+      await tx.insert(costInvoiceEvents).values({ invoiceId: id, kind: 'allocated', userId: user.id, meta: { allocations, ...(!allocations.length && general ? { general: true } : {}) } })
+      await writeAudit(c, { action: 'invoices.allocate', entity: 'cost_invoices', entityId: id, changes: { allocations, note, general } }, tx)
       return r
     })
     if (!updated) throw conflict(await getInvoice(deps.db, id))
@@ -297,7 +315,7 @@ invoicesRouter.openapi(
         if (allocations.length) await tx.insert(costInvoiceAllocations).values(allocations)
         await tx
           .update(costInvoices)
-          .set({ version: sql`${costInvoices.version} + 1`, updatedAt: sql`now()`, updatedBy: user.id })
+          .set({ general: !projectId, version: sql`${costInvoices.version} + 1`, updatedAt: sql`now()`, updatedBy: user.id })
           .where(inArray(costInvoices.id, target))
         await tx.insert(costInvoiceEvents).values(
           target.map((invoiceId) => ({ invoiceId, kind: 'allocated' as const, userId: user.id, meta: { bulk: true, allocations: projectId ? [{ projectId, share: 100, description: allocations.find((a) => a.invoiceId === invoiceId)?.description ?? null }] : [] } })),
@@ -308,6 +326,136 @@ invoicesRouter.openapi(
       return res
     })
     return c.json(result, 200)
+  },
+)
+
+// ---------------- Kategoria kosztu ----------------
+
+async function assertActiveCategory(c: Context<AppEnv>, id: string | null) {
+  if (!id) return
+  const [cat] = await c.get('deps').db.select().from(costCategories).where(eq(costCategories.id, id))
+  if (!cat || !cat.active) throw new HttpProblem(422, 'cost_category_not_found')
+}
+
+invoicesRouter.openapi(
+  route({ method: 'patch', path: '/invoices/{id}/category', request: { params: idParam, body: body(invoiceCategoryInput) }, responses: ok }, 'edit'),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const { costCategoryId, version } = c.req.valid('json')
+    const deps = c.get('deps')
+    const user = c.get('user')
+    const [cur] = await deps.db.select().from(costInvoices).where(eq(costInvoices.id, id))
+    if (!cur) throw notFound()
+    if (cur.costCategoryId === costCategoryId) return c.json(await detail(c, id), 200)
+    await assertActiveCategory(c, costCategoryId)
+    const updated = await deps.db.transaction(async (tx) => {
+      const [r] = await tx
+        .update(costInvoices)
+        .set({ costCategoryId, version: sql`${costInvoices.version} + 1`, updatedAt: sql`now()`, updatedBy: user.id })
+        .where(and(eq(costInvoices.id, id), version === undefined ? undefined : eq(costInvoices.version, version)))
+        .returning({ id: costInvoices.id })
+      if (!r) return null
+      const meta = { costCategoryId: { old: cur.costCategoryId, new: costCategoryId } }
+      await tx.insert(costInvoiceEvents).values({ invoiceId: id, kind: 'edited', userId: user.id, meta })
+      await writeAudit(c, { action: 'invoices.category', entity: 'cost_invoices', entityId: id, changes: meta }, tx)
+      return r
+    })
+    if (!updated) throw conflict(await getInvoice(deps.db, id))
+    return c.json(await detail(c, id), 200)
+  },
+)
+
+invoicesRouter.openapi(
+  route({ method: 'post', path: '/invoices/bulk-category', request: { body: body(invoiceBulkCategoryInput) }, responses: ok }, 'edit'),
+  async (c) => {
+    const { ids, costCategoryId } = c.req.valid('json')
+    const deps = c.get('deps')
+    const user = c.get('user')
+    await assertActiveCategory(c, costCategoryId)
+    const result = await deps.db.transaction(async (tx) => {
+      const rows = await tx.select({ id: costInvoices.id, old: costInvoices.costCategoryId }).from(costInvoices).where(inArray(costInvoices.id, [...new Set(ids)]))
+      const target = rows.filter((r) => r.old !== costCategoryId)
+      if (target.length) {
+        await tx
+          .update(costInvoices)
+          .set({ costCategoryId, version: sql`${costInvoices.version} + 1`, updatedAt: sql`now()`, updatedBy: user.id })
+          .where(inArray(costInvoices.id, target.map((r) => r.id)))
+        await tx.insert(costInvoiceEvents).values(target.map((r) => ({ invoiceId: r.id, kind: 'edited' as const, userId: user.id, meta: { bulk: true, costCategoryId: { old: r.old, new: costCategoryId } } })))
+      }
+      const res: InvoiceBulkResult = { updated: target.length, skipped: new Set(ids).size - target.length }
+      await writeAudit(c, { action: 'invoices.bulk_category', entity: 'cost_invoices', changes: { ids: target.map((r) => r.id), costCategoryId, ...res } }, tx)
+      return res
+    })
+    return c.json(result, 200)
+  },
+)
+
+async function listCategories(c: Context<AppEnv>): Promise<CostCategoryDto[]> {
+  const db = c.get('deps').db
+  const used = new Map(
+    (await db.select({ id: costInvoices.costCategoryId, n: count() }).from(costInvoices).groupBy(costInvoices.costCategoryId)).map((r) => [r.id, r.n] as const),
+  )
+  return (await db.select().from(costCategories).orderBy(asc(costCategories.name))).map((k) => ({ id: k.id, name: k.name, active: k.active, invoiceCount: used.get(k.id) ?? 0 }))
+}
+
+
+const isUniqueViolation = (e: unknown) => {
+  const err = e as { code?: string; cause?: { code?: string } }
+  return err.code === '23505' || err.cause?.code === '23505'
+}
+
+const adminCategoryRoute = <R extends RouteConfig>(r: R, action: Action) => secureRoute('', r, { permission: { module: 'admin', action } })
+const categoryParam = z.object({ id: z.uuid() })
+
+invoicesRouter.openapi(adminCategoryRoute({ method: 'get', path: '/admin/settings/cost-categories', responses: ok }, 'view'), async (c) => c.json(await listCategories(c), 200))
+
+invoicesRouter.openapi(
+  adminCategoryRoute({ method: 'post', path: '/admin/settings/cost-categories', request: { body: body(costCategoryInput) }, responses: ok }, 'edit'),
+  async (c) => {
+    const { name } = c.req.valid('json')
+    try {
+      const [row] = await c.get('deps').db.insert(costCategories).values({ name, updatedBy: c.get('user').id }).returning()
+      await writeAudit(c, { action: 'settings.cost_category_create', entity: 'cost_categories', entityId: row!.id, changes: { name } })
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new HttpProblem(409, 'cost_category_exists')
+      throw e
+    }
+    return c.json(await listCategories(c), 200)
+  },
+)
+
+invoicesRouter.openapi(
+  adminCategoryRoute({ method: 'patch', path: '/admin/settings/cost-categories/{id}', request: { params: categoryParam, body: body(costCategoryPatch) }, responses: ok }, 'edit'),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const patch = c.req.valid('json')
+    const db = c.get('deps').db
+    const [cur] = await db.select().from(costCategories).where(eq(costCategories.id, id))
+    if (!cur) throw notFound()
+    try {
+      await db.update(costCategories).set({ ...patch, updatedAt: sql`now()`, updatedBy: c.get('user').id }).where(eq(costCategories.id, id))
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new HttpProblem(409, 'cost_category_exists')
+      throw e
+    }
+    await writeAudit(c, { action: 'settings.cost_category_update', entity: 'cost_categories', entityId: id, changes: { old: { name: cur.name, active: cur.active }, new: patch } })
+    return c.json(await listCategories(c), 200)
+  },
+)
+
+invoicesRouter.openapi(
+  adminCategoryRoute({ method: 'delete', path: '/admin/settings/cost-categories/{id}', request: { params: categoryParam }, responses: ok }, 'edit'),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const db = c.get('deps').db
+    const [cur] = await db.select().from(costCategories).where(eq(costCategories.id, id))
+    if (!cur) throw notFound()
+    const [{ n }] = (await db.select({ n: count() }).from(costInvoices).where(eq(costInvoices.costCategoryId, id))) as [{ n: number }]
+    // Używanej kategorii nie usuwamy (faktury straciłyby klasyfikację) — można ją wyłączyć.
+    if (n > 0) throw new HttpProblem(409, 'cost_category_in_use', String(n))
+    await db.delete(costCategories).where(eq(costCategories.id, id))
+    await writeAudit(c, { action: 'settings.cost_category_delete', entity: 'cost_categories', entityId: id, changes: { name: cur.name } })
+    return c.json(await listCategories(c), 200)
   },
 )
 

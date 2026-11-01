@@ -916,6 +916,21 @@ export const invoiceStatusEnum = pgEnum('cost_invoice_status', INVOICE_STATUSES)
 export const invoiceEventKindEnum = pgEnum('cost_invoice_event_kind', INVOICE_EVENT_KINDS)
 
 /** Dokument kosztowy z inFakt (kopia pól z API; kwoty w groszach) + stan przypisania i akceptacji. */
+/** Słownik kategorii kosztów faktur (paliwo, wynajem, pensje…) — zarządzany w Ustawieniach (Admin). */
+export const costCategories = pgTable(
+  'cost_categories',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    name: text('name').notNull(),
+    /** Wyłączona: nie do wyboru dla nowych przypisań; faktury z tą kategorią ją zachowują. */
+    active: boolean('active').notNull().default(true),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+    updatedBy: uuid('updated_by'),
+  },
+  (t) => [uniqueIndex('cost_categories_name_uq').on(sql`lower(${t.name})`)],
+)
+
 export const costInvoices = pgTable(
   'cost_invoices',
   {
@@ -939,6 +954,10 @@ export const costInvoices = pgTable(
     manual: jsonb('manual').$type<InvoiceManual>().notNull().default({}),
     status: invoiceStatusEnum('status').notNull().default('new'),
     note: text('note'),
+    /** Świadomie przypisana do kosztów ogólnych (bez projektu) — odróżnia ją od faktury jeszcze nieprzypisanej. */
+    general: boolean('general').notNull().default(false),
+    /** Kategoria kosztu ze słownika (Ustawienia). */
+    costCategoryId: uuid('cost_category_id').references(() => costCategories.id, { onDelete: 'set null' }),
     submittedBy: uuid('submitted_by').references(() => users.id),
     submittedAt: ts('submitted_at'),
     decidedBy: uuid('decided_by').references(() => users.id),

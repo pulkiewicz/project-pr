@@ -353,7 +353,10 @@
     "timesheet_error": "{{detail}}",
     "employee_not_found": "Nie znaleziono pracownika",
     "vehicle_registration_exists": "Pojazd o tym numerze rejestracyjnym już istnieje",
-    "invoice_amount_missing": "Uzupełnij kwotę netto faktury przed wysłaniem do akceptacji"
+    "invoice_amount_missing": "Uzupełnij kwotę netto faktury przed wysłaniem do akceptacji",
+    "cost_category_exists": "Kategoria o tej nazwie już istnieje.",
+    "cost_category_in_use": "Kategoria jest przypisana do faktur ({{detail}}) — można ją tylko wyłączyć.",
+    "cost_category_not_found": "Kategoria nie istnieje albo jest wyłączona."
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -1585,8 +1588,26 @@
       "apply": "Zmień przypisanie",
       "clear": "Odznacz",
       "done": "Zmieniono przypisanie: {{updated}}; pominięto (w akceptacji / zaakceptowane): {{skipped}}",
-      "hint": "Zaznacz faktury, by zmienić przypisanie kilku naraz."
-    }
+      "hint": "Zaznacz faktury, by zmienić przypisanie kilku naraz.",
+      "setCategory": "Ustaw kategorię",
+      "categoryDone": "Zmieniono kategorię: {{updated}}"
+    },
+    "unassigned": "Do przypisania (bez decyzji)",
+    "generalCheckHint": "Zaznacz, gdy faktura nie dotyczy żadnego projektu. Bez zaznaczenia faktura bez projektów jest „do przypisania”.",
+    "categoryPick": "Wybierz kategorię…",
+    "categoryNone": "Bez kategorii",
+    "categoryInactive": "(wyłączona)",
+    "categories": {
+      "title": "Faktury — kategorie kosztów",
+      "hint": "Słownik do klasyfikacji faktur (np. paliwo, wynajem, pensje). Wyłączona kategoria znika z list wyboru, ale zostaje na fakturach, które ją mają. Usunąć można tylko nieużywaną.",
+      "count": "{{count}} fakt.",
+      "rename": "Zmień nazwę",
+      "active": "Aktywna",
+      "inUse": "Kategoria jest używana — można ją tylko wyłączyć",
+      "newPlaceholder": "Nowa kategoria, np. Leasing",
+      "add": "Dodaj"
+    },
+    "generalShort": "Koszty ogólne"
   },
   "projectsAdmin": {
     "title": "Projekty",

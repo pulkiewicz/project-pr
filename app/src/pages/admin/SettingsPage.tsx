@@ -8,6 +8,7 @@ import { useMe } from '../../auth/AuthProvider'
 import { api } from '../../lib/api'
 import { ProjectContext } from '../../lib/project'
 import { AvizationSettingsCard } from '../../features/avizations/AvizationSettingsCard'
+import { CostCategoriesCard } from '../../features/invoices/CostCategoriesCard'
 import { InvoiceSettingsCard } from '../../features/invoices/InvoiceSettingsCard'
 import { ManagementSettingsCard } from '../../features/management/ManagementSettingsCard'
 import { TimesheetImportCard, TimesheetSettingsCard } from '../../features/timesheets/TimesheetSettingsCard'
@@ -50,6 +51,7 @@ export function SettingsPage() {
         </Stack>
       </Card>
       <InvoiceSettingsCard />
+      <CostCategoriesCard />
       <ManagementSettingsCard />
       <TimesheetSettingsCard />
       <TimesheetImportCard />

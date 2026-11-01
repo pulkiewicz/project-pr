@@ -1,4 +1,4 @@
-import { ActionIcon, Alert, Anchor, Button, Divider, Drawer, Group, Loader, Modal, NumberInput, Select, Stack, Table, Text, TextInput, Textarea, Timeline } from '@mantine/core'
+import { ActionIcon, Alert, Anchor, Button, Checkbox, Divider, Drawer, Group, Loader, Modal, NumberInput, Select, Stack, Table, Text, TextInput, Textarea, Timeline } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconCheck, IconExternalLink, IconPlus, IconTrash, IconX } from '@tabler/icons-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -7,7 +7,7 @@ import { INVOICE_EDITABLE, shareAmount, type InvoiceDetailDto } from '#shared'
 import { useAuth, useMe } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { formatDateTime } from '../../lib/format'
-import { useInvoice, useInvoiceAttachments, useInvoiceTransition, useSaveAllocation, type InvoiceAction } from './api'
+import { useCostCategories, useInvoice, useInvoiceAttachments, useInvoiceTransition, useSaveAllocation, useSetInvoiceCategory, type InvoiceAction } from './api'
 import { InvoiceDetails } from './InvoiceDetails'
 import { InvoiceStatusBadge, formatMoney } from './status'
 
@@ -55,6 +55,9 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
   const move = useInvoiceTransition()
   const [rows, setRows] = useState<Row[]>([])
   const [note, setNote] = useState('')
+  const [general, setGeneral] = useState(false)
+  const categories = useCostCategories(!!id).data ?? []
+  const setCategory = useSetInvoiceCategory()
   const [action, setAction] = useState<InvoiceAction | null>(null)
   const [showFiles, setShowFiles] = useState(false)
   const files = useInvoiceAttachments(id, showFiles)
@@ -64,6 +67,7 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
     if (d) {
       setRows(toRows(d))
       setNote(d.note ?? '')
+      setGeneral(d.general)
     }
   }, [d])
   useEffect(() => setShowFiles(false), [id])
@@ -72,7 +76,8 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
   const projectOptions = useMemo(() => me.projects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })), [me.projects])
   const total = round2(rows.reduce((s, r) => s + num(r.share), 0))
   const rest = round2(100 - total)
-  const dirty = !!d && (JSON.stringify(rows.map(rowKey)) !== JSON.stringify(toRows(d).map(rowKey)) || note !== (d.note ?? ''))
+  const dirty =
+    !!d && (JSON.stringify(rows.map(rowKey)) !== JSON.stringify(toRows(d).map(rowKey)) || note !== (d.note ?? '') || (!rows.length && general !== d.general))
   const invalid = total > 100 || rows.some((r) => !r.projectId || num(r.share) <= 0) || new Set(rows.map((r) => r.projectId)).size !== rows.length
   const allocatedCents = d?.netPrice == null ? 0 : rows.reduce((s, r) => s + shareAmount(d.netPrice!, num(r.share)), 0)
 
@@ -81,7 +86,15 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
   const saveAllocation = () =>
     d &&
     save.mutate(
-      { id: d.id, data: { allocations: rows.map((r) => ({ projectId: r.projectId!, share: num(r.share), description: r.description.trim() || null })), note: note.trim() || null, version: d.version } },
+      {
+        id: d.id,
+        data: {
+          allocations: rows.map((r) => ({ projectId: r.projectId!, share: num(r.share), description: r.description.trim() || null })),
+          note: note.trim() || null,
+          general: !rows.length && general,
+          version: d.version,
+        },
+      },
       { onSuccess: () => notifications.show({ color: 'green', message: t('app.saved') }), onError },
     )
 
@@ -124,6 +137,17 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
           )}
 
           <InvoiceDetails key={d.version} d={d} editable={editable} />
+
+          <Select
+            label={t('invoices.category')}
+            placeholder={t('invoices.categoryPick')}
+            searchable
+            clearable
+            disabled={!can('invoices', 'edit') || setCategory.isPending}
+            data={categories.filter((k) => k.active || k.id === d.costCategoryId).map((k) => ({ value: k.id, label: k.active ? k.name : `${k.name} ${t('invoices.categoryInactive')}` }))}
+            value={d.costCategoryId}
+            onChange={(v) => setCategory.mutate({ id: d.id, costCategoryId: v }, { onError })}
+          />
 
           <Divider label={t('invoices.allocation')} labelPosition="left" />
           <Table fz="sm" verticalSpacing={4}>
@@ -204,6 +228,15 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
               </Table.Tr>
             </Table.Tbody>
           </Table>
+          {!rows.length && (
+            <Checkbox
+              label={t('invoices.generalHint')}
+              description={t('invoices.generalCheckHint')}
+              checked={general}
+              disabled={!editable}
+              onChange={(e) => setGeneral(e.currentTarget.checked)}
+            />
+          )}
           {editable && (
             <>
               <Group gap="xs">

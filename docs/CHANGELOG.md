@@ -1,5 +1,11 @@
 # Changelog
 
+## Faktury: koszty ogólne w wierszu i kategorie kosztów (01.11.2026)
+
+- **Koszty ogólne w liście:** w polu projektu w wierszu jest opcja **„Koszty ogólne”** (wcześniej tylko w pasku zbiorczym). Faktura dostaje znacznik „koszty ogólne”, więc lista odróżnia ją od faktury jeszcze nieprzypisanej (odznaka „Ogólne 100%”, filtr projektu: „Do przypisania (bez decyzji)” / „Ogólne”). W karcie faktury bez projektów — pole „Koszty ogólne firmy (bez projektu)”. Faktury już wysłane / zaakceptowane bez projektu oraz z ostatnim pustym przypisaniem dostają znacznik w migracji. W eksporcie XLSX nieprzypisane mają wiersz „do przypisania”.
+- **Kategorie kosztów:** słownik w **Administracja → Ustawienia → „Faktury — kategorie kosztów”** (dodawanie, zmiana nazwy, wyłączanie; usunąć można tylko nieużywaną). Na start: Paliwo, Wynajem, Pensje, Materiały i komponenty, Narzędzia i sprzęt, Usługi podwykonawców, Transport i logistyka, Telefon i internet, Biuro i administracja, Ubezpieczenia, Inne. Na liście faktur kolumna **Kategoria** z wyborem w wierszu (w każdym statusie), filtr, zmiana zbiorcza dla zaznaczonych; pole w karcie faktury; kolumna w eksporcie XLSX. Zmiana kategorii ma wpis w historii faktury.
+- Migracja `20261101062410_invoice_categories_general`.
+
 ## Czas pracy: ekran pracownika w stylu PMO (31.10.2026)
 
 - `/godziny` ma wygląd reszty aplikacji: motyw PMO (granat Envcheck, font Inter, ramki i zaokrąglenia Mantine), nagłówek ze znakiem Envcheck, „dziś” wyróżnione kolorem akcentu. Pola, przyciski, komunikaty i zachowanie bez zmian. Usunięty font Public Sans (`@fontsource/public-sans`).

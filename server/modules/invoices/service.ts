@@ -2,7 +2,7 @@ import { asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { INFAKT_COST_KINDS, INVOICE_MANUAL_FIELDS, shareAmount, type InvoiceDto, type InvoiceManualField, type InvoiceEventDto, type InvoiceSettings, type InvoiceSyncResult } from '#shared'
 import type { Database } from '../../db/client.ts'
-import { appSettings, costInvoiceAllocations, costInvoiceEvents, costInvoices, projects, users } from '../../db/schema.ts'
+import { appSettings, costCategories, costInvoiceAllocations, costInvoiceEvents, costInvoices, projects, users } from '../../db/schema.ts'
 import type { InfaktClient, InfaktCost } from '../../integrations/infakt/types.ts'
 
 export const LAST_SYNC_KEY = 'invoices.lastSync'
@@ -130,8 +130,9 @@ const decider = alias(users, 'decider')
 
 export async function listInvoices(db: Database, where?: SQL): Promise<InvoiceDto[]> {
   const rows = await db
-    .select({ inv: costInvoices, submittedByName: submitter.name, decidedByName: decider.name })
+    .select({ inv: costInvoices, submittedByName: submitter.name, decidedByName: decider.name, costCategoryName: costCategories.name })
     .from(costInvoices)
+    .leftJoin(costCategories, eq(costCategories.id, costInvoices.costCategoryId))
     .leftJoin(submitter, eq(submitter.id, costInvoices.submittedBy))
     .leftJoin(decider, eq(decider.id, costInvoices.decidedBy))
     .where(where)
@@ -147,7 +148,7 @@ export async function listInvoices(db: Database, where?: SQL): Promise<InvoiceDt
   const byInvoice = new Map<string, typeof allocs>()
   for (const a of allocs) byInvoice.set(a.invoiceId, [...(byInvoice.get(a.invoiceId) ?? []), a])
 
-  return rows.map(({ inv: raw, submittedByName, decidedByName }) => {
+  return rows.map(({ inv: raw, submittedByName, decidedByName, costCategoryName }) => {
     const inv = effective(raw)
     const list = byInvoice.get(inv.id) ?? []
     return {
@@ -179,6 +180,9 @@ export async function listInvoices(db: Database, where?: SQL): Promise<InvoiceDt
         netAmount: inv.netPrice == null ? null : shareAmount(inv.netPrice, a.share),
       })),
       allocatedShare: Math.round(list.reduce((s, a) => s + a.share * 100, 0)) / 100,
+      general: inv.general && !list.length,
+      costCategoryId: inv.costCategoryId,
+      costCategoryName,
       submittedBy: inv.submittedBy,
       submittedByName,
       submittedAt: inv.submittedAt,

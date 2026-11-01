@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { shareAmount, type InvoiceDetailDto, type InvoiceListResponse, type InvoiceSyncResult, type MeResponse } from '#shared'
+import { shareAmount, type CostCategoryDto, type InvoiceBulkResult, type InvoiceDetailDto, type InvoiceListResponse, type InvoiceSyncResult, type MeResponse } from '#shared'
 import { INVOICES_SETTING_KEY } from '../../auth/access.ts'
 import { SEED_PROJECT_ID } from '../../db/seed-sql.ts'
 import { createUser, eq, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
@@ -204,9 +204,22 @@ describe('przypisanie i akceptacja', () => {
     expect(kept.events[0]).toMatchObject({ kind: 'allocated', meta: { bulk: true } })
     // null = koszty ogólne.
     await req(h, 'POST', '/api/invoices/bulk-allocation', kamil.headers, { ids: [editable[0]!.id], projectId: null })
-    expect(((await (await req(h, 'GET', `/api/invoices/${editable[0]!.id}`, ania.headers)).json()) as InvoiceDetailDto).allocations).toEqual([])
+    const general = (await (await req(h, 'GET', `/api/invoices/${editable[0]!.id}`, ania.headers)).json()) as InvoiceDetailDto
+    expect(general).toMatchObject({ allocations: [], general: true })
     expect((await req(h, 'POST', '/api/invoices/bulk-allocation', kamil.headers, { ids, projectId: crypto.randomUUID() })).status).toBe(422)
     expect((await req(h, 'POST', '/api/invoices/bulk-allocation', outsider.headers, { ids, projectId: null })).status).toBe(403)
+  })
+
+  it('koszty ogólne w wierszu: odróżnione od nieprzypisanej; przypisanie projektu zdejmuje znacznik', async () => {
+    const inv = (await list(ania)).items.find((i) => i.status === 'new')!
+    const put = async (body: object) => {
+      const cur = (await (await req(h, 'GET', `/api/invoices/${inv.id}`, ania.headers)).json()) as InvoiceDetailDto
+      return (await (await req(h, 'PUT', `/api/invoices/${inv.id}/allocation`, ania.headers, { ...body, version: cur.version })).json()) as InvoiceDetailDto
+    }
+    expect(await put({ allocations: [], general: true })).toMatchObject({ allocations: [], general: true, allocatedShare: 0 })
+    expect(await put({ allocations: [] })).toMatchObject({ allocations: [], general: false })
+    expect(await put({ allocations: [], general: true })).toMatchObject({ general: true })
+    expect(await put({ allocations: [{ projectId: project2, share: 100 }], general: true })).toMatchObject({ general: false, allocatedShare: 100 })
   })
 
   it('eksport XLSX i załączniki z inFakt', async () => {
@@ -216,5 +229,49 @@ describe('przypisanie i akceptacja', () => {
     const inv = await byNumber('FV/1/10/2026')
     const a = await req(h, 'GET', `/api/invoices/${inv.id}/attachments`, ania.headers)
     expect(((await a.json()) as { url: string }[])[0]?.url).toContain('app.infakt.pl')
+  })
+})
+
+describe('kategorie kosztów', () => {
+  const cats = async (u: TestUser) => (await (await req(h, 'GET', '/api/invoices/categories', u.headers)).json()) as CostCategoryDto[]
+
+  it('słownik z domyślnymi kategoriami; zarządza Admin w Ustawieniach', async () => {
+    const list0 = await cats(ania)
+    expect(list0.map((k) => k.name)).toEqual(expect.arrayContaining(['Paliwo', 'Wynajem', 'Pensje', 'Inne']))
+    expect((await req(h, 'POST', '/api/admin/settings/cost-categories', ania.headers, { name: 'Leasing' })).status).toBe(403)
+    const added = (await (await req(h, 'POST', '/api/admin/settings/cost-categories', admin.headers, { name: ' Leasing ' })).json()) as CostCategoryDto[]
+    expect(added.some((k) => k.name === 'Leasing' && k.active)).toBe(true)
+    expect((await req(h, 'POST', '/api/admin/settings/cost-categories', admin.headers, { name: 'leasing' })).status).toBe(409)
+  })
+
+  it('kategoria na fakturze (w każdym statusie), zbiorczo; używanej nie można usunąć, wyłączonej nie można przypisać', async () => {
+    const all = await cats(ania)
+    const fuel = all.find((k) => k.name === 'Paliwo')!
+    const rent = all.find((k) => k.name === 'Wynajem')!
+    const inv = (await list(ania)).items.find((i) => i.status === 'pending')!
+    const r = await req(h, 'PATCH', `/api/invoices/${inv.id}/category`, ania.headers, { costCategoryId: fuel.id, version: inv.version })
+    expect(r.status).toBe(200)
+    const d = (await r.json()) as InvoiceDetailDto
+    expect(d).toMatchObject({ costCategoryId: fuel.id, costCategoryName: 'Paliwo' })
+    expect(d.events[0]).toMatchObject({ kind: 'edited', meta: { costCategoryId: { old: null, new: fuel.id } } })
+    expect((await req(h, 'PATCH', `/api/invoices/${inv.id}/category`, ania.headers, { costCategoryId: rent.id, version: inv.version })).status).toBe(409)
+    // Bez wersji (wybór w wierszu listy) — zapis niezależny od równoległych zmian przypisania.
+    expect(((await (await req(h, 'PATCH', `/api/invoices/${inv.id}/category`, ania.headers, { costCategoryId: rent.id })).json()) as InvoiceDetailDto).costCategoryName).toBe('Wynajem')
+
+    const ids = (await list(ania)).items.slice(0, 3).map((i) => i.id)
+    const bulk = (await (await req(h, 'POST', '/api/invoices/bulk-category', kamil.headers, { ids, costCategoryId: rent.id })).json()) as InvoiceBulkResult
+    // Faktura, która ma już „Wynajem”, jest pomijana.
+    expect(bulk.updated + bulk.skipped).toBe(3)
+    expect((await list(ania)).items.filter((i) => ids.includes(i.id)).every((i) => i.costCategoryName === 'Wynajem')).toBe(true)
+
+    expect((await req(h, 'DELETE', `/api/admin/settings/cost-categories/${rent.id}`, admin.headers)).status).toBe(409)
+    await req(h, 'PATCH', `/api/admin/settings/cost-categories/${rent.id}`, admin.headers, { active: false })
+    const other = (await list(ania)).items.find((i) => !ids.includes(i.id))!
+    expect((await req(h, 'PATCH', `/api/invoices/${other.id}/category`, ania.headers, { costCategoryId: rent.id, version: other.version })).status).toBe(422)
+    // Wyłączona zostaje na fakturach, które ją mają.
+    expect((await list(ania)).items.find((i) => i.id === ids[0])?.costCategoryName).toBe('Wynajem')
+    const leasing = (await cats(ania)).find((k) => k.name === 'Leasing')!
+    expect((await req(h, 'DELETE', `/api/admin/settings/cost-categories/${leasing.id}`, admin.headers)).status).toBe(200)
+    expect((await req(h, 'POST', '/api/invoices/bulk-category', outsider.headers, { ids, costCategoryId: null })).status).toBe(403)
   })
 })

@@ -65,6 +65,8 @@ export const invoiceAllocationInput = z
       .refine((a) => new Set(a.map((x) => x.projectId)).size === a.length, 'validation.duplicateProject')
       .refine((a) => Math.round(a.reduce((s, x) => s + x.share * 100, 0)) <= 10000, 'validation.sharesOver100'),
     note: z.string().trim().max(2000).nullable().optional(),
+    /** Bez projektów: `true` — świadomie koszty ogólne; pominięte / `false` — do przypisania. */
+    general: z.boolean().optional(),
     version: z.number().int(),
   })
 export type InvoiceAllocationInput = z.input<typeof invoiceAllocationInput>
@@ -97,6 +99,27 @@ export interface InvoiceBulkResult {
   /** Faktury pominięte: wysłane do akceptacji lub zaakceptowane (nie można zmieniać przypisania). */
   skipped: number
 }
+
+// ---------------- Kategorie kosztów (słownik w Ustawieniach) ----------------
+
+export interface CostCategoryDto {
+  id: string
+  name: string
+  active: boolean
+  /** Liczba faktur z tą kategorią (kategorii używanej nie można usunąć — tylko wyłączyć). */
+  invoiceCount: number
+}
+
+const categoryName = z.string().trim().min(1).max(100)
+export const costCategoryInput = z.object({ name: categoryName })
+export const costCategoryPatch = z.object({ name: categoryName.optional(), active: z.boolean().optional() })
+
+/**
+ * Kategoria faktury — w każdym statusie (nie wpływa na podział na projekty ani akceptację).
+ * Wersja opcjonalna: klasyfikacja niezależna od innych pól, więc zapis z listy nie koliduje z równoległą zmianą przypisania.
+ */
+export const invoiceCategoryInput = z.object({ costCategoryId: z.uuid().nullable(), version: z.number().int().optional() })
+export const invoiceBulkCategoryInput = z.object({ ids: z.array(z.uuid()).min(1).max(500), costCategoryId: z.uuid().nullable() })
 
 export const invoiceTransitionInput = z.object({
   comment: z.string().trim().max(2000).nullable().optional(),
@@ -146,6 +169,10 @@ export interface InvoiceDto {
   allocations: InvoiceAllocationDto[]
   /** Suma udziałów projektów (%); reszta do 100 = koszty ogólne. */
   allocatedShare: number
+  /** Świadomie przypisana do kosztów ogólnych (bez projektu). */
+  general: boolean
+  costCategoryId: string | null
+  costCategoryName: string | null
   submittedBy: string | null
   submittedByName: string | null
   submittedAt: string | null
