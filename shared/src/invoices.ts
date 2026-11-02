@@ -126,6 +126,28 @@ export const costCategoryPatch = z.object({ name: categoryName.optional(), activ
 export const invoiceCategoryInput = z.object({ costCategoryId: z.uuid().nullable(), version: z.number().int().optional() })
 export const invoiceBulkCategoryInput = z.object({ ids: z.array(z.uuid()).min(1).max(500), costCategoryId: z.uuid().nullable() })
 
+/** Zbiorcze wysłanie do akceptacji: tylko przypisane (projekt lub koszty ogólne), z kwotą netto, w statusie do przypisania / odrzucona. */
+export const invoiceBulkSubmitInput = z.object({ ids: z.array(z.uuid()).min(1).max(500), comment: z.string().trim().max(2000).nullable().optional() })
+export type InvoiceBulkSubmitInput = z.input<typeof invoiceBulkSubmitInput>
+
+/** Eksport XLSX za okres (data wystawienia, a dla plików bez niej — data dodania do inFakt); obie granice włącznie. */
+export const invoiceExportQuery = z
+  .object({ from: isoDate.optional(), to: isoDate.optional() })
+  .refine((v) => !v.from || !v.to || v.from <= v.to, 'validation.dateRange')
+
+/** Data kosztu faktury: wystawienie, a dla plików bez daty — dzień dodania do inFakt (yyyy-MM-dd). */
+export const invoiceCostDate = (i: Pick<InvoiceDto, 'issueDate' | 'infaktCreatedAt'>) => i.issueDate ?? i.infaktCreatedAt?.slice(0, 10) ?? null
+
+/** Faktura przypisana (projekt lub świadomie koszty ogólne) — w statusie „new” czeka już tylko na wysłanie do akceptacji. */
+export const invoiceAssigned = (i: Pick<InvoiceDto, 'allocations' | 'general'>) => i.allocations.length > 0 || i.general
+
+/** Kropka zapłaty na liście: zapłacona / do zapłaty (także częściowo) / po terminie (niezapłacona po dniu `dueDate`). */
+export type InvoiceDueState = 'paid' | 'due' | 'overdue'
+export function invoiceDueState(i: Pick<InvoiceDto, 'grossPrice' | 'paidAmount' | 'dueDate'>, today: string): InvoiceDueState {
+  if (i.paidAmount > 0 && (i.grossPrice == null || i.paidAmount >= i.grossPrice)) return 'paid'
+  return i.dueDate && i.dueDate < today ? 'overdue' : 'due'
+}
+
 export const invoiceTransitionInput = z.object({
   comment: z.string().trim().max(2000).nullable().optional(),
   version: z.number().int(),

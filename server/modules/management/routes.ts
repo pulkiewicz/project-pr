@@ -217,6 +217,10 @@ async function listEmployees(c: Context<AppEnv>, id?: string): Promise<EmployeeD
     contractType: e.contractType as EmployeeDto['contractType'],
     contractStart: e.contractStart,
     contractEnd: e.contractEnd,
+    payBasis: e.payBasis as EmployeeDto['payBasis'],
+    payAmount: e.payAmount,
+    isStudent: e.isStudent,
+    studentUntil: e.studentUntil,
     medicalExamValidUntil: e.medicalExamValidUntil,
     bhpTrainingValidUntil: e.bhpTrainingValidUntil,
     userId: e.userId,
@@ -349,7 +353,7 @@ managementRouter.openapi(route({ method: 'post', path: '/employees', request: { 
 })
 
 /** Pola, których wartości nie trafiają do audit logu (tylko informacja o zmianie). */
-const PERSONAL = ['birthDate', 'peselEnc', 'address', 'phone', 'email', 'emergencyContactName', 'emergencyContactPhone'] as const
+const PERSONAL = ['birthDate', 'peselEnc', 'address', 'phone', 'email', 'emergencyContactName', 'emergencyContactPhone', 'payAmount'] as const
 
 managementRouter.openapi(
   route({ method: 'patch', path: '/employees/{id}', request: { params: idParam, body: body(employeePatch) }, responses: ok }, 'employees', 'edit'),

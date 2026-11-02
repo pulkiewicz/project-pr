@@ -45,6 +45,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { daysUntil, formatDate } from '../lib/format'
 import { projectPath, useCurrentProject } from '../lib/project'
+import { useAwaitingApproval } from '../features/invoices/api'
 import { FINANCE_NAV, MANAGEMENT_NAV, PROJECT_NAV, SALES_NAV, isInternal, projectHomePath } from '../nav'
 import { BuildInfo } from './BuildInfo'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -122,7 +123,8 @@ export function AppLayout() {
   const norm = (p: string) => p.replace(/\/+$/, '') || '/'
   const isActive = (path: string, exact = false) => (path === '/' || exact ? norm(location.pathname) === norm(path) : location.pathname.startsWith(path))
 
-  const item = (key: string, to: string, label: string, Icon: typeof IconGauge, internalMark = false, opts: { exact?: boolean; indent?: boolean; badge?: string } = {}) => {
+  const awaiting = useAwaitingApproval(can('invoices', 'approve')).data?.count ?? 0
+  const item = (key: string, to: string, label: string, Icon: typeof IconGauge, internalMark = false, opts: { exact?: boolean; indent?: boolean; badge?: string; alert?: number } = {}) => {
     const nav = (
       <NavLink
         key={key}
@@ -132,7 +134,13 @@ export function AppLayout() {
         aria-label={label}
         leftSection={<Icon size={collapsed ? 20 : 18} stroke={1.6} />}
         rightSection={
-          collapsed ? undefined : opts.badge ? (
+          collapsed ? undefined : opts.alert ? (
+            <Tooltip label={t('invoices.awaiting', { count: opts.alert })}>
+              <Badge size="sm" circle color="yellow">
+                {opts.alert}
+              </Badge>
+            </Tooltip>
+          ) : opts.badge ? (
             <Badge size="xs" variant="light" color="gray">
               {opts.badge}
             </Badge>
@@ -274,7 +282,7 @@ export function AppLayout() {
           {finance.length > 0 && (
             <>
               {section(t('nav.finance'))}
-              {finance.map((n) => item(n.module, n.path, t(`nav.${n.module}`), ICONS[n.module] ?? IconFileText))}
+              {finance.map((n) => item(n.module, n.path, t(`nav.${n.module}`), ICONS[n.module] ?? IconFileText, false, n.module === 'invoices' ? { alert: awaiting } : {}))}
             </>
           )}
           {management.length > 0 && (

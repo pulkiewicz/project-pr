@@ -162,3 +162,28 @@ describe('Import z listy awizacyjnej', () => {
     expect(after.map((p) => p.lastName)).toEqual(['Lis'])
   })
 })
+
+describe('Pracownicy: wynagrodzenie i status ucznia', () => {
+  it('kwota miesięczna / stawka godzinowa i status ucznia przy zleceniu; kwota maskowana w audit logu', async () => {
+    const res = await req(h, 'POST', '/api/employees', ania.headers, {
+      firstName: 'Ola',
+      lastName: 'Student',
+      contractType: 'mandate',
+      payBasis: 'hourly',
+      payAmount: 3550,
+      isStudent: true,
+      studentUntil: '2027-09-30',
+    })
+    expect(res.status).toBe(201)
+    const e = (await res.json()) as EmployeeDto
+    expect(e).toMatchObject({ payBasis: 'hourly', payAmount: 3550, isStudent: true, studentUntil: '2027-09-30' })
+    const p = await req(h, 'PATCH', `/api/employees/${e.id}`, ania.headers, { payBasis: 'monthly', payAmount: 650000, version: e.version })
+    expect(((await p.json()) as EmployeeDto)).toMatchObject({ payBasis: 'monthly', payAmount: 650000 })
+    const audit = await h.db.select().from(schema.auditLog)
+    expect(JSON.stringify(audit.filter((a) => a.entityId === e.id))).not.toContain('650000')
+    expect((await req(h, 'POST', '/api/employees', ania.headers, { firstName: 'X', lastName: 'Y', payBasis: 'weekly' })).status).toBe(422)
+    // Domyślnie bez statusu ucznia.
+    const plain = (await (await req(h, 'POST', '/api/employees', ania.headers, { firstName: 'Jan', lastName: 'Etat' })).json()) as EmployeeDto
+    expect(plain).toMatchObject({ isStudent: false, payAmount: null })
+  })
+})

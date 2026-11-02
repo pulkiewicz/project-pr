@@ -1126,6 +1126,12 @@ export const employees = pgTable(
     contractType: text('contract_type'),
     contractStart: date('contract_start', { mode: 'string' }),
     contractEnd: date('contract_end', { mode: 'string' }),
+    /** `monthly` | `hourly`; kwota w groszach. */
+    payBasis: text('pay_basis'),
+    payAmount: integer('pay_amount'),
+    /** Umowa zlecenie: status ucznia / studenta i termin jego ważności. */
+    isStudent: boolean('is_student').notNull().default(false),
+    studentUntil: date('student_until', { mode: 'string' }),
     medicalExamValidUntil: date('medical_exam_valid_until', { mode: 'string' }),
     bhpTrainingValidUntil: date('bhp_training_valid_until', { mode: 'string' }),
     /** Konto w aplikacji — punkt styku z raportowaniem czasu pracy. */

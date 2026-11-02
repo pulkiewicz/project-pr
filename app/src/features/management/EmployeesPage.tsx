@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Checkbox, Divider, Drawer, Group, Loader, Select, SimpleGrid, Stack, Switch, Text, TextInput, Textarea, Title } from '@mantine/core'
+import { Alert, Badge, Button, Checkbox, Divider, Drawer, Group, Loader, NumberInput, Select, SimpleGrid, Stack, Switch, Text, TextInput, Textarea, Title, Tooltip } from '@mantine/core'
 import { DateInput } from '@mantine/dates'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
@@ -7,11 +7,12 @@ import { MantineReactTable, useMantineReactTable, type MRT_ColumnDef } from 'man
 import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mjs'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CONTRACT_TYPES, deadlineStatus, isValidPesel, worstDeadline, type EmployeeDto, type EmployeeInput, type QualificationInput } from '#shared'
+import { CONTRACT_TYPES, PAY_BASES, deadlineStatus, isValidPesel, worstDeadline, type EmployeeDto, type EmployeeInput, type QualificationInput } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { ApiError } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
-import { todayWarsaw } from '../../lib/format'
+import { formatDate, todayWarsaw } from '../../lib/format'
+import { formatMoney } from '../invoices/status'
 import { fetchPesel, useDelete, useEmployees, useSaveEmployee, useUserOptions } from './api'
 import { Deadline, RowsEditor, fromDate, toDate } from './common'
 import { ImportFromAvizationsModal } from './ImportFromAvizationsModal'
@@ -22,8 +23,13 @@ const fullName = (e: Pick<EmployeeDto, 'firstName' | 'lastName'>) => `${e.lastNa
 const nextQualification = (e: EmployeeDto) =>
   e.qualifications.map((q) => q.validUntil).filter((d): d is string => !!d).sort()[0] ?? null
 
+/** Status ucznia liczy się tylko przy umowie zlecenie. */
+const studentUntil = (e: Pick<EmployeeDto, 'contractType' | 'isStudent' | 'studentUntil'>) => (e.contractType === 'mandate' && e.isStudent ? e.studentUntil : null)
+
 function employeeStatus(e: EmployeeDto, today: string) {
-  return worstDeadline([e.contractEnd, e.medicalExamValidUntil, e.bhpTrainingValidUntil, ...e.qualifications.map((q) => q.validUntil)].map((d) => deadlineStatus(d, today)))
+  return worstDeadline(
+    [e.contractEnd, studentUntil(e), e.medicalExamValidUntil, e.bhpTrainingValidUntil, ...e.qualifications.map((q) => q.validUntil)].map((d) => deadlineStatus(d, today)),
+  )
 }
 
 export function EmployeesPage() {
@@ -69,7 +75,30 @@ export function EmployeesPage() {
             <Group gap={4} wrap="nowrap">
               <Text size="sm">{t(`employees.contractType.${e.contractType}`)}</Text>
               {e.contractEnd ? <Deadline date={e.contractEnd} /> : <Text size="xs" c="dimmed">({t('employees.indefinite')})</Text>}
+              {e.contractType === 'mandate' && e.isStudent && (
+                <Tooltip label={e.studentUntil ? t('employees.studentUntilTitle', { date: formatDate(e.studentUntil) }) : t('employees.isStudent')}>
+                  <Badge size="xs" variant="light" color={['soon', 'expired'].includes(deadlineStatus(e.studentUntil, todayWarsaw())) ? 'orange' : 'teal'}>
+                    {t('employees.studentBadge')}
+                  </Badge>
+                </Tooltip>
+              )}
             </Group>
+          )
+        },
+      },
+      {
+        id: 'pay',
+        accessorFn: (e) => e.payAmount,
+        header: t('employees.col.pay'),
+        size: 140,
+        mantineTableBodyCellProps: { align: 'right' },
+        Cell: ({ row }) => {
+          const e = row.original
+          if (e.payAmount == null) return <Text size="sm" c="dimmed">—</Text>
+          return (
+            <Text size="sm" style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+              {formatMoney(e.payAmount)} {e.payBasis ? t(`employees.payPer.${e.payBasis}`) : ''}
+            </Text>
           )
         },
       },
@@ -139,9 +168,9 @@ export function EmployeesPage() {
 }
 
 type Form = Omit<EmployeeInput, 'pesel'>
-const BLANK: Form = { firstName: '', lastName: '', isActive: true, qualifications: [] }
+const BLANK: Form = { firstName: '', lastName: '', isActive: true, isStudent: false, qualifications: [] }
 type TextKey = 'firstName' | 'lastName' | 'position' | 'email' | 'phone' | 'address' | 'emergencyContactName' | 'emergencyContactPhone'
-type DateKey = 'birthDate' | 'contractStart' | 'contractEnd' | 'medicalExamValidUntil' | 'bhpTrainingValidUntil'
+type DateKey = 'birthDate' | 'contractStart' | 'contractEnd' | 'studentUntil' | 'medicalExamValidUntil' | 'bhpTrainingValidUntil'
 
 function EmployeeDrawer({ item, opened, onClose }: { item: EmployeeDto | null; opened: boolean; onClose: () => void }) {
   const { t } = useTranslation()
@@ -255,7 +284,40 @@ function EmployeeDrawer({ item, opened, onClose }: { item: EmployeeDto | null; o
           />
           {dateField('contractStart', t('employees.contractStart'))}
           {dateField('contractEnd', t('employees.contractEnd'))}
+          <Select
+            label={t('employees.payBasisLabel')}
+            clearable
+            disabled={!editable}
+            data={PAY_BASES.map((b) => ({ value: b, label: t(`employees.payBasis.${b}`) }))}
+            value={f.payBasis ?? null}
+            onChange={(v) => set('payBasis', v as Form['payBasis'])}
+          />
+          <NumberInput
+            label={t('employees.payAmount')}
+            description={t('employees.payAmountHint')}
+            disabled={!editable}
+            min={0}
+            decimalScale={2}
+            fixedDecimalScale
+            decimalSeparator=","
+            thousandSeparator=" "
+            value={f.payAmount == null ? '' : f.payAmount / 100}
+            onChange={(v) => set('payAmount', typeof v === 'number' ? Math.round(v * 100) : null)}
+          />
         </SimpleGrid>
+        {f.contractType === 'mandate' && (
+          <SimpleGrid cols={{ base: 1, sm: 3 }}>
+            <Checkbox
+              mt="lg"
+              label={t('employees.isStudent')}
+              description={t('employees.isStudentHint')}
+              disabled={!editable}
+              checked={f.isStudent ?? false}
+              onChange={(e) => set('isStudent', e.currentTarget.checked)}
+            />
+            {f.isStudent && dateField('studentUntil', t('employees.studentUntil'))}
+          </SimpleGrid>
+        )}
 
         <Divider label={t('employees.validity')} labelPosition="left" />
         <SimpleGrid cols={{ base: 1, sm: 2 }}>

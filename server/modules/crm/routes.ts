@@ -3,7 +3,7 @@ import { and, asc, count, eq, inArray, isNull, sql } from 'drizzle-orm'
 import ExcelJS from 'exceljs'
 import type { Context } from 'hono'
 import {
-  STAFF_ROLES,
+  ENVCHECK_ROLES,
   activityInput,
   companyInput,
   companyPatch,
@@ -70,7 +70,7 @@ async function assertOwner(db: Database, ownerId: string | null | undefined) {
   const [u] = await db
     .select({ id: users.id })
     .from(users)
-    .where(and(eq(users.id, ownerId), inArray(users.role, [...STAFF_ROLES]), eq(users.isActive, true), isNull(users.deletedAt)))
+    .where(and(eq(users.id, ownerId), inArray(users.role, [...ENVCHECK_ROLES]), eq(users.isActive, true), isNull(users.deletedAt)))
   if (!u) throw new HttpProblem(422, 'owner_not_allowed')
 }
 
@@ -87,7 +87,7 @@ crmRouter.openapi(route({ method: 'get', path: '/crm/owners', responses: ok }, '
     .get('deps')
     .db.select({ id: users.id, name: users.name })
     .from(users)
-    .where(and(inArray(users.role, [...STAFF_ROLES]), eq(users.isActive, true), isNull(users.deletedAt)))
+    .where(and(inArray(users.role, [...ENVCHECK_ROLES]), eq(users.isActive, true), isNull(users.deletedAt)))
     .orderBy(asc(users.name))
   return c.json(rows satisfies CrmOwnerOption[], 200)
 })

@@ -16,6 +16,7 @@ const OWN_PARTIES: Record<Role, readonly string[]> = {
   Arsanit: ['Arsanit', 'Konsorcjum'],
   Client: [],
   Subcontractor: [],
+  Accounting: [],
 }
 
 export function canEditProgress(user: UserRow, perms: Perms, task: { party: string; responsibleUserId: string | null }) {

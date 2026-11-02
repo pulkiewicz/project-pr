@@ -4,6 +4,7 @@ import { aliasedTable, and, asc, desc, eq, gte, inArray, isNull, sql } from 'dri
 import type { Context } from 'hono'
 import {
   AI_MODEL,
+  ENVCHECK_ROLES,
   AI_READABLE_MIME,
   DIRECT_UPLOAD_MAX_BYTES,
   aiJobInput,
@@ -519,7 +520,7 @@ aiRouter.openapi(route({ method: 'put', path: '/ai/settings', request: { body: b
   const value = c.req.valid('json')
   const db = c.get('deps').db
   if (value.questionsAssigneeId) {
-    const [u] = await db.select({ id: users.id }).from(users).where(and(eq(users.id, value.questionsAssigneeId), inArray(users.role, ['Admin', 'EnvcheckInternal']), isNull(users.deletedAt)))
+    const [u] = await db.select({ id: users.id }).from(users).where(and(eq(users.id, value.questionsAssigneeId), inArray(users.role, [...ENVCHECK_ROLES]), isNull(users.deletedAt)))
     if (!u) throw new HttpProblem(422, 'owner_not_allowed')
   }
   await db

@@ -30,6 +30,8 @@ export interface InfaktClient {
    */
   listCosts(addedFrom: string): Promise<InfaktCost[]>
   costAttachments(uuid: string): Promise<InfaktAttachment[]>
+  /** Treść pliku z `file_url` (do podglądu w aplikacji). */
+  downloadAttachment(url: string): Promise<{ body: ArrayBuffer; type: string }>
 }
 
 export class InfaktError extends Error {

@@ -275,3 +275,70 @@ describe('kategorie kosztów', () => {
     expect((await req(h, 'POST', '/api/invoices/bulk-category', outsider.headers, { ids, costCategoryId: null })).status).toBe(403)
   })
 })
+
+describe('uwagi z 02.11.2026: zbiorcze wysyłanie, licznik akceptacji, podgląd, eksport za okres, księgowość', () => {
+  const count = async (u: TestUser) => ((await (await req(h, 'GET', '/api/invoices/awaiting-approval', u.headers)).json()) as { count: number }).count
+
+  it('zbiorcze wysłanie do akceptacji: tylko przypisane z kwotą; licznik „do mojej akceptacji” bez własnych', async () => {
+    const editable = (await list(ania)).items.filter((i) => i.status === 'new' || i.status === 'rejected')
+    const target = editable.find((i) => i.netPrice != null)!
+    const unassigned = editable.find((i) => i.id !== target.id)!
+    await req(h, 'POST', '/api/invoices/bulk-allocation', kamil.headers, { ids: [target.id], projectId: project2 })
+    await req(h, 'POST', '/api/invoices/bulk-allocation', kamil.headers, { ids: [unassigned.id], projectId: project2 })
+    await req(h, 'PUT', `/api/invoices/${unassigned.id}/allocation`, kamil.headers, { allocations: [], general: false, version: (await byId(unassigned.id)).version })
+    const before = await count(ania)
+    const res = await req(h, 'POST', '/api/invoices/bulk-submit', kamil.headers, { ids: [target.id, unassigned.id] })
+    expect(res.status).toBe(200)
+    expect((await res.json()) as InvoiceBulkResult).toEqual({ updated: 1, skipped: 1 })
+    const d = await byId(target.id)
+    expect(d).toMatchObject({ status: 'pending', submittedBy: kamil.id })
+    expect(d.events[0]).toMatchObject({ kind: 'submitted', meta: { bulk: true } })
+    expect((await byId(unassigned.id)).status).not.toBe('pending')
+    expect(await count(ania)).toBe(before + 1)
+    // Wysłane przez siebie nie liczą się do własnej akceptacji.
+    expect(await count(kamil)).toBe((await list(ania)).items.filter((i) => i.status === 'pending' && i.submittedBy !== kamil.id).length)
+    expect((await req(h, 'POST', '/api/invoices/bulk-submit', outsider.headers, { ids: [target.id] })).status).toBe(403)
+  })
+
+  it('podgląd pliku inline (PDF przez serwer)', async () => {
+    const inv = await byNumber('FV/1/10/2026')
+    const res = await req(h, 'GET', `/api/invoices/${inv.id}/attachments/0/file`, ania.headers)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('application/pdf')
+    expect(res.headers.get('content-disposition')).toMatch(/^inline/)
+    expect((await req(h, 'GET', `/api/invoices/${inv.id}/attachments/5/file`, ania.headers)).status).toBe(404)
+  })
+
+  it('eksport za okres: filtr po dacie kosztu, błędny zakres odrzucony', async () => {
+    const ExcelJS = (await import('exceljs')).default
+    const rows = async (q: string) => {
+      const res = await req(h, 'GET', `/api/invoices/export.xlsx${q}`, ania.headers)
+      expect(res.status).toBe(200)
+      const wb = new ExcelJS.Workbook()
+      await wb.xlsx.load(await res.arrayBuffer())
+      return wb.worksheets[0]!.rowCount - 1
+    }
+    expect(await rows('')).toBeGreaterThan(0)
+    expect(await rows('?from=2000-01-01&to=2000-01-31')).toBe(0)
+    expect(await rows('?from=2000-01-01')).toBe(await rows(''))
+    expect((await req(h, 'GET', '/api/invoices/export.xlsx?from=2026-02-01&to=2026-01-01', ania.headers)).status).toBeGreaterThanOrEqual(400)
+  })
+
+  it('rola Księgowość: odczyt i eksport (po dodaniu do listy), bez edycji i akceptacji', async () => {
+    const accountant = await createUser(h, 'Accounting')
+    expect((await req(h, 'GET', '/api/invoices', accountant.headers)).status).toBe(403)
+    const settings = (await (await req(h, 'GET', '/api/admin/settings/invoices', admin.headers)).json()) as { settings: { userIds: string[]; syncFrom: string } }
+    expect((await req(h, 'PUT', '/api/admin/settings/invoices', admin.headers, { ...settings.settings, userIds: [...settings.settings.userIds, accountant.id] })).status).toBe(200)
+    expect((await req(h, 'GET', '/api/invoices', accountant.headers)).status).toBe(200)
+    expect((await req(h, 'GET', '/api/invoices/export.xlsx', accountant.headers)).status).toBe(200)
+    expect(await count(accountant)).toBe(0)
+    const inv = (await list(ania)).items[0]!
+    expect((await req(h, 'PATCH', `/api/invoices/${inv.id}/category`, accountant.headers, { costCategoryId: null })).status).toBe(403)
+    expect((await req(h, 'POST', '/api/invoices/bulk-submit', accountant.headers, { ids: [inv.id] })).status).toBe(403)
+    const me = (await (await req(h, 'GET', '/api/me', accountant.headers)).json()) as MeResponse
+    expect(me.permissions).toEqual(expect.arrayContaining(['invoices:view', 'invoices:export']))
+    expect(me.permissions).not.toContain('crm:view')
+  })
+})
+
+const byId = async (id: string) => (await (await req(h, 'GET', `/api/invoices/${id}`, ania.headers)).json()) as InvoiceDetailDto

@@ -1,13 +1,13 @@
 import { ActionIcon, Alert, Anchor, Button, Checkbox, Divider, Drawer, Group, Loader, Modal, NumberInput, Select, Stack, Table, Text, TextInput, Textarea, Timeline } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { IconCheck, IconExternalLink, IconPlus, IconTrash, IconX } from '@tabler/icons-react'
+import { IconCheck, IconExternalLink, IconEye, IconPlus, IconTrash, IconX } from '@tabler/icons-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { INVOICE_EDITABLE, shareAmount, type InvoiceDetailDto } from '#shared'
+import { INVOICE_EDITABLE, invoiceAssigned, shareAmount, type InvoiceDetailDto } from '#shared'
 import { useAuth, useMe } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime } from '../../lib/format'
-import { useCostCategories, useInvoice, useInvoiceAttachments, useInvoiceTransition, useSaveAllocation, useSetInvoiceCategory, type InvoiceAction } from './api'
+import { fetchAttachment, useCostCategories, useInvoice, useInvoiceAttachments, useInvoiceTransition, useSaveAllocation, useSetInvoiceCategory, type InvoiceAction } from './api'
 import { InvoiceDetails } from './InvoiceDetails'
 import { InvoiceStatusBadge, PaymentBadge, formatMoney } from './status'
 
@@ -46,6 +46,51 @@ function CommentModal({ action, onClose, onConfirm, loading }: { action: Invoice
   )
 }
 
+/** Podgląd pliku faktury w oknie (PDF / obraz pobrany przez serwer z inFakt) — bez zapisywania na dysku. */
+function PreviewModal({ file, onClose }: { file: { invoiceId: string; index: number; name: string; url: string } | null; onClose: () => void }) {
+  const { t } = useTranslation()
+  const [src, setSrc] = useState<{ url: string; type: string } | null>(null)
+  const [error, setError] = useState<unknown>(null)
+  useEffect(() => {
+    if (!file) return
+    let url: string | null = null
+    let cancelled = false
+    setSrc(null)
+    setError(null)
+    fetchAttachment(file.invoiceId, file.index)
+      .then((blob) => {
+        if (cancelled) return
+        url = URL.createObjectURL(blob)
+        setSrc({ url, type: blob.type })
+      })
+      .catch((e) => !cancelled && setError(e))
+    return () => {
+      cancelled = true
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [file])
+  return (
+    <Modal opened={!!file} onClose={onClose} size="90%" title={file ? t('invoices.previewTitle', { name: file.name }) : ''}>
+      {error ? (
+        <Stack>
+          <Alert color="yellow">{errorMessage(error)}</Alert>
+          {file && (
+            <Anchor href={file.url} target="_blank" rel="noreferrer" size="sm">
+              <IconExternalLink size={12} /> {t('invoices.openInInfakt')}
+            </Anchor>
+          )}
+        </Stack>
+      ) : !src ? (
+        <Loader />
+      ) : src.type.startsWith('image/') ? (
+        <img src={src.url} alt={file?.name ?? ''} style={{ maxWidth: '100%' }} />
+      ) : (
+        <iframe src={src.url} title={file?.name ?? ''} style={{ width: '100%', height: '78vh', border: 0 }} />
+      )}
+    </Modal>
+  )
+}
+
 export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () => void }) {
   const { t } = useTranslation()
   const { can } = useAuth()
@@ -61,6 +106,7 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
   const [action, setAction] = useState<InvoiceAction | null>(null)
   const [showFiles, setShowFiles] = useState(false)
   const files = useInvoiceAttachments(id, showFiles)
+  const [preview, setPreview] = useState<{ invoiceId: string; index: number; name: string; url: string } | null>(null)
   const d = q.data
 
   useEffect(() => {
@@ -118,7 +164,7 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
         <Stack>
           {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
           <Group justify="space-between">
-            <InvoiceStatusBadge status={d.status} />
+            <InvoiceStatusBadge inv={d} />
             <Anchor size="sm" onClick={() => setShowFiles(true)}>
               {t('invoices.attachments')}
             </Anchor>
@@ -128,10 +174,15 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
               {files.isLoading && <Loader size="xs" />}
               {files.error && <Text size="sm" c="red">{errorMessage(files.error)}</Text>}
               {files.data?.length === 0 && <Text size="sm" c="dimmed">{t('invoices.noAttachments')}</Text>}
-              {files.data?.map((f) => (
-                <Anchor key={f.url} href={f.url} target="_blank" rel="noreferrer" size="sm">
-                  <IconExternalLink size={12} /> {f.fileName}
-                </Anchor>
+              {files.data?.map((f, index) => (
+                <Group key={f.url} gap="xs" wrap="nowrap">
+                  <Button size="compact-xs" variant="light" leftSection={<IconEye size={12} />} onClick={() => setPreview({ invoiceId: d.id, index, name: f.fileName, url: f.url })}>
+                    {t('invoices.preview')}
+                  </Button>
+                  <Anchor href={f.url} target="_blank" rel="noreferrer" size="sm" title={t('invoices.openInInfakt')}>
+                    <IconExternalLink size={12} /> {f.fileName}
+                  </Anchor>
+                </Group>
               ))}
             </Stack>
           )}
@@ -249,7 +300,12 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
                   </Button>
                 )}
               </Group>
-              <Textarea autosize minRows={2} label={t('invoices.note')} value={note} onChange={(e) => setNote(e.currentTarget.value)} maxLength={2000} />
+              <Textarea autosize minRows={2} label={t('invoices.note')} description={t('invoices.noteHint')} value={note} onChange={(e) => setNote(e.currentTarget.value)} maxLength={2000} />
+              {d.status === 'new' && invoiceAssigned(d) && !dirty && (
+                <Alert color="blue" variant="light" py="xs">
+                  {t('invoices.assignedHint')}
+                </Alert>
+              )}
               <Group justify="flex-end">
                 <Button variant="light" disabled={!dirty || invalid} loading={save.isPending} onClick={saveAllocation}>
                   {t('invoices.save')}
@@ -266,9 +322,14 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
             </>
           )}
           {!editable && d.note && (
-            <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
-              {d.note}
-            </Text>
+            <Stack gap={2}>
+              <Text size="xs" c="dimmed">
+                {t('invoices.note')}
+              </Text>
+              <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
+                {d.note}
+              </Text>
+            </Stack>
           )}
 
           {d.submittedByName && d.submittedAt && (
@@ -367,6 +428,7 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
           </Timeline>
         </Stack>
       )}
+      <PreviewModal file={preview} onClose={() => setPreview(null)} />
       <CommentModal action={action} onClose={() => setAction(null)} onConfirm={runAction} loading={move.isPending} />
     </Drawer>
   )

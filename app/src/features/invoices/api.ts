@@ -4,6 +4,7 @@ import type {
   InvoiceAllocationInput,
   InvoiceBulkAllocationInput,
   InvoiceBulkResult,
+  InvoiceBulkSubmitInput,
   InvoiceDetailDto,
   InvoiceDetailsInput,
   InvoiceListResponse,
@@ -20,6 +21,13 @@ export const useInvoice = (id: string | null) =>
 
 export const useInvoiceAttachments = (id: string | null, enabled: boolean) =>
   useQuery({ queryKey: ['invoices', 'attachments', id ?? ''], queryFn: () => api<{ fileName: string; url: string }[]>(`/invoices/${id}/attachments`), enabled: !!id && enabled, staleTime: 300_000 })
+
+/** Licznik faktur czekających na moją akceptację (menu, baner na liście); odświeżany co 2 minuty. */
+export const useAwaitingApproval = (enabled: boolean) =>
+  useQuery({ queryKey: ['invoices', 'awaiting'], queryFn: () => api<{ count: number }>('/invoices/awaiting-approval'), enabled, refetchInterval: 120_000, staleTime: 60_000 })
+
+/** Plik faktury do podglądu (pobierany przez serwer z inFakt). */
+export const fetchAttachment = (id: string, index: number) => api<Blob>(`/invoices/${id}/attachments/${index}/file`)
 
 function useInvalidate() {
   const qc = useQueryClient()
@@ -65,6 +73,14 @@ export function useBulkAllocation() {
   const invalidate = useInvalidate()
   return useMutation({
     mutationFn: (data: InvoiceBulkAllocationInput) => api<InvoiceBulkResult>('/invoices/bulk-allocation', { method: 'POST', json: data }),
+    onSettled: invalidate,
+  })
+}
+
+export function useBulkSubmit() {
+  const invalidate = useInvalidate()
+  return useMutation({
+    mutationFn: (data: InvoiceBulkSubmitInput) => api<InvoiceBulkResult>('/invoices/bulk-submit', { method: 'POST', json: data }),
     onSettled: invalidate,
   })
 }

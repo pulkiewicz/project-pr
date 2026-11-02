@@ -1,15 +1,43 @@
-import { Badge } from '@mantine/core'
+import { Badge, Box, Tooltip } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { paymentState, type InvoiceDto, type InvoicePaymentState, type InvoiceStatus } from '#shared'
+import { invoiceAssigned, invoiceDueState, paymentState, type InvoiceDto, type InvoiceDueState, type InvoicePaymentState, type InvoiceStatus } from '#shared'
+import { formatDate, todayWarsaw } from '../../lib/format'
 
-const COLOR: Record<InvoiceStatus, string> = { new: 'gray', pending: 'yellow', approved: 'green', rejected: 'red' }
+/** Status do wyświetlenia: „do przypisania” z decyzją o przypisaniu to „przypisana — do wysłania” (status w bazie nadal `new`). */
+export type InvoiceDisplayStatus = InvoiceStatus | 'assigned'
+export const DISPLAY_STATUSES: readonly InvoiceDisplayStatus[] = ['new', 'assigned', 'pending', 'approved', 'rejected']
+export const displayStatus = (i: Pick<InvoiceDto, 'status' | 'allocations' | 'general'>): InvoiceDisplayStatus => (i.status === 'new' && invoiceAssigned(i) ? 'assigned' : i.status)
 
-export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
+const COLOR: Record<InvoiceDisplayStatus, string> = { new: 'gray', assigned: 'blue', pending: 'yellow', approved: 'green', rejected: 'red' }
+
+export function InvoiceStatusBadge({ inv }: { inv: Pick<InvoiceDto, 'status' | 'allocations' | 'general'> }) {
   const { t } = useTranslation()
+  const status = displayStatus(inv)
   return (
     <Badge variant="light" color={COLOR[status]}>
       {t(`invoices.status.${status}`)}
     </Badge>
+  )
+}
+
+const DUE_COLOR: Record<InvoiceDueState, string> = { paid: 'var(--mantine-color-green-6)', due: 'var(--mantine-color-yellow-5)', overdue: 'var(--mantine-color-red-6)' }
+
+/** Zapłata na liście jako kropka: zielona — zapłacona, żółta — do zapłaty, czerwona — po terminie. Szczegóły w podpowiedzi. */
+export function PaymentDot({ inv }: { inv: Pick<InvoiceDto, 'grossPrice' | 'paidAmount' | 'currency' | 'dueDate'> }) {
+  const { t } = useTranslation()
+  const state = invoiceDueState(inv, todayWarsaw())
+  const partial = paymentState(inv.grossPrice, inv.paidAmount) === 'partial'
+  const label = [
+    t(`invoices.pay.${state}`),
+    partial ? `${t('invoices.pay.partial')}: ${formatMoney(inv.paidAmount, inv.currency)}` : null,
+    inv.dueDate && state !== 'paid' ? t('invoices.pay.dueDate', { date: formatDate(inv.dueDate) }) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  return (
+    <Tooltip label={label}>
+      <Box component="span" role="img" aria-label={label} style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', background: DUE_COLOR[state] }} />
+    </Tooltip>
   )
 }
 

@@ -11,6 +11,9 @@ import {
   invoiceAllocationInput,
   invoiceBulkAllocationInput,
   invoiceBulkCategoryInput,
+  invoiceBulkSubmitInput,
+  invoiceCostDate,
+  invoiceExportQuery,
   invoiceCategoryInput,
   costCategoryInput,
   costCategoryPatch,
@@ -123,11 +126,16 @@ invoicesRouter.openapi(route({ method: 'get', path: '/invoices/categories', resp
 
 invoicesRouter.openapi(
   route(
-    { method: 'get', path: '/invoices/export.xlsx', responses: { 200: { description: 'XLSX', content: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { schema: z.any() } } } } },
+    { method: 'get', path: '/invoices/export.xlsx', request: { query: invoiceExportQuery }, responses: { 200: { description: 'XLSX', content: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { schema: z.any() } } } } },
     'export',
   ),
   async (c) => {
-    const items = await listInvoices(c.get('deps').db)
+    const { from, to } = c.req.valid('query')
+    // Okres po dacie kosztu (wystawienie / dodanie do inFakt); bez granic — wszystkie faktury.
+    const items = (await listInvoices(c.get('deps').db)).filter((i) => {
+      const d = invoiceCostDate(i)
+      return (!from || (!!d && d >= from)) && (!to || (!!d && d <= to))
+    })
     const wb = new ExcelJS.Workbook()
     const ws = wb.addWorksheet('Faktury → projekty', { views: [{ state: 'frozen', ySplit: 1 }] })
     const STATUS: Record<InvoiceStatus, string> = { new: 'do przypisania', pending: 'do akceptacji', approved: 'zaakceptowana', rejected: 'odrzucona' }
@@ -160,7 +168,7 @@ invoicesRouter.openapi(
         currency: i.currency,
         net: pln(i.netPrice),
         gross: pln(i.grossPrice),
-        status: STATUS[i.status],
+        status: i.status === 'new' && (i.allocations.length || i.general) ? 'przypisana — do wysłania' : STATUS[i.status],
         category: i.costCategoryName ?? '',
         decidedBy: i.status === 'approved' ? (i.decidedByName ?? '') : '',
       }
@@ -174,13 +182,26 @@ invoicesRouter.openapi(
       if (!i.allocations.length && !i.general) ws.addRow({ ...base, project: '—', description: 'do przypisania' })
     }
     ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 14 } }
-    await writeAudit(c, { action: 'invoices.export_xlsx', entity: 'cost_invoices', changes: { invoices: items.length } })
+    await writeAudit(c, { action: 'invoices.export_xlsx', entity: 'cost_invoices', changes: { invoices: items.length, from, to } })
+    const suffix = from || to ? `-${from ?? 'start'}_${to ?? 'dzis'}` : ''
     return c.body((await wb.xlsx.writeBuffer()) as ArrayBuffer, 200, {
       'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'content-disposition': 'attachment; filename="faktury-projekty.xlsx"',
+      'content-disposition': `attachment; filename="faktury-projekty${suffix}.xlsx"`,
     })
   },
 )
+
+/** Licznik do menu: faktury czekające na moją akceptację (wysłane przez kogoś innego). Bez uprawnienia `approve` — 0. */
+invoicesRouter.openapi(route({ method: 'get', path: '/invoices/awaiting-approval', responses: ok }, 'view'), async (c) => {
+  if (!c.get('permissions').has('invoices:approve')) return c.json({ count: 0 }, 200)
+  const me = c.get('user').id
+  const [r] = await c
+    .get('deps')
+    .db.select({ n: count() })
+    .from(costInvoices)
+    .where(and(eq(costInvoices.status, 'pending'), sql`${costInvoices.submittedBy} IS DISTINCT FROM ${me}`))
+  return c.json({ count: r?.n ?? 0 }, 200)
+})
 
 invoicesRouter.openapi(route({ method: 'get', path: '/invoices/{id}', request: { params: idParam }, responses: ok }, 'view'), async (c) =>
   c.json(await detail(c, c.req.valid('param').id), 200),
@@ -200,6 +221,44 @@ invoicesRouter.openapi(route({ method: 'get', path: '/invoices/{id}/attachments'
     throw e
   }
 })
+
+const PREVIEW_MAX_BYTES = 15 * 1024 * 1024
+const PREVIEW_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp']
+const attachmentParam = z.object({ id: z.uuid(), index: z.coerce.number().int().min(0).max(50) })
+
+/**
+ * Podgląd pliku faktury w aplikacji (bez zapisywania na dysku): serwer pobiera plik z inFakt i zwraca go `inline`.
+ * Klucz API inFakt trafia tylko do hostów inFakt; zwracane są wyłącznie PDF i obrazy (inna odpowiedź, np. strona logowania — 502).
+ */
+invoicesRouter.openapi(
+  route({ method: 'get', path: '/invoices/{id}/attachments/{index}/file', request: { params: attachmentParam }, responses: { 200: { description: 'Plik', content: { 'application/pdf': { schema: z.any() } } } } }, 'view'),
+  async (c) => {
+    const deps = c.get('deps')
+    if (!deps.infakt) throw new HttpProblem(503, 'infakt_not_configured')
+    const { id, index } = c.req.valid('param')
+    const [inv] = await deps.db.select({ uuid: costInvoices.infaktUuid }).from(costInvoices).where(eq(costInvoices.id, id))
+    if (!inv) throw notFound()
+    let file: { body: ArrayBuffer; type: string; name: string }
+    try {
+      const list = await deps.infakt.costAttachments(inv.uuid)
+      const a = list[index]
+      if (!a) throw notFound()
+      const res = await deps.infakt.downloadAttachment(a.file_url)
+      const type = (res.type.split(';')[0] ?? '').trim().toLowerCase()
+      if (!PREVIEW_TYPES.includes(type) || res.body.byteLength > PREVIEW_MAX_BYTES) throw new HttpProblem(502, 'invoice_preview_unavailable', type)
+      file = { ...res, type, name: a.file_name }
+    } catch (e) {
+      if (e instanceof InfaktError) throw new HttpProblem(502, 'invoice_preview_unavailable', e.message.slice(0, 300))
+      throw e
+    }
+    return c.body(file.body, 200, {
+      'content-type': file.type,
+      'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+      'cache-control': 'private, no-store',
+      'x-content-type-options': 'nosniff',
+    })
+  },
+)
 
 // ---------------- Przypisanie do projektów ----------------
 
@@ -484,6 +543,37 @@ invoicesRouter.openapi(
     return transition(c, c.req.valid('param').id, version, INVOICE_EDITABLE, 'pending', { kind: 'submitted', comment }, (cur) => {
       if (effective(cur).netPrice == null) throw new HttpProblem(422, 'invoice_amount_missing')
     })
+  },
+)
+
+/**
+ * Zbiorcze wysłanie do akceptacji z listy. Pomijane: w innym statusie niż do przypisania / odrzucona,
+ * bez decyzji (ani projektu, ani kosztów ogólnych) i bez kwoty netto.
+ */
+invoicesRouter.openapi(
+  route({ method: 'post', path: '/invoices/bulk-submit', request: { body: body(invoiceBulkSubmitInput) }, responses: ok }, 'edit'),
+  async (c) => {
+    const { ids, comment } = c.req.valid('json')
+    const user = c.get('user')
+    const unique = [...new Set(ids)]
+    const result = await c.get('deps').db.transaction(async (tx) => {
+      const rows = await tx.select().from(costInvoices).where(inArray(costInvoices.id, unique))
+      const allocated = new Set(
+        rows.length ? (await tx.select({ id: costInvoiceAllocations.invoiceId }).from(costInvoiceAllocations).where(inArray(costInvoiceAllocations.invoiceId, rows.map((r) => r.id)))).map((r) => r.id) : [],
+      )
+      const target = rows.filter((r) => INVOICE_EDITABLE.includes(r.status) && (r.general || allocated.has(r.id)) && effective(r).netPrice != null).map((r) => r.id)
+      if (target.length) {
+        await tx
+          .update(costInvoices)
+          .set({ status: 'pending', submittedBy: user.id, submittedAt: sql`now()`, decidedBy: null, decidedAt: null, version: sql`${costInvoices.version} + 1`, updatedAt: sql`now()`, updatedBy: user.id })
+          .where(and(inArray(costInvoices.id, target), inArray(costInvoices.status, [...INVOICE_EDITABLE])))
+        await tx.insert(costInvoiceEvents).values(target.map((invoiceId) => ({ invoiceId, kind: 'submitted' as const, comment: comment || null, userId: user.id, meta: { bulk: true } })))
+      }
+      const res: InvoiceBulkResult = { updated: target.length, skipped: unique.length - target.length }
+      await writeAudit(c, { action: 'invoices.bulk_submit', entity: 'cost_invoices', changes: { ids: target, ...res } }, tx)
+      return res
+    })
+    return c.json(result, 200)
   },
 )
 

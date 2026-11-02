@@ -7,7 +7,7 @@ import { NoResponseBadge } from '../features/crm/stage'
 import { useOpportunities } from '../features/crm/api'
 import { useMyQuestions } from '../features/quotes/ai-api'
 import { daysUntil, formatDate, todayWarsaw } from '../lib/format'
-import { SALES_NAV, projectHomePath } from '../nav'
+import { FINANCE_NAV, MANAGEMENT_NAV, PROJECT_NAV, SALES_NAV, projectHomePath } from '../nav'
 
 /** Przypomnienia CRM: moje (lub bez opiekuna) oferty bez odpowiedzi i zaległe „dalsze działania”. */
 function CrmReminders() {
@@ -91,6 +91,9 @@ export function HomePage() {
 
   // Użytkownik zewnętrzny z jednym projektem trafia od razu do jego dashboardu (jak przed Envcheck Hub).
   if (!sales.length && me.projects.length === 1) return <Navigate to={projectHomePath(me.projects[0]!.code, can)} replace />
+  // Bez modułów projektu i sprzedaży (np. księgowość) — od razu do pierwszego modułu firmy (Faktury, Pracownicy…).
+  const company = [...FINANCE_NAV, ...MANAGEMENT_NAV].find((n) => can(n.module, 'view'))
+  if (!sales.length && company && !PROJECT_NAV.some((n) => can(n.module, 'view'))) return <Navigate to={company.path} replace />
 
   return (
     <Stack>

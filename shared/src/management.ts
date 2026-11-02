@@ -115,6 +115,10 @@ export interface FleetVehicleDto extends Required<Omit<z.infer<typeof fleetVehic
 export const CONTRACT_TYPES = ['employment', 'mandate', 'specific_task', 'b2b', 'internship', 'other'] as const
 export type ContractType = (typeof CONTRACT_TYPES)[number]
 
+/** Podstawa wynagrodzenia: kwota miesięczna albo stawka godzinowa. */
+export const PAY_BASES = ['monthly', 'hourly'] as const
+export type PayBasis = (typeof PAY_BASES)[number]
+
 export const qualificationInput = z.object({
   /** Np. „SEP E1”, „Certyfikat F-gazowy”, „UDT — wózki jezdniowe”. */
   name: z.string().trim().min(1).max(200),
@@ -161,6 +165,12 @@ const employeeBase = z.object({
   contractStart: optDate,
   /** Null = umowa na czas nieokreślony. */
   contractEnd: optDate,
+  /** Wynagrodzenie z umowy: kwota miesięczna albo stawka za godzinę (grosze; brutto, dla B2B — netto). */
+  payBasis: z.enum(PAY_BASES).nullable().optional(),
+  payAmount: z.number().int().min(0).max(100_000_000).nullable().optional(),
+  /** Umowa zlecenie: status ucznia / studenta (do 26 lat — bez składek ZUS) i data, do której obowiązuje. */
+  isStudent: z.boolean(),
+  studentUntil: optDate,
   medicalExamValidUntil: optDate,
   bhpTrainingValidUntil: optDate,
   /** Konto w aplikacji — do połączenia z raportowaniem czasu pracy. */
@@ -171,6 +181,7 @@ const employeeBase = z.object({
 })
 export const employeeInput = employeeBase.extend({
   isActive: employeeBase.shape.isActive.default(true),
+  isStudent: employeeBase.shape.isStudent.default(false),
   qualifications: employeeBase.shape.qualifications.default([]),
 })
 export type EmployeeInput = z.input<typeof employeeInput>

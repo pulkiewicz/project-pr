@@ -14,6 +14,7 @@ export const OWN_PARTIES: Record<string, Record<Role, readonly string[]>> = {
     Arsanit: ['Arsanit', 'Konsorcjum'],
     Client: [],
     Subcontractor: [],
+    Accounting: [],
   },
   /** M5: słowniki i awizacje. Podwykonawca — wyłącznie własne wpisy (party = Subcontractor:{id}), patrz `ownParties`. */
   avizations: {
@@ -22,6 +23,7 @@ export const OWN_PARTIES: Record<string, Record<Role, readonly string[]>> = {
     Arsanit: ['Arsanit', 'Konsorcjum'],
     Client: [],
     Subcontractor: [],
+    Accounting: [],
   },
   /** M4: „kto kupuje” — tylko Envcheck albo Arsanit. */
   purchases: {
@@ -30,6 +32,7 @@ export const OWN_PARTIES: Record<string, Record<Role, readonly string[]>> = {
     Arsanit: ['Arsanit'],
     Client: [],
     Subcontractor: [],
+    Accounting: [],
   },
 }
 

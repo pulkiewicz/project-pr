@@ -1,23 +1,25 @@
-import { Alert, Badge, Button, Group, Loader, MultiSelect, SegmentedControl, Select, Stack, Switch, Table, Tabs, Text, TextInput, Title } from '@mantine/core'
+import { Alert, Badge, Button, Group, Loader, Modal, MultiSelect, SegmentedControl, Select, Stack, Switch, Table, Tabs, Text, TextInput, Title } from '@mantine/core'
+import { DateInput } from '@mantine/dates'
 import { notifications } from '@mantine/notifications'
-import { IconDownload, IconRefresh, IconSearch } from '@tabler/icons-react'
+import { IconDownload, IconRefresh, IconSearch, IconSend } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable, type MRT_ColumnDef, type MRT_RowSelectionState } from 'mantine-react-table'
 import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mjs'
 import dayjs from 'dayjs'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { INVOICE_EDITABLE, INVOICE_STATUSES, paymentState, type CostCategoryDto, type InvoiceDto } from '#shared'
+import { INVOICE_EDITABLE, invoiceDueState, type CostCategoryDto, type InvoiceDto } from '#shared'
 import { useAuth, useMe } from '../../auth/AuthProvider'
 import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
-import { formatDate, formatDateTime } from '../../lib/format'
+import { formatDate, formatDateTime, todayWarsaw } from '../../lib/format'
+import { fromDate, toDate } from '../management/common'
 import { BankTab } from './BankTab'
 import { useBankCosts } from './bankApi'
 import { ReportsTab } from './ReportsTab'
-import { useBulkAllocation, useBulkCategory, useCostCategories, useInvoices, useSaveAllocation, useSetInvoiceCategory, useSyncInvoices } from './api'
+import { useAwaitingApproval, useBulkAllocation, useBulkCategory, useBulkSubmit, useCostCategories, useInvoices, useSaveAllocation, useSetInvoiceCategory, useSyncInvoices } from './api'
 import { InvoiceDrawer } from './InvoiceDrawer'
-import { InvoiceStatusBadge, PaymentBadge, formatMoney } from './status'
+import { DISPLAY_STATUSES, InvoiceStatusBadge, PaymentDot, displayStatus, formatMoney } from './status'
 
 const norm = (s: string | null | undefined) => (s ?? '').toLocaleLowerCase('pl')
 
@@ -162,6 +164,7 @@ function BulkBar({ ids, options, categories, onDone }: { ids: string[]; options:
   const { t } = useTranslation()
   const bulk = useBulkAllocation()
   const bulkCategory = useBulkCategory()
+  const bulkSubmit = useBulkSubmit()
   const [category, setCategory] = useState<string | null>(null)
   const [project, setProject] = useState<string | null>(null)
   const [description, setDescription] = useState('')
@@ -232,6 +235,27 @@ function BulkBar({ ids, options, categories, onDone }: { ids: string[]; options:
       >
         {t('invoices.bulk.setCategory')}
       </Button>
+      <Button
+        size="xs"
+        variant="light"
+        color="yellow"
+        leftSection={<IconSend size={14} />}
+        loading={bulkSubmit.isPending}
+        onClick={() =>
+          bulkSubmit.mutate(
+            { ids },
+            {
+              onSuccess: (r) => {
+                notifications.show({ color: r.skipped ? 'yellow' : 'green', message: t('invoices.bulk.submitDone', { updated: r.updated, skipped: r.skipped }) })
+                onDone()
+              },
+              onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+            },
+          )
+        }
+      >
+        {t('invoices.bulk.submit')}
+      </Button>
       <Button size="xs" variant="subtle" onClick={onDone}>
         {t('invoices.bulk.clear')}
       </Button>
@@ -241,36 +265,36 @@ function BulkBar({ ids, options, categories, onDone }: { ids: string[]; options:
 
 const NO_CATEGORY = '__none'
 
-function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) => void }) {
+function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen: (id: string) => void; mine: boolean; setMine: (v: boolean) => void }) {
   const { t } = useTranslation()
   const { can } = useAuth()
   const canEdit = can('invoices', 'edit')
   const me = useMe()
   const [selection, setSelection] = useState<MRT_RowSelectionState>({})
   const [search, setSearch] = useState('')
-  const [statuses, setStatuses] = useState<string[]>(['new', 'pending', 'rejected'])
+  const [statuses, setStatuses] = useState<string[]>(['new', 'assigned', 'pending', 'rejected'])
   const [project, setProject] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<string[]>([])
   const categoriesQ = useCostCategories()
   const categories = useMemo(() => categoriesQ.data ?? [], [categoriesQ.data])
-  const [mine, setMine] = useState(false)
   const [missing, setMissing] = useState(false)
   const [payments, setPayments] = useState<string[]>([])
 
+  const today = todayWarsaw()
   const filtered = useMemo(() => {
     const s = norm(search.trim())
     return items.filter(
       (i) =>
         (!s || [i.number, i.sellerName, i.description, i.category, i.costCategoryName, ...i.allocations.map((a) => a.description)].some((x) => norm(x).includes(s))) &&
         (!missing || i.netPrice == null || !i.number || !i.sellerName) &&
-        (!statuses.length || statuses.includes(i.status)) &&
+        (!statuses.length || statuses.includes(displayStatus(i))) &&
         (!project ||
           (project === 'general' ? i.general || (i.allocatedShare > 0 && i.allocatedShare < 100) : project === 'unassigned' ? !i.allocations.length && !i.general : i.allocations.some((a) => a.projectId === project))) &&
         (!categoryFilter.length || categoryFilter.includes(i.costCategoryId ?? NO_CATEGORY)) &&
-        (!payments.length || payments.includes(paymentState(i.grossPrice, i.paidAmount))) &&
+        (!payments.length || payments.includes(invoiceDueState(i, today))) &&
         (!mine || (i.status === 'pending' && i.submittedBy !== me.user.id)),
     )
-  }, [items, search, statuses, project, categoryFilter, payments, mine, missing, me.user.id])
+  }, [items, search, statuses, project, categoryFilter, payments, mine, missing, me.user.id, today])
 
   const projectOptions = useMemo(() => me.projects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })), [me.projects])
 
@@ -340,13 +364,15 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
         enableSorting: false,
         Cell: ({ row }) => <DescriptionCell inv={row.original} />,
       },
-      { accessorKey: 'status', header: t('invoices.statusLabel'), size: 150, Cell: ({ row }) => <InvoiceStatusBadge status={row.original.status} /> },
+      { id: 'status', accessorFn: displayStatus, header: t('invoices.statusLabel'), size: 170, Cell: ({ row }) => <InvoiceStatusBadge inv={row.original} /> },
       {
+        // Kropka zamiast odznaki — mniej miejsca; opis w podpowiedzi.
         id: 'payment',
-        accessorFn: (r) => paymentState(r.grossPrice, r.paidAmount),
+        accessorFn: (r) => ({ paid: 2, due: 1, overdue: 0 })[invoiceDueState(r, todayWarsaw())],
         header: t('invoices.pay.label'),
-        size: 130,
-        Cell: ({ row }) => <PaymentBadge inv={row.original} />,
+        size: 80,
+        mantineTableBodyCellProps: { align: 'center' },
+        Cell: ({ row }) => <PaymentDot inv={row.original} />,
       },
     ],
     [t, projectOptions, categories],
@@ -362,8 +388,8 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
     layoutMode: 'grid',
     enableColumnActions: false,
     enableGlobalFilter: false,
-    // Brutto domyślnie ukryte (miejsce na projekt i opis); do włączenia w menu kolumn.
-    initialState: { density: 'xs', columnVisibility: { grossPrice: false } },
+    // Brutto i opis kosztu domyślnie ukryte (miejsce); opis edytuje się w karcie faktury, kolumny do włączenia w menu kolumn.
+    initialState: { density: 'xs', columnVisibility: { grossPrice: false, description: false } },
     enablePagination: false,
     enableStickyHeader: true,
     mantineTableContainerProps: { style: { maxHeight: 'calc(100vh - 330px)' } },
@@ -393,7 +419,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
     <Stack>
       <Group gap="sm" align="flex-end" wrap="wrap">
         <TextInput w={260} leftSection={<IconSearch size={16} />} placeholder={t('invoices.search')} value={search} onChange={(e) => setSearch(e.currentTarget.value)} aria-label={t('invoices.search')} />
-        <MultiSelect w={340} placeholder={t('invoices.statusLabel')} data={INVOICE_STATUSES.map((s) => ({ value: s, label: t(`invoices.status.${s}`) }))} value={statuses} onChange={setStatuses} clearable />
+        <MultiSelect w={340} placeholder={t('invoices.statusLabel')} data={DISPLAY_STATUSES.map((s) => ({ value: s, label: t(`invoices.status.${s}`) }))} value={statuses} onChange={setStatuses} clearable />
         <Select
           w={240}
           placeholder={t('invoices.project')}
@@ -420,7 +446,7 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
           w={220}
           placeholder={t('invoices.pay.label')}
           clearable
-          data={(['unpaid', 'partial', 'paid'] as const).map((v) => ({ value: v, label: t(`invoices.pay.${v}`) }))}
+          data={(['overdue', 'due', 'paid'] as const).map((v) => ({ value: v, label: t(`invoices.pay.${v}`) }))}
           value={payments}
           onChange={setPayments}
         />
@@ -617,12 +643,74 @@ function ProjectsTab({ items }: { items: InvoiceDto[] }) {
   )
 }
 
+const iso = (d: dayjs.Dayjs) => d.format('YYYY-MM-DD')
+
+/** Eksport XLSX za wybrany okres (domyślnie poprzedni miesiąc — typowe rozliczenie z księgowością). */
+function ExportModal({ opened, onClose }: { opened: boolean; onClose: () => void }) {
+  const { t } = useTranslation()
+  const prev = dayjs().subtract(1, 'month')
+  const [from, setFrom] = useState<string | null>(iso(prev.startOf('month')))
+  const [to, setTo] = useState<string | null>(iso(prev.endOf('month')))
+  const [loading, setLoading] = useState(false)
+  const preset = (a: dayjs.Dayjs, b: dayjs.Dayjs) => (setFrom(iso(a)), setTo(iso(b)))
+  const invalid = !!from && !!to && from > to
+  const run = () => {
+    const q = new URLSearchParams()
+    if (from) q.set('from', from)
+    if (to) q.set('to', to)
+    const name = from || to ? `faktury-projekty-${from ?? 'start'}_${to ?? 'dzis'}.xlsx` : 'faktury-projekty.xlsx'
+    setLoading(true)
+    downloadFile(`/invoices/export.xlsx${q.size ? `?${q}` : ''}`, name)
+      .then(onClose)
+      .catch((e) => notifications.show({ color: 'red', message: errorMessage(e) }))
+      .finally(() => setLoading(false))
+  }
+  const now = dayjs()
+  return (
+    <Modal opened={opened} onClose={onClose} title={t('invoices.exportModal.title')}>
+      <Stack>
+        <Group gap="xs">
+          <Button size="xs" variant="light" onClick={() => preset(prev.startOf('month'), prev.endOf('month'))}>
+            {t('invoices.exportModal.prevMonth')}
+          </Button>
+          <Button size="xs" variant="light" onClick={() => preset(now.startOf('month'), now.endOf('month'))}>
+            {t('invoices.exportModal.thisMonth')}
+          </Button>
+          <Button size="xs" variant="light" onClick={() => preset(now.startOf('year'), now.endOf('year'))}>
+            {t('invoices.exportModal.thisYear')}
+          </Button>
+        </Group>
+        <Group grow>
+          <DateInput label={t('invoices.exportModal.from')} valueFormat="DD.MM.YYYY" clearable value={toDate(from)} onChange={(d) => setFrom(fromDate(d))} />
+          <DateInput label={t('invoices.exportModal.to')} valueFormat="DD.MM.YYYY" clearable value={toDate(to)} onChange={(d) => setTo(fromDate(d))} error={invalid ? t('validation.dateRange') : undefined} />
+        </Group>
+        <Text size="xs" c="dimmed">
+          {t('invoices.exportModal.hint')}
+        </Text>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            {t('app.cancel')}
+          </Button>
+          <Button leftSection={<IconDownload size={16} />} loading={loading} disabled={invalid} onClick={run}>
+            {t('invoices.exportModal.run')}
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  )
+}
+
 export function InvoicesPage() {
   const { t } = useTranslation()
   const { can } = useAuth()
   const q = useInvoices()
   const sync = useSyncInvoices()
+  const awaiting = useAwaitingApproval(can('invoices', 'approve'))
+  const [exporting, setExporting] = useState(false)
   const [params, setParams] = useSearchParams()
+  const [tab, setTab] = useState<string | null>('list')
+  // „Do mojej akceptacji” — także z banera i z linku w menu (?akceptacja).
+  const [mine, setMine] = useState(params.has('akceptacja'))
   const [open, setOpenState] = useState<string | null>(params.get('faktura'))
   const setOpen = (v: string | null) => {
     setOpenState(v)
@@ -646,7 +734,7 @@ export function InvoicesPage() {
             <Button
               variant="light"
               leftSection={<IconDownload size={16} />}
-              onClick={() => downloadFile('/invoices/export.xlsx', 'faktury-projekty.xlsx').catch((e) => notifications.show({ color: 'red', message: errorMessage(e) }))}
+              onClick={() => setExporting(true)}
             >
               {t('invoices.export')}
             </Button>
@@ -669,11 +757,29 @@ export function InvoicesPage() {
         </Group>
       </Group>
       {data && !data.configured && <Alert color="yellow">{t('invoices.notConfigured')}</Alert>}
+      {!!awaiting.data?.count && !mine && (
+        <Alert color="yellow" variant="light" py="xs">
+          <Group justify="space-between">
+            <Text size="sm">{t('invoices.awaiting', { count: awaiting.data.count })}</Text>
+            <Button
+              size="xs"
+              variant="light"
+              color="yellow"
+              onClick={() => {
+                setTab('list')
+                setMine(true)
+              }}
+            >
+              {t('invoices.awaitingShow')}
+            </Button>
+          </Group>
+        </Alert>
+      )}
       {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
       {q.isLoading || !data ? (
         <Loader />
       ) : (
-        <Tabs defaultValue="list" keepMounted={false}>
+        <Tabs value={tab} onChange={setTab} keepMounted={false}>
           <Tabs.List>
             <Tabs.Tab value="list">{t('invoices.tabs.list')}</Tabs.Tab>
             <Tabs.Tab value="projects">{t('invoices.tabs.projects')}</Tabs.Tab>
@@ -681,7 +787,7 @@ export function InvoicesPage() {
             <Tabs.Tab value="reports">{t('invoices.tabs.reports')}</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="list" pt="sm">
-            <ListTab items={data.items} onOpen={setOpen} />
+            <ListTab items={data.items} onOpen={setOpen} mine={mine} setMine={setMine} />
           </Tabs.Panel>
           <Tabs.Panel value="projects" pt="sm">
             <ProjectsTab items={data.items} />
@@ -695,6 +801,7 @@ export function InvoicesPage() {
         </Tabs>
       )}
       <InvoiceDrawer id={open} onClose={() => setOpen(null)} />
+      <ExportModal opened={exporting} onClose={() => setExporting(false)} />
     </Stack>
   )
 }

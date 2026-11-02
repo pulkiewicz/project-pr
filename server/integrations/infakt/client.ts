@@ -57,4 +57,24 @@ export class HttpInfaktClient implements InfaktClient {
     const body = await this.get<{ attachments?: InfaktAttachment[] | null }>(`/documents/costs/${encodeURIComponent(uuid)}.json`)
     return (body.attachments ?? []).map((a) => ({ file_name: a.file_name, file_url: a.file_url }))
   }
+
+  /** Klucz API dołączany tylko dla hostów inFakt (link może też wskazywać podpisany adres magazynu plików). */
+  async downloadAttachment(url: string): Promise<{ body: ArrayBuffer; type: string }> {
+    let u: URL
+    try {
+      u = new URL(url)
+    } catch {
+      throw new InfaktError(0, 'invalid attachment url')
+    }
+    if (u.protocol !== 'https:') throw new InfaktError(0, 'attachment url must be https')
+    const infaktHost = u.hostname === 'infakt.pl' || u.hostname.endsWith('.infakt.pl')
+    let res: Response
+    try {
+      res = await this.fetchFn(u, { headers: infaktHost ? { 'X-inFakt-ApiKey': this.apiKey } : {}, redirect: 'follow', signal: AbortSignal.timeout(15000) })
+    } catch (e) {
+      throw new InfaktError(0, e instanceof Error ? e.message : String(e))
+    }
+    if (!res.ok) throw new InfaktError(res.status, `inFakt file HTTP ${res.status}`)
+    return { body: await res.arrayBuffer(), type: res.headers.get('content-type') ?? '' }
+  }
 }

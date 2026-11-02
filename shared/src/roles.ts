@@ -1,8 +1,11 @@
-export const ROLES = ['Admin', 'EnvcheckInternal', 'Arsanit', 'Client', 'Subcontractor'] as const
+/** `Accounting` — księgowość (wewnętrzna lub biuro rachunkowe): domyślnie odczyt i eksport faktur, pracowników i czasu pracy. */
+export const ROLES = ['Admin', 'EnvcheckInternal', 'Arsanit', 'Client', 'Subcontractor', 'Accounting'] as const
 export type Role = (typeof ROLES)[number]
 
-/** Role pracowników Envcheck — dostęp do wszystkich projektów i modułów sprzedaży. */
-export const STAFF_ROLES = ['Admin', 'EnvcheckInternal'] as const satisfies readonly Role[]
+/** Role pracowników Envcheck — dostęp do wszystkich projektów i modułów wewnętrznych (zakres modułów wg macierzy uprawnień). */
+export const STAFF_ROLES = ['Admin', 'EnvcheckInternal', 'Accounting'] as const satisfies readonly Role[]
+/** Pracownicy merytoryczni Envcheck (bez księgowości) — np. opiekunowie szans w CRM. */
+export const ENVCHECK_ROLES = ['Admin', 'EnvcheckInternal'] as const satisfies readonly Role[]
 
 /** Pracownik Envcheck; pozostałe role (Arsanit, Zamawiający, podwykonawcy) widzą tylko przypisane projekty. */
 export function isStaffRole(role: Role): boolean {
@@ -25,6 +28,7 @@ export function defaultPartyForRole(role: Role, subcontractorId?: string | null)
   switch (role) {
     case 'Admin':
     case 'EnvcheckInternal':
+    case 'Accounting':
       return 'Envcheck'
     case 'Arsanit':
       return 'Arsanit'

@@ -49,4 +49,8 @@ export class FakeInfaktClient implements InfaktClient {
   async costAttachments(uuid: string): Promise<InfaktAttachment[]> {
     return [{ file_name: `${uuid.slice(-4)}.pdf`, file_url: `https://app.infakt.pl/app/twoja-faktura/${uuid}` }]
   }
+
+  async downloadAttachment(_url: string): Promise<{ body: ArrayBuffer; type: string }> {
+    return { body: new TextEncoder().encode('%PDF-1.4 test').buffer as ArrayBuffer, type: 'application/pdf' }
+  }
 }

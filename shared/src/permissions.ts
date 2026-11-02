@@ -75,12 +75,14 @@ const LEVEL_ACTIONS: Record<Level, readonly Action[]> = {
 }
 
 type Row = Record<Role, Level>
-const row = (Admin: Level, EnvcheckInternal: Level, Arsanit: Level, Client: Level, Subcontractor: Level): Row => ({
+/** Księgowość domyślnie bez dostępu — wyjątki podane jawnie (ostatni argument). */
+const row = (Admin: Level, EnvcheckInternal: Level, Arsanit: Level, Client: Level, Subcontractor: Level, Accounting: Level = '-'): Row => ({
   Admin,
   EnvcheckInternal,
   Arsanit,
   Client,
   Subcontractor,
+  Accounting,
 })
 
 /** Domyślna macierz z sekcji 4.3 (seed). */
@@ -93,12 +95,13 @@ export const DEFAULT_LEVELS: Record<ModuleKey, Row> = {
   quotesPricing: row('P', '-', '-', '-', '-'),
   quoteKnowledge: row('P', 'E', '-', '-', '-'),
   // Faktury: rola tylko otwiera możliwość — o dostępie decyduje lista osób w Ustawieniach (Admin).
-  invoices: row('P', 'P', '-', '-', '-'),
+  // Księgowość: odczyt i eksport (także po dodaniu do listy osób z dostępem).
+  invoices: row('P', 'P', '-', '-', '-', 'O'),
   // Zarząd: jak Faktury — o dostępie decyduje lista osób w Ustawieniach (Admin).
   fleet: row('P', 'P', '-', '-', '-'),
-  employees: row('P', 'P', '-', '-', '-'),
+  employees: row('P', 'P', '-', '-', '-', 'O'),
   // Czas pracy: jak Faktury — o dostępie (i podziale podgląd / edycja) decyduje lista osób w Ustawieniach.
-  timesheets: row('P', 'P', '-', '-', '-'),
+  timesheets: row('P', 'P', '-', '-', '-', 'O'),
   dashboardInternal: row('P', 'O', '-', '-', '-'),
   hrf: row('P', 'E', 'E', 'O', '-'),
   // Zadania wewnętrzne doprecyzowujące HRF — niewidoczne dla Zamawiającego i podwykonawców.

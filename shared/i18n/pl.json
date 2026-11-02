@@ -135,7 +135,8 @@
     "EnvcheckInternal": "Envcheck",
     "Arsanit": "Arsanit",
     "Client": "Zamawiający",
-    "Subcontractor": "Podwykonawca"
+    "Subcontractor": "Podwykonawca",
+    "Accounting": "Księgowość"
   },
   "actions": {
     "view": "Podgląd",
@@ -355,6 +356,7 @@
     "employee_not_found": "Nie znaleziono pracownika",
     "vehicle_registration_exists": "Pojazd o tym numerze rejestracyjnym już istnieje",
     "invoice_amount_missing": "Uzupełnij kwotę netto faktury przed wysłaniem do akceptacji",
+    "invoice_preview_unavailable": "Podgląd pliku niedostępny — otwórz plik w inFakt",
     "cost_category_exists": "Kategoria o tej nazwie już istnieje.",
     "cost_category_in_use": "Kategoria jest przypisana do faktur ({{detail}}) — można ją tylko wyłączyć.",
     "cost_category_not_found": "Kategoria nie istnieje albo jest wyłączona.",
@@ -804,6 +806,22 @@
     "contractStart": "Od",
     "contractEnd": "Do (puste = czas nieokreślony)",
     "indefinite": "czas nieokreślony",
+    "payBasisLabel": "Wynagrodzenie",
+    "payBasis": {
+      "monthly": "miesięcznie",
+      "hourly": "za godzinę"
+    },
+    "payPer": {
+      "monthly": "/ mies.",
+      "hourly": "/ h"
+    },
+    "payAmount": "Kwota / stawka (zł)",
+    "payAmountHint": "Brutto; dla B2B — netto z faktury.",
+    "isStudent": "Status ucznia / studenta",
+    "isStudentHint": "Do ukończenia 26 lat — zlecenie bez składek ZUS.",
+    "studentUntil": "Status ważny do",
+    "studentBadge": "uczeń",
+    "studentUntilTitle": "Status ucznia / studenta do {{date}}",
     "validity": "Badania i szkolenia",
     "medicalExamValidUntil": "Badania lekarskie ważne do",
     "bhpTrainingValidUntil": "Szkolenie BHP ważne do",
@@ -818,6 +836,7 @@
     "col": {
       "name": "Pracownik",
       "contract": "Umowa",
+      "pay": "Wynagrodzenie",
       "medical": "Badania do",
       "bhp": "BHP do",
       "qualifications": "Uprawnienia"
@@ -1007,7 +1026,9 @@
       "other": "Inne"
     },
     "activity": {
-      "note": "Notatka",
+      "note": "Notatka wewnętrzna",
+    "noteHint": "Komentarz do całej faktury (np. dla osoby akceptującej). Nie trafia do kosztów projektów ani do eksportu — do tego służy „Opis kosztu” przy projekcie.",
+    "assignedHint": "Faktura jest przypisana, ale jeszcze nie wysłana do akceptacji — wyślij ją przyciskiem poniżej lub zbiorczo z listy.",
       "call": "Telefon",
       "email": "E-mail",
       "meeting": "Spotkanie",
@@ -1501,6 +1522,7 @@
     "search": "Numer, sprzedawca, opis…",
     "status": {
       "new": "Do przypisania",
+      "assigned": "Przypisana — do wysłania",
       "pending": "Do akceptacji",
       "approved": "Zaakceptowana",
       "rejected": "Odrzucona"
@@ -1605,7 +1627,7 @@
     "editHint": "Puste pole = wartość z inFakt. Wpisane dane mają pierwszeństwo i synchronizacja ich nie nadpisze.",
     "onlyMissing": "Brak danych",
     "assignProject": "Przypisz projekt…",
-    "allocationDescription": "Opis",
+    "allocationDescription": "Opis kosztu",
     "descriptionNeedsProject": "najpierw wybierz projekt",
     "allocationDescriptionHint": "Opis — czego dotyczy koszt w tym projekcie",
     "bulk": {
@@ -1620,6 +1642,8 @@
       "done": "Zmieniono przypisanie: {{updated}}; pominięto (w akceptacji / zaakceptowane): {{skipped}}",
       "hint": "Zaznacz faktury, by zmienić przypisanie kilku naraz.",
       "setCategory": "Ustaw kategorię",
+      "submit": "Wyślij do akceptacji",
+      "submitDone": "Wysłano do akceptacji: {{updated}}; pominięto: {{skipped}} (bez przypisania lub kwoty netto, albo już w akceptacji)",
       "categoryDone": "Zmieniono kategorię: {{updated}}"
     },
     "unassigned": "Do przypisania (bez decyzji)",
@@ -1648,7 +1672,28 @@
       "partial": "Częściowo",
       "unpaid": "Niezapłacona",
       "none": "Brak płatności połączonych z wyciągów.",
-      "statement": "wyciąg {{number}}"
+      "statement": "wyciąg {{number}}",
+      "due": "Do zapłaty",
+      "overdue": "Po terminie",
+      "dueDate": "termin {{date}}"
+    },
+    "awaiting_one": "Na Twoją akceptację czeka {{count}} faktura.",
+    "awaiting_few": "Na Twoją akceptację czekają {{count}} faktury.",
+    "awaiting_many": "Na Twoją akceptację czeka {{count}} faktur.",
+    "awaiting_other": "Na Twoją akceptację czeka {{count}} faktury.",
+    "awaitingShow": "Pokaż",
+    "preview": "Podgląd",
+    "previewTitle": "Podgląd: {{name}}",
+    "openInInfakt": "Otwórz w inFakt",
+    "exportModal": {
+      "title": "Eksport faktur do XLSX",
+      "from": "Od",
+      "to": "Do",
+      "hint": "Według daty wystawienia (pliki bez daty — dnia dodania do inFakt). Puste pole = bez ograniczenia.",
+      "prevMonth": "Poprzedni miesiąc",
+      "thisMonth": "Bieżący miesiąc",
+      "thisYear": "Bieżący rok",
+      "run": "Pobierz XLSX"
     }
   },
   "projectsAdmin": {
