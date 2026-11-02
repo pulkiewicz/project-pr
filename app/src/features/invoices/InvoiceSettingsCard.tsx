@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Group, MultiSelect, Stack, Text } from '@mantine/core'
+import { Alert, Button, Card, Group, MultiSelect, Stack, Switch, Text } from '@mantine/core'
 import { DateInput } from '@mantine/dates'
 import { notifications } from '@mantine/notifications'
 import { format } from 'date-fns'
@@ -9,7 +9,7 @@ import { useAuth } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { useInvoiceSettings, useSaveInvoiceSettings } from './api'
 
-/** Ustawienia modułu Faktury (Admin): osoby z dostępem i data, od której pobierać koszty z inFakt. */
+/** Ustawienia modułu Faktury (Admin): osoby z dostępem, data, od której pobierać koszty z inFakt, i powiadomienia e-mail. */
 export function InvoiceSettingsCard() {
   const { t } = useTranslation()
   const { refresh } = useAuth()
@@ -40,6 +40,13 @@ export function InvoiceSettingsCard() {
           value={new Date(`${s.syncFrom}T00:00:00`)}
           onChange={(d) => d && setS({ ...s, syncFrom: format(typeof d === 'string' ? new Date(d) : d, 'yyyy-MM-dd') })}
         />
+        <Switch
+          label={t('invoices.settings.notify')}
+          description={t('invoices.settings.notifyHint')}
+          checked={s.notifyApprovers}
+          onChange={(e) => setS({ ...s, notifyApprovers: e.currentTarget.checked })}
+        />
+        {s.notifyApprovers && !q.data.mailConfigured && <Alert color="yellow">{t('invoices.settings.mailMissing')}</Alert>}
         <Group justify="flex-end">
           <Button
             loading={save.isPending}

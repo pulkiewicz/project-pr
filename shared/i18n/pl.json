@@ -1606,7 +1606,10 @@
       "users": "Osoby z dostępem do modułu",
       "usersHint": "Moduł widzą tylko wybrane osoby. Akceptuje inna osoba z tej listy niż wysyłająca.",
       "syncFrom": "Pobieraj pliki dodane do inFakt od",
-      "keyMissing": "Brak klucza INFAKT_API_KEY w zmiennych środowiskowych Netlify."
+      "keyMissing": "Brak klucza INFAKT_API_KEY w zmiennych środowiskowych Netlify.",
+      "notify": "Powiadomienia e-mail o akceptacji",
+      "notifyHint": "Osoby z listy z prawem akceptacji dostają e-mail przy wysłaniu faktur do akceptacji (bez osoby wysyłającej) oraz w dni robocze rano przypomnienie o czekających.",
+      "mailMissing": "Poczta nie jest skonfigurowana (SMTP_HOST, MAIL_FROM w zmiennych środowiskowych Netlify) — e-maile nie będą wysyłane."
     },
     "date": "Data",
     "addedAt": "Dodano do inFakt",

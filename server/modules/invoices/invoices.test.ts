@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { shareAmount, type CostCategoryDto, type InvoiceBulkResult, type InvoiceDetailDto, type InvoiceListResponse, type InvoiceSyncResult, type MeResponse } from '#shared'
+import { shareAmount, type CostCategoryDto, type InvoiceBulkResult, type InvoiceDetailDto, type InvoiceListResponse, type InvoiceSettings, type InvoiceSyncResult, type MeResponse } from '#shared'
 import { INVOICES_SETTING_KEY } from '../../auth/access.ts'
 import { SEED_PROJECT_ID } from '../../db/seed-sql.ts'
 import { createUser, eq, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
@@ -342,3 +342,88 @@ describe('uwagi z 02.11.2026: zbiorcze wysyłanie, licznik akceptacji, podgląd,
 })
 
 const byId = async (id: string) => (await (await req(h, 'GET', `/api/invoices/${id}`, ania.headers)).json()) as InvoiceDetailDto
+
+describe('powiadomienia e-mail o akceptacji', () => {
+  const settings = async () => ((await (await req(h, 'GET', '/api/admin/settings/invoices', admin.headers)).json()) as { settings: InvoiceSettings; mailConfigured: boolean })
+  const setNotify = async (notifyApprovers: boolean) => {
+    const s = (await settings()).settings
+    expect((await req(h, 'PUT', '/api/admin/settings/invoices', admin.headers, { ...s, notifyApprovers })).status).toBe(200)
+  }
+  /** Faktura gotowa do wysłania: przypisana do projektu, z kwotą netto, nie w akceptacji. */
+  const ready = async () => {
+    const inv = (await list(ania)).items.find((i) => (i.status === 'new' || i.status === 'rejected') && i.netPrice != null && i.number)!
+    await req(h, 'POST', '/api/invoices/bulk-allocation', kamil.headers, { ids: [inv.id], projectId: project2 })
+    return byId(inv.id)
+  }
+  const reopenAll = async () => {
+    for (const i of (await list(ania)).items.filter((x) => x.status === 'pending' || x.status === 'approved')) {
+      await req(h, 'POST', `/api/invoices/${i.id}/reopen`, admin.headers, { version: i.version })
+    }
+  }
+
+  it('domyślnie wyłączone: wysłanie do akceptacji nie wysyła e-maili', async () => {
+    const s = await settings()
+    expect(s.settings.notifyApprovers).toBe(false)
+    expect(s.mailConfigured).toBe(true)
+    h.mailer.sent = []
+    const inv = await ready()
+    expect((await req(h, 'POST', `/api/invoices/${inv.id}/submit`, ania.headers, { version: inv.version })).status).toBe(200)
+    expect(h.mailer.sent).toHaveLength(0)
+  })
+
+  it('po włączeniu: jeden e-mail do akceptujących z listy, bez wysyłającego i bez osób bez prawa akceptacji', async () => {
+    await reopenAll()
+    await setNotify(true)
+    h.mailer.sent = []
+    const inv = await ready()
+    expect((await req(h, 'POST', `/api/invoices/${inv.id}/submit`, ania.headers, { version: inv.version })).status).toBe(200)
+    expect(h.mailer.sent).toHaveLength(1)
+    const mail = h.mailer.sent[0]!
+    // Admin i Kamil akceptują; Ania wysłała; Księgowość (na liście) nie ma `invoices:approve`; outsider spoza listy.
+    expect(mail.to.sort()).toEqual([admin.email, kamil.email].sort())
+    expect(mail.subject).toBe('Do akceptacji: 1 faktura kosztowa')
+    expect(mail.text).toContain(inv.number!)
+    expect(mail.text).toContain('http://localhost/faktury?akceptacja')
+  })
+
+  it('zbiorcze wysłanie = jeden zbiorczy e-mail; nieaktywny akceptujący pominięty; błąd poczty nie blokuje wysłania', async () => {
+    await reopenAll()
+    const a = await ready()
+    const b = (await list(ania)).items.find((i) => i.id !== a.id && (i.status === 'new' || i.status === 'rejected') && i.netPrice != null)!
+    await req(h, 'POST', '/api/invoices/bulk-allocation', kamil.headers, { ids: [b.id], projectId: project2 })
+    await h.db.update(schema.users).set({ isActive: false }).where(eq(schema.users.id, admin.id))
+    h.mailer.sent = []
+    const res = await req(h, 'POST', '/api/invoices/bulk-submit', kamil.headers, { ids: [a.id, b.id] })
+    await h.db.update(schema.users).set({ isActive: true }).where(eq(schema.users.id, admin.id))
+    expect((await res.json()) as InvoiceBulkResult).toEqual({ updated: 2, skipped: 0 })
+    expect(h.mailer.sent).toHaveLength(1)
+    expect(h.mailer.sent[0]).toMatchObject({ to: [ania.email], subject: 'Do akceptacji: 2 faktury kosztowe' })
+    expect(h.mailer.sent[0]!.text).toContain('EnvcheckInternal 3 wysłał(a) do akceptacji 2 faktury kosztowe')
+
+    h.mailer.fail = true
+    const c = await ready()
+    const sub = await req(h, 'POST', `/api/invoices/${c.id}/submit`, ania.headers, { version: c.version })
+    h.mailer.fail = false
+    expect(sub.status).toBe(200)
+    expect((await byId(c.id)).status).toBe('pending')
+  })
+
+  it('poranne przypomnienie: każdy akceptujący dostaje listę czekających na niego (bez własnych); wyłączone — nic', async () => {
+    const { sendApprovalDigest } = await import('./notify.ts')
+    // Czekają: dwie wysłane przez Kamila i jedna przez Anię — każdy akceptujący ma coś do akceptacji.
+    const pending = (await list(ania)).items.filter((i) => i.status === 'pending')
+    expect(new Set(pending.map((i) => i.submittedBy))).toEqual(new Set([kamil.id, ania.id]))
+    h.mailer.sent = []
+    expect(await sendApprovalDigest(h.db, h.mailer, 'https://hub.envcheck.test/')).toEqual({ sent: 3 })
+    const forUser = (u: TestUser) => h.mailer.sent.find((m) => m.to.length === 1 && m.to[0] === u.email)
+    for (const u of [admin, ania, kamil]) {
+      const n = pending.filter((i) => i.submittedBy !== u.id).length
+      expect(forUser(u)?.subject).toMatch(new RegExp(`^Przypomnienie: ${n} `))
+      expect(forUser(u)?.text).toContain('https://hub.envcheck.test/faktury?akceptacja')
+    }
+    await setNotify(false)
+    h.mailer.sent = []
+    expect(await sendApprovalDigest(h.db, h.mailer, 'https://hub.envcheck.test')).toEqual({ sent: 0 })
+    expect(h.mailer.sent).toHaveLength(0)
+  })
+})

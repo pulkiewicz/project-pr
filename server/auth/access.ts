@@ -54,7 +54,11 @@ export const INVOICES_SETTING_KEY = 'invoices.access'
 export async function invoiceSettings(db: Database): Promise<InvoiceSettings> {
   const [row] = await db.select().from(appSettings).where(eq(appSettings.key, INVOICES_SETTING_KEY))
   const v = (row?.value ?? {}) as Partial<InvoiceSettings>
-  return { userIds: Array.isArray(v.userIds) ? v.userIds : [], syncFrom: typeof v.syncFrom === 'string' ? v.syncFrom : DEFAULT_INVOICE_SYNC_FROM }
+  return {
+    userIds: Array.isArray(v.userIds) ? v.userIds : [],
+    syncFrom: typeof v.syncFrom === 'string' ? v.syncFrom : DEFAULT_INVOICE_SYNC_FROM,
+    notifyApprovers: v.notifyApprovers === true,
+  }
 }
 
 /** Uprawnienia `invoices:*` z roli obowiązują tylko osoby z listy `invoices.access`. */

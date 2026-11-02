@@ -11,6 +11,9 @@ import type { DriveClient } from './integrations/drive/types.ts'
 import { HttpInfaktClient } from './integrations/infakt/client.ts'
 import { FakeInfaktClient } from './integrations/infakt/fake.ts'
 import type { InfaktClient } from './integrations/infakt/types.ts'
+import { FakeMailer } from './integrations/mail/fake.ts'
+import { SmtpMailer } from './integrations/mail/smtp.ts'
+import type { Mailer } from './integrations/mail/types.ts'
 import { requireEnv, env } from './lib/env.ts'
 import { parseKeyring } from './lib/field-crypto.ts'
 
@@ -53,6 +56,18 @@ function infaktClient(): InfaktClient | null {
   return key ? new HttpInfaktClient(key) : null
 }
 
+function mailer(): Mailer | null {
+  // Lokalnie atrapa (wiadomości tylko w logu) na jawne żądanie ma pierwszeństwo przed SMTP.
+  if (localDev() && env('DEV_FAKE_MAIL') === '1') return new FakeMailer(true)
+  const host = env('SMTP_HOST')
+  const from = env('MAIL_FROM') ?? env('SMTP_USER')
+  if (!host || !from) return null
+  return new SmtpMailer({ host, port: Number(env('SMTP_PORT') ?? 587), user: env('SMTP_USER'), pass: env('SMTP_PASSWORD'), from })
+}
+
+/** Adres aplikacji do linków w e-mailach; URL ustawia Netlify (główna domena serwisu). */
+export const appUrl = () => env('APP_URL') ?? env('URL')
+
 /** Zadanie AI wykonuje funkcja w tle (do 15 min) — tutaj tylko zlecenie z jednorazowym tokenem. */
 async function dispatchJob(jobId: string, token: string, origin: string) {
   const res = await fetch(`${origin}/.netlify/functions/ai-job-background`, {
@@ -75,10 +90,12 @@ export function runtimeDeps(): AppDeps {
       hmacKey: Buffer.from(requireEnv('FIELD_HMAC_KEY'), 'base64'),
       bootstrapAdminEmail: env('BOOTSTRAP_ADMIN_EMAIL'),
       secureCookies: env('NETLIFY_DEV') !== 'true',
+      appUrl: appUrl(),
     },
     drive: driveClient(),
     ai: aiClient(),
     infakt: infaktClient(),
+    mailer: mailer(),
     dispatchJob,
   }
   return deps

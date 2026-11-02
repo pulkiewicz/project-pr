@@ -36,6 +36,7 @@ import { HttpProblem, conflict, forbidden, notFound } from '../../lib/problem.ts
 import { newRouter, secureRoute } from '../../routing.ts'
 import { writeAudit } from '../audit/service.ts'
 import { invoicePayments } from '../bank/reconcile.ts'
+import { notifySubmitted } from './notify.ts'
 import { effective, getInvoice, lastSync, listEvents, listInvoices, syncInvoices } from './service.ts'
 
 export const invoicesRouter = newRouter()
@@ -46,6 +47,13 @@ const ok = { 200: { description: 'OK', ...json(z.any()) } }
 const idParam = z.object({ id: z.uuid() })
 const route = <R extends RouteConfig>(r: R, action: Action) => secureRoute('', r, { permission: { module: 'invoices', action } })
 const now = (c: Context<AppEnv>) => c.get('deps').now?.() ?? new Date()
+
+/** E-mail do akceptujących po wysłaniu do akceptacji (gdy włączony w Ustawieniach i skonfigurowana poczta). */
+async function notifyApprovers(c: Context<AppEnv>, invoiceIds: string[]) {
+  const deps = c.get('deps')
+  const user = c.get('user')
+  await notifySubmitted(deps.db, deps.mailer, { invoiceIds, submitter: { id: user.id, name: user.name }, baseUrl: deps.config.appUrl ?? new URL(c.req.url).origin })
+}
 
 async function detail(c: Context<AppEnv>, id: string): Promise<InvoiceDetailDto> {
   const db = c.get('deps').db
@@ -539,10 +547,13 @@ invoicesRouter.openapi(
   route({ method: 'post', path: '/invoices/{id}/submit', request: { params: idParam, body: body(invoiceTransitionInput) }, responses: ok }, 'edit'),
   async (c) => {
     const { comment, version } = c.req.valid('json')
+    const id = c.req.valid('param').id
     // Bez kwoty netto podział % nie daje kosztów projektów — trzeba ją uzupełnić (plik bez odczytanych kwot).
-    return transition(c, c.req.valid('param').id, version, INVOICE_EDITABLE, 'pending', { kind: 'submitted', comment }, (cur) => {
+    const res = await transition(c, id, version, INVOICE_EDITABLE, 'pending', { kind: 'submitted', comment }, (cur) => {
       if (effective(cur).netPrice == null) throw new HttpProblem(422, 'invoice_amount_missing')
     })
+    await notifyApprovers(c, [id])
+    return res
   },
 )
 
@@ -571,9 +582,11 @@ invoicesRouter.openapi(
       }
       const res: InvoiceBulkResult = { updated: target.length, skipped: unique.length - target.length }
       await writeAudit(c, { action: 'invoices.bulk_submit', entity: 'cost_invoices', changes: { ids: target, ...res } }, tx)
-      return res
+      return { res, target }
     })
-    return c.json(result, 200)
+    // Jeden zbiorczy e-mail na wysłanie, nie po mailu na fakturę.
+    await notifyApprovers(c, result.target)
+    return c.json(result.res, 200)
   },
 )
 
@@ -607,7 +620,7 @@ invoicesRouter.openapi(
   },
 )
 
-// ---------------- Ustawienia (Admin): kto ma dostęp, od kiedy synchronizować ----------------
+// ---------------- Ustawienia (Admin): kto ma dostęp, od kiedy synchronizować, powiadomienia e-mail ----------------
 
 invoicesRouter.openapi(
   secureRoute('', { method: 'get', path: '/admin/settings/invoices', responses: ok }, { permission: { module: 'admin', action: 'view' } }),
@@ -618,7 +631,7 @@ invoicesRouter.openapi(
       .from(users)
       .where(and(inArray(users.role, [...STAFF_ROLES]), eq(users.isActive, true), isNull(users.deletedAt)))
       .orderBy(asc(users.name))
-    return c.json({ settings: await invoiceSettings(db), users: staff, configured: !!c.get('deps').infakt }, 200)
+    return c.json({ settings: await invoiceSettings(db), users: staff, configured: !!c.get('deps').infakt, mailConfigured: !!c.get('deps').mailer }, 200)
   },
 )
 

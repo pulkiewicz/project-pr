@@ -4,6 +4,7 @@ import type { Database } from './db/client.ts'
 import type { AiClient } from './integrations/ai/types.ts'
 import type { DriveClient } from './integrations/drive/types.ts'
 import type { InfaktClient } from './integrations/infakt/types.ts'
+import type { Mailer } from './integrations/mail/types.ts'
 import type { users } from './db/schema.ts'
 import type { Keyring } from './lib/field-crypto.ts'
 
@@ -15,6 +16,8 @@ export interface AppConfig {
   /** E-mail pierwszego Admina — tworzony przy pierwszym logowaniu, jeśli w bazie nie ma żadnego Admina. */
   bootstrapAdminEmail?: string
   secureCookies: boolean
+  /** Adres aplikacji do linków w e-mailach (APP_URL / URL z Netlify); bez niego — origin żądania. */
+  appUrl?: string
 }
 
 export interface AppDeps {
@@ -31,6 +34,8 @@ export interface AppDeps {
   ai?: AiClient | null
   /** inFakt (INFAKT_API_KEY); null = integracja wyłączona. Lokalnie i w testach — atrapa. */
   infakt?: InfaktClient | null
+  /** Poczta SMTP (SMTP_HOST, MAIL_FROM); null = e-maile wyłączone. Lokalnie i w testach — atrapa. */
+  mailer?: Mailer | null
   /** Zlecenie zadania AI do wykonania w tle (funkcja background); w testach wykonanie od razu. */
   dispatchJob?: (jobId: string, token: string, origin: string) => Promise<void>
 }

@@ -99,7 +99,7 @@ export function useInvoiceTransition() {
 }
 
 export const useInvoiceSettings = () =>
-  useQuery({ queryKey: ['admin', 'settings', 'invoices'], queryFn: () => api<{ settings: InvoiceSettings; users: InvoiceUserOption[]; configured: boolean }>('/admin/settings/invoices') })
+  useQuery({ queryKey: ['admin', 'settings', 'invoices'], queryFn: () => api<{ settings: InvoiceSettings; users: InvoiceUserOption[]; configured: boolean; mailConfigured: boolean }>('/admin/settings/invoices') })
 
 export function useSaveInvoiceSettings() {
   const qc = useQueryClient()

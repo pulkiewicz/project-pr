@@ -45,6 +45,8 @@ export interface InvoiceSettings {
   userIds: string[]
   /** Data dodania do inFakt (yyyy-MM-dd), od której pobierane są dokumenty kosztowe. */
   syncFrom: string
+  /** E-maile do akceptujących: przy wysłaniu do akceptacji i poranne przypomnienie. Domyślnie wyłączone. */
+  notifyApprovers: boolean
 }
 export const DEFAULT_INVOICE_SYNC_FROM = '2026-01-01'
 
@@ -53,6 +55,7 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'validation.date')
 export const invoiceSettingsInput = z.object({
   userIds: z.array(z.uuid()).max(50),
   syncFrom: isoDate,
+  notifyApprovers: z.boolean().default(false),
 })
 
 /** Udział w %, maks. 2 miejsca po przecinku. */

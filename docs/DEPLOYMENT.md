@@ -54,6 +54,21 @@ npm run secrets:generate -- adres@firmy.pl        # wypisuje gotowe polecenia ne
 
 Synchronizacja: przycisk „Synchronizuj z inFakt” w module oraz codziennie o 05:00 UTC (funkcja `infakt-sync`). Lokalnie `DEV_FAKE_INFAKT=1` włącza atrapę (przykładowe pliki kosztowe, w tym jeden bez odczytanych danych).
 
+### Powiadomienia e-mail o fakturach do akceptacji (SMTP)
+
+| Zmienna | Opis |
+|---|---|
+| `SMTP_HOST` | serwer SMTP, np. `smtp.office365.com` / `smtp.gmail.com` |
+| `SMTP_PORT` | domyślnie `587` (STARTTLS); `465` = TLS od razu |
+| `SMTP_USER`, `SMTP_PASSWORD` | login i hasło (dla Microsoft 365 / Google — hasło aplikacji) |
+| `MAIL_FROM` | nadawca, np. `Envcheck Hub <hub@envcheck.pl>`; domyślnie `SMTP_USER` |
+| `APP_URL` | opcjonalnie: adres aplikacji w linkach; domyślnie `URL` z Netlify |
+
+1. `netlify env:set SMTP_PASSWORD "…" --secret --scope functions` (pozostałe bez `--secret`), potem redeploy.
+2. W aplikacji: **Administracja → Ustawienia → Faktury kosztowe** — włącz „Powiadomienia e-mail o akceptacji” (domyślnie wyłączone).
+
+Odbiorcy: osoby z listy dostępu do modułu, których rola ma prawo akceptacji, bez osoby wysyłającej. E-mail wychodzi raz na każde wysłanie do akceptacji (pojedyncze lub zbiorcze), a w dni robocze o 06:00 UTC funkcja `invoice-approval-digest` wysyła każdemu akceptującemu przypomnienie o fakturach czekających na jego decyzję. Lokalnie `DEV_FAKE_MAIL=1` wypisuje wiadomości w logu.
+
 ### Envcheck Hub — zmienne dla wycen z AI i Google Drive (etapy R4–R5)
 
 | Zmienna | Opis |
