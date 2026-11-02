@@ -5,7 +5,7 @@
 - **Administracja → Ustawienia → Faktury kosztowe**: przełącznik „Powiadomienia e-mail o akceptacji” (domyślnie wyłączony).
 - Po wysłaniu do akceptacji (pojedynczym lub zbiorczym) jeden zbiorczy e-mail do osób z listy dostępu z prawem akceptacji, bez osoby wysyłającej; link do `/faktury?akceptacja`. Błąd poczty nie blokuje wysłania.
 - W dni robocze rano (funkcja `invoice-approval-digest`, 06:00 UTC) każdy akceptujący dostaje przypomnienie o fakturach czekających na jego decyzję.
-- Wysyłka przez SMTP (nodemailer): zmienne `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` (opis w `DEPLOYMENT.md`). Bez migracji — ustawienie w `invoices.access`.
+- Wysyłka przez SMTP (nodemailer): zmienne `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` (opis w `DEPLOYMENT.md`). Bez hasła aplikacji logowanie kontem serwisowym Google (to samo co Drive) z delegowaniem w domenie. Bez migracji — ustawienie w `invoices.access`.
 
 ## CRM: usuwanie szansy (01.11.2026)
 

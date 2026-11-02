@@ -60,11 +60,15 @@ Synchronizacja: przycisk „Synchronizuj z inFakt” w module oraz codziennie o 
 |---|---|
 | `SMTP_HOST` | serwer SMTP, np. `smtp.office365.com` / `smtp.gmail.com` |
 | `SMTP_PORT` | domyślnie `587` (STARTTLS); `465` = TLS od razu |
-| `SMTP_USER`, `SMTP_PASSWORD` | login i hasło (dla Microsoft 365 / Google — hasło aplikacji) |
+| `SMTP_USER` | konto, na które logujemy się do SMTP (Google: **główny adres**, nie alias) |
+| `SMTP_PASSWORD` | hasło (Microsoft 365 / Google — hasło aplikacji); **bez niego** — logowanie kontem serwisowym Google (`GOOGLE_SA_EMAIL`, `GOOGLE_SA_PRIVATE_KEY`) |
 | `MAIL_FROM` | nadawca, np. `Envcheck Hub <hub@envcheck.pl>`; domyślnie `SMTP_USER` |
 | `APP_URL` | opcjonalnie: adres aplikacji w linkach; domyślnie `URL` z Netlify |
 
-1. `netlify env:set SMTP_PASSWORD "…" --secret --scope functions` (pozostałe bez `--secret`), potem redeploy.
+1. Logowanie — jedno z dwóch:
+   - **hasło aplikacji**: `netlify env:set SMTP_PASSWORD "…" --secret --scope functions --context production`;
+   - **konto serwisowe Google** (gdy hasła aplikacji są niedostępne, np. wyłączona weryfikacja dwuetapowa): bez `SMTP_PASSWORD`. W admin.google.com → **Zabezpieczenia → Dostęp do danych i zarządzanie nimi → Opcje dostępu do interfejsów API → Przekazywanie dostępu w całej domenie → Dodaj nowy**: identyfikator klienta konta serwisowego (`client_id` z pliku JSON, liczba) i zakres `https://mail.google.com/`. Konto serwisowe wysyła wtedy w imieniu `SMTP_USER`; nadawca `MAIL_FROM` może być aliasem tego konta.
+   Potem redeploy.
 2. W aplikacji: **Administracja → Ustawienia → Faktury kosztowe** — włącz „Powiadomienia e-mail o akceptacji” (domyślnie wyłączone).
 
 Odbiorcy: osoby z listy dostępu do modułu, których rola ma prawo akceptacji, bez osoby wysyłającej. E-mail wychodzi raz na każde wysłanie do akceptacji (pojedyncze lub zbiorcze), a w dni robocze o 06:00 UTC funkcja `invoice-approval-digest` wysyła każdemu akceptującemu przypomnienie o fakturach czekających na jego decyzję. Lokalnie `DEV_FAKE_MAIL=1` wypisuje wiadomości w logu.

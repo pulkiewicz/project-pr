@@ -12,7 +12,7 @@ import { HttpInfaktClient } from './integrations/infakt/client.ts'
 import { FakeInfaktClient } from './integrations/infakt/fake.ts'
 import type { InfaktClient } from './integrations/infakt/types.ts'
 import { FakeMailer } from './integrations/mail/fake.ts'
-import { SmtpMailer } from './integrations/mail/smtp.ts'
+import { SmtpMailer, type SmtpAuth } from './integrations/mail/smtp.ts'
 import type { Mailer } from './integrations/mail/types.ts'
 import { requireEnv, env } from './lib/env.ts'
 import { parseKeyring } from './lib/field-crypto.ts'
@@ -62,7 +62,16 @@ function mailer(): Mailer | null {
   const host = env('SMTP_HOST')
   const from = env('MAIL_FROM') ?? env('SMTP_USER')
   if (!host || !from) return null
-  return new SmtpMailer({ host, port: Number(env('SMTP_PORT') ?? 587), user: env('SMTP_USER'), pass: env('SMTP_PASSWORD'), from })
+  // Hasło (np. hasło aplikacji) albo — bez hasła — konto serwisowe Google (to samo co Drive) z domain-wide delegation.
+  const pass = env('SMTP_PASSWORD')
+  const saEmail = env('GOOGLE_SA_EMAIL')
+  const saKey = env('GOOGLE_SA_PRIVATE_KEY')
+  const auth: SmtpAuth = pass
+    ? { kind: 'password', pass }
+    : saEmail && saKey
+      ? { kind: 'google-service-account', serviceEmail: saEmail, privateKeyPem: saKey.replace(/\\n/g, '\n') }
+      : { kind: 'none' }
+  return new SmtpMailer({ host, port: Number(env('SMTP_PORT') ?? 587), user: env('SMTP_USER'), auth, from })
 }
 
 /** Adres aplikacji do linków w e-mailach; URL ustawia Netlify (główna domena serwisu). */
