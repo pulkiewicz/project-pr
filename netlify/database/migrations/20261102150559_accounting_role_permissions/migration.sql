@@ -1,4 +1,4 @@
--- Rola Księgowość: wpisy macierzy uprawnień (osobna migracja — nowej wartości enuma "role" nie można użyć w transakcji, która ją dodała).
+-- Rola Księgowość: wpisy macierzy uprawnień (enum „role” z wartością Accounting odtworzony w poprzedniej migracji).
 INSERT INTO permissions (role, module, action, allowed) VALUES
   ('Accounting', 'dashboard', 'view', false),
   ('Accounting', 'dashboard', 'create', false),
