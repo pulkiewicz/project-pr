@@ -334,6 +334,10 @@ export interface BankReportInvoiceDto {
   openAmount: number | null
   /** Dni po terminie (> 0) albo null, gdy termin nie minął / brak terminu. */
   overdueDays: number | null
+  /** Status płatności z inFakt (`paid`, `unpaid`, `partial_payment`, `payment_not_applicable`). */
+  infaktPaymentStatus: string | null
+  /** Zapłacona wg inFakt, choć bez (pełnej) płatności w wyciągach — np. z innego rachunku. */
+  paidInInfakt: boolean
 }
 
 export interface BankReportDto {

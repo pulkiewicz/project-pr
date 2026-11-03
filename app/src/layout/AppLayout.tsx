@@ -27,6 +27,7 @@ import {
   IconLogout,
   IconMail,
   IconReceipt,
+  IconReportMoney,
   IconReplace,
   IconReportAnalytics,
   IconSearch,
@@ -282,7 +283,9 @@ export function AppLayout() {
           {finance.length > 0 && (
             <>
               {section(t('nav.finance'))}
-              {finance.map((n) => item(n.module, n.path, t(`nav.${n.module}`), ICONS[n.module] ?? IconFileText, false, n.module === 'invoices' ? { alert: awaiting } : {}))}
+              {finance.map((n) =>
+                item(n.navKey ?? n.module, n.path, t(`nav.${n.navKey ?? n.module}`), n.navKey === 'settlements' ? IconReportMoney : (ICONS[n.module] ?? IconFileText), false, n.path === '/faktury' ? { alert: awaiting } : {}),
+              )}
             </>
           )}
           {management.length > 0 && (

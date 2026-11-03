@@ -122,6 +122,7 @@
     "quotesCost": "Wyceny — koszty",
     "purchasesCost": "Zakupy — kwoty netto",
     "invoices": "Faktury kosztowe",
+    "settlements": "Rozliczenia",
     "finance": "Finanse",
     "adminProjects": "Projekty",
     "management": "Zarząd",
@@ -1540,8 +1541,7 @@
     "tabs": {
       "list": "Faktury",
       "projects": "Koszty per projekt",
-      "bank": "Wyciągi bankowe",
-      "reports": "Rozliczenia"
+      "bank": "Wyciągi bankowe"
     },
     "onlyMine": "Do mojej akceptacji",
     "number": "Numer",
@@ -1678,7 +1678,10 @@
       "statement": "wyciąg {{number}}",
       "due": "Do zapłaty",
       "overdue": "Po terminie",
-      "dueDate": "termin {{date}}"
+      "dueDate": "termin {{date}}",
+      "sourceBank": "z wyciągów",
+      "sourceInfakt": "wg inFakt",
+      "infaktStatus": "Status płatności w inFakt: {{status}}"
     },
     "awaiting_one": "Na Twoją akceptację czeka {{count}} faktura.",
     "awaiting_few": "Na Twoją akceptację czekają {{count}} faktury.",
@@ -1851,8 +1854,14 @@
       "statement": "Wyciąg",
       "reference": "Tytuł / nr faktury",
       "toLink": "faktura do podpięcia",
+      "title": "Rozliczenia",
+      "tabUnpaid": "Faktury bez płatności w banku",
+      "tabMissing": "Płatności bez faktury",
+      "showPaidInInfakt": "Pokaż opłacone wg inFakt ({{count}})",
+      "paidInInfakt": "opłacona wg inFakt",
+      "paidInInfaktHint": "inFakt ma tę fakturę jako opłaconą, ale w wyciągach nie ma połączonej płatności — np. zapłacona z innego rachunku albo płatność czeka na połączenie.",
       "unpaidTitle": "Faktury niezapłacone: {{count}}",
-      "unpaidHint": "Faktury z okresu bez połączonych płatności z wyciągów (lub zapłacone częściowo); najpierw najdłużej po terminie. Kliknij wiersz, aby otworzyć kartę faktury. Faktury opłacone z innego rachunku albo przed pierwszym wyciągiem też się tu pojawią.",
+      "unpaidHint": "Faktury z okresu bez połączonych płatności z wyciągów (lub zapłacone częściowo); najpierw najdłużej po terminie. Faktury, które inFakt ma jako opłacone (np. z innego rachunku), są domyślnie ukryte. Kliknij wiersz, aby otworzyć kartę faktury.",
       "overdue": "{{count}} dni po terminie"
     }
   }

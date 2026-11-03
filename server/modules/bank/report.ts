@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, inArray, lt, lte, or, sql } from 'drizzle-orm'
 import ExcelJS from 'exceljs'
-import { BANK_TX_NEEDS_INVOICE, paymentState, statementContinuity, type BankReportDto, type BankReportInvoiceDto } from '#shared'
+import { BANK_TX_NEEDS_INVOICE, invoicePaymentState, paymentState, statementContinuity, type BankReportDto, type BankReportInvoiceDto } from '#shared'
 import type { Database } from '../../db/client.ts'
 import { bankStatements, bankTransactions, bankTxInvoiceLinks } from '../../db/schema.ts'
 import { listInvoices } from '../invoices/service.ts'
@@ -40,7 +40,9 @@ export async function buildReport(db: Database, today: string, range: { from?: s
   const unpaid: BankReportInvoiceDto[] = []
   for (const i of await listInvoices(db)) {
     const date = i.issueDate ?? i.infaktCreatedAt?.slice(0, 10) ?? null
+    // Faktury bez pełnej płatności w wyciągach; opłacone wg inFakt oznaczone (widok domyślnie je ukrywa).
     if (!date || date < from || date > to || paymentState(i.grossPrice, i.paidAmount) === 'paid') continue
+    const paidInInfakt = invoicePaymentState(i) === 'paid'
     unpaid.push({
       id: i.id,
       number: i.number,
@@ -51,7 +53,9 @@ export async function buildReport(db: Database, today: string, range: { from?: s
       grossPrice: i.grossPrice,
       paidAmount: i.paidAmount,
       openAmount: i.grossPrice == null ? null : i.grossPrice - i.paidAmount,
-      overdueDays: i.dueDate && i.dueDate < today ? days(today, i.dueDate) : null,
+      overdueDays: !paidInInfakt && i.dueDate && i.dueDate < today ? days(today, i.dueDate) : null,
+      infaktPaymentStatus: i.paymentStatus,
+      paidInInfakt,
     })
   }
   // Najpierw najdłużej po terminie, potem bez terminu / w terminie wg daty.
@@ -79,10 +83,11 @@ export async function buildReport(db: Database, today: string, range: { from?: s
   }
 }
 
+const INFAKT_PAYMENT: Record<string, string> = { paid: 'zapłacona', unpaid: 'niezapłacona', partial_payment: 'częściowo', payment_not_applicable: 'nie dotyczy' }
 const KIND: Record<string, string> = { transfer: 'Przelew', card: 'Karta / BLIK' }
 const CONTINUITY: Record<string, string> = { gap: 'Brakujące dni', overlap: 'Okresy się nakładają', balance: 'Saldo początkowe ≠ końcowe poprzedniego' }
 
-/** Eksport raportu: arkusze „Bez faktury”, „Niezapłacone”, „Ciągłość wyciągów”. */
+/** Eksport raportu: arkusze „Płatności bez faktury”, „Faktury bez płatności w banku”, „Ciągłość wyciągów”. */
 export async function reportWorkbook(r: BankReportDto): Promise<ArrayBuffer> {
   const wb = new ExcelJS.Workbook()
   const money = '#,##0.00'
@@ -97,7 +102,7 @@ export async function reportWorkbook(r: BankReportDto): Promise<ArrayBuffer> {
     return ws
   }
 
-  const missing = sheet('Bez faktury', [
+  const missing = sheet('Płatności bez faktury', [
     { header: 'Data', key: 'date', width: 12, style: { numFmt: 'dd.mm.yyyy' } },
     { header: 'Wyciąg', key: 'statement', width: 10 },
     { header: 'Rodzaj', key: 'kind', width: 13 },
@@ -120,7 +125,7 @@ export async function reportWorkbook(r: BankReportDto): Promise<ArrayBuffer> {
     })
   }
 
-  const unpaid = sheet('Niezapłacone', [
+  const unpaid = sheet('Faktury bez płatności w banku', [
     { header: 'Numer', key: 'number', width: 22 },
     { header: 'Sprzedawca', key: 'seller', width: 32 },
     { header: 'Data', key: 'date', width: 12, style: { numFmt: 'dd.mm.yyyy' } },
@@ -130,6 +135,7 @@ export async function reportWorkbook(r: BankReportDto): Promise<ArrayBuffer> {
     { header: 'Brutto', key: 'gross', width: 14, style: { numFmt: money } },
     { header: 'Zapłacono', key: 'paid', width: 14, style: { numFmt: money } },
     { header: 'Do zapłaty', key: 'open', width: 14, style: { numFmt: money } },
+    { header: 'Status w inFakt', key: 'infakt', width: 18 },
   ])
   for (const i of r.unpaid) {
     unpaid.addRow({
@@ -142,6 +148,7 @@ export async function reportWorkbook(r: BankReportDto): Promise<ArrayBuffer> {
       gross: pln(i.grossPrice),
       paid: pln(i.paidAmount),
       open: pln(i.openAmount),
+      infakt: INFAKT_PAYMENT[i.infaktPaymentStatus ?? ''] ?? '',
     })
   }
 

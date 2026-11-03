@@ -1,6 +1,6 @@
 import { Badge, Box, Tooltip } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { invoiceAssigned, invoiceDueState, paymentState, type InvoiceDto, type InvoiceDueState, type InvoicePaymentState, type InvoiceStatus } from '#shared'
+import { invoiceAssigned, invoiceDueState, invoicePaymentState, paymentState, type InvoiceDto, type InvoiceDueState, type InvoicePaymentState, type InvoiceStatus } from '#shared'
 import { formatDate, todayWarsaw } from '../../lib/format'
 
 /** Status do wyświetlenia: „do przypisania” z decyzją o przypisaniu to „przypisana — do wysłania” (status w bazie nadal `new`). */
@@ -23,12 +23,13 @@ export function InvoiceStatusBadge({ inv }: { inv: Pick<InvoiceDto, 'status' | '
 const DUE_COLOR: Record<InvoiceDueState, string> = { paid: 'var(--mantine-color-green-6)', due: 'var(--mantine-color-yellow-5)', overdue: 'var(--mantine-color-red-6)' }
 
 /** Zapłata na liście jako kropka: zielona — zapłacona, żółta — do zapłaty, czerwona — po terminie. Szczegóły w podpowiedzi. */
-export function PaymentDot({ inv }: { inv: Pick<InvoiceDto, 'grossPrice' | 'paidAmount' | 'currency' | 'dueDate'> }) {
+export function PaymentDot({ inv }: { inv: PayInv & Pick<InvoiceDto, 'dueDate'> }) {
   const { t } = useTranslation()
   const state = invoiceDueState(inv, todayWarsaw())
-  const partial = paymentState(inv.grossPrice, inv.paidAmount) === 'partial'
+  const partial = state !== 'paid' && paymentState(inv.grossPrice, inv.paidAmount) === 'partial'
   const label = [
     t(`invoices.pay.${state}`),
+    paySource(inv, t),
     partial ? `${t('invoices.pay.partial')}: ${formatMoney(inv.paidAmount, inv.currency)}` : null,
     inv.dueDate && state !== 'paid' ? t('invoices.pay.dueDate', { date: formatDate(inv.dueDate) }) : null,
   ]
@@ -43,13 +44,23 @@ export function PaymentDot({ inv }: { inv: Pick<InvoiceDto, 'grossPrice' | 'paid
 
 const PAYMENT_COLOR: Record<InvoicePaymentState, string> = { paid: 'green', partial: 'yellow', unpaid: 'gray' }
 
-/** Stan zapłaty z płatności połączonych z wyciągów (rekoncyliacja). */
-export function PaymentBadge({ inv }: { inv: Pick<InvoiceDto, 'grossPrice' | 'paidAmount' | 'currency'> }) {
+type PayInv = Pick<InvoiceDto, 'grossPrice' | 'paidAmount' | 'currency' | 'paymentStatus'>
+
+/** Skąd wiadomo o zapłacie: wyciągi (połączone płatności) albo status w inFakt; null — niezapłacona. */
+function paySource(inv: PayInv, t: (k: string) => string) {
+  if (invoicePaymentState(inv) === 'unpaid') return null
+  const fromInfakt = paymentState(inv.grossPrice, inv.paidAmount) !== 'paid' && !!inv.paymentStatus && inv.paymentStatus !== 'unpaid'
+  return t(fromInfakt ? 'invoices.pay.sourceInfakt' : 'invoices.pay.sourceBank')
+}
+
+/** Stan zapłaty: status z inFakt albo płatności połączone z wyciągów (korzystniejszy). */
+export function PaymentBadge({ inv }: { inv: PayInv }) {
   const { t } = useTranslation()
-  const state = paymentState(inv.grossPrice, inv.paidAmount)
+  const state = invoicePaymentState(inv)
   return (
     <Badge variant={state === 'unpaid' ? 'outline' : 'light'} color={PAYMENT_COLOR[state]} title={inv.paidAmount ? formatMoney(inv.paidAmount, inv.currency) : undefined}>
       {t(`invoices.pay.${state}`)}
+      {paySource(inv, t) ? ` · ${paySource(inv, t)}` : ''}
     </Badge>
   )
 }

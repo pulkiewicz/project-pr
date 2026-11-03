@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { InvoicePaymentDto } from './bank.ts'
+import { paymentState, type InvoicePaymentDto, type InvoicePaymentState } from './bank.ts'
 
 /**
  * Faktury kosztowe z inFakt przypisywane do projektów (proporcjonalnie, %).
@@ -144,10 +144,23 @@ export const invoiceCostDate = (i: Pick<InvoiceDto, 'issueDate' | 'infaktCreated
 /** Faktura przypisana (projekt lub świadomie koszty ogólne) — w statusie „new” czeka już tylko na wysłanie do akceptacji. */
 export const invoiceAssigned = (i: Pick<InvoiceDto, 'allocations' | 'general'>) => i.allocations.length > 0 || i.general
 
+/** Statusy płatności inFakt, przy których nie ma nic do zapłaty. */
+const INFAKT_SETTLED = ['paid', 'payment_not_applicable']
+
+/**
+ * Stan zapłaty w aplikacji: status płatności z inFakt (synchronizacja) albo płatności połączone z wyciągów —
+ * obowiązuje korzystniejszy (np. faktura opłacona z innego rachunku jest zapłacona wg inFakt).
+ */
+export function invoicePaymentState(i: Pick<InvoiceDto, 'grossPrice' | 'paidAmount' | 'paymentStatus'>): InvoicePaymentState {
+  const bank = paymentState(i.grossPrice, i.paidAmount)
+  if (bank === 'paid' || INFAKT_SETTLED.includes(i.paymentStatus ?? '')) return 'paid'
+  return bank === 'partial' || i.paymentStatus === 'partial_payment' ? 'partial' : 'unpaid'
+}
+
 /** Kropka zapłaty na liście: zapłacona / do zapłaty (także częściowo) / po terminie (niezapłacona po dniu `dueDate`). */
 export type InvoiceDueState = 'paid' | 'due' | 'overdue'
-export function invoiceDueState(i: Pick<InvoiceDto, 'grossPrice' | 'paidAmount' | 'dueDate'>, today: string): InvoiceDueState {
-  if (i.paidAmount > 0 && (i.grossPrice == null || i.paidAmount >= i.grossPrice)) return 'paid'
+export function invoiceDueState(i: Pick<InvoiceDto, 'grossPrice' | 'paidAmount' | 'paymentStatus' | 'dueDate'>, today: string): InvoiceDueState {
+  if (invoicePaymentState(i) === 'paid') return 'paid'
   return i.dueDate && i.dueDate < today ? 'overdue' : 'due'
 }
 

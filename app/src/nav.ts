@@ -9,6 +9,8 @@ export interface NavItem {
   /** Etap wdrożenia (E* — spec. PIT-RADWAR, R* — plan Envcheck Hub); moduły niezaimplementowane pokazują placeholder. */
   stage: string
   ready: boolean
+  /** Klucz pozycji menu (etykieta `nav.<navKey>`), gdy jeden moduł ma kilka pozycji; domyślnie `module`. */
+  navKey?: string
 }
 
 /** Moduły w kontekście projektu. */
@@ -41,7 +43,11 @@ export const SALES_NAV: NavItem[] = [
 ]
 
 /** Moduły firmy: finanse (dostęp dla osób wskazanych w Ustawieniach). */
-export const FINANCE_NAV: NavItem[] = [{ module: 'invoices', path: '/faktury', stage: '—', ready: true }]
+export const FINANCE_NAV: NavItem[] = [
+  { module: 'invoices', path: '/faktury', stage: '—', ready: true },
+  // Rozliczenia faktur z wyciągami — te same uprawnienia co Faktury.
+  { module: 'invoices', navKey: 'settlements', path: '/rozliczenia', stage: '—', ready: true },
+]
 
 /** Moduły firmy: zarząd (dostęp dla osób wskazanych w Ustawieniach). */
 export const MANAGEMENT_NAV: NavItem[] = [

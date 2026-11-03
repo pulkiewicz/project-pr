@@ -79,7 +79,8 @@ Osoby z dostępem „tylko podgląd” widzą zestawienia i pobierają Excele, a
 
 ## 4. Faktury kosztowe
 
-Moduł ma cztery zakładki: **Faktury**, **Koszty per projekt**, **Wyciągi bankowe**, **Rozliczenia**.
+Moduł ma trzy zakładki: **Faktury**, **Koszty per projekt**, **Wyciągi bankowe**. **Rozliczenia** to osobna pozycja
+w menu **Finanse** (patrz 4.6).
 
 ### 4.1. Faktury — skąd się biorą
 
@@ -175,24 +176,25 @@ z kategorią, projektem i VAT, kliknij ikonę **zakładki** na końcu wiersza. O
 (np. comiesięczny najem) rozliczy się sama przy imporcie — także te już wczytane i jeszcze „do ustalenia”.
 Listę reguł (z usuwaniem) znajdziesz w sekcji **Reguły kontrahentów** w zakładce.
 
-**Stan zapłaty faktur.** Na liście faktur kolumna i filtr **Zapłata**: zapłacona / częściowo / niezapłacona.
-W karcie faktury sekcja **Zapłata** pokazuje, którym przelewem (z którego wyciągu) faktura została opłacona.
+**Stan zapłaty faktur.** Na liście faktur kolumna **Zapłata** to kropka: zielona — zapłacona, żółta — do zapłaty,
+czerwona — po terminie (szczegóły po najechaniu myszką). Faktura jest zapłacona, gdy tak podaje **inFakt** (status
+płatności pobierany przy każdej synchronizacji) **albo** gdy ma połączone płatności z wyciągów. W karcie faktury sekcja
+**Zapłata** pokazuje status z inFakt i to, którym przelewem (z którego wyciągu) faktura została opłacona.
 
-### 4.6. Rozliczenia
+### 4.6. Rozliczenia (menu Finanse)
 
-Raport za wybrany okres (domyślnie — okres wczytanych wyciągów):
+Raport za wybrany okres (domyślnie — okres wczytanych wyciągów). Nad zakładkami — **ciągłość wyciągów**: zielono, gdy
+wyciągi następują po sobie bez przerw i saldo początkowe każdego równa się końcowemu poprzedniego. Ostrzeżenie oznacza
+brakujący wyciąg albo nakładające się okresy.
 
-- **Ciągłość wyciągów** — zielono, gdy wyciągi następują po sobie bez przerw i saldo początkowe każdego równa się
-  końcowemu poprzedniego. Ostrzeżenie oznacza brakujący wyciąg albo nakładające się okresy.
-- **Wydatki bez faktury** — przelewy i karty „do ustalenia” oraz te oznaczone „jest faktura”, ale bez połączenia.
+- **Faktury bez płatności w banku** — faktury z okresu bez (pełnej) płatności w wczytanych wyciągach, z kwotą do
+  zapłaty i liczbą dni po terminie, najpierw najdłużej po terminie. Kliknięcie otwiera kartę faktury. Faktury, które
+  **inFakt** ma jako opłacone (np. z innego rachunku), są domyślnie ukryte — przełącznik **„Pokaż opłacone wg inFakt”**
+  je pokazuje, z oznaczeniem.
+- **Płatności bez faktury** — przelewy i karty „do ustalenia” oraz te oznaczone „jest faktura”, ale bez połączenia.
   **To lista dla księgowej** — czego brakuje w inFakt.
-- **Faktury niezapłacone** — z kwotą do zapłaty i liczbą dni po terminie, najpierw najdłużej po terminie.
-  Kliknięcie otwiera kartę faktury.
 
-**Eksport XLSX** zapisuje wszystkie trzy części w jednym pliku Excel.
-
-> Faktury opłacone z innego rachunku albo przed pierwszym wczytanym wyciągiem też pokażą się jako niezapłacone —
-> aplikacja widzi tylko płatności z wczytanych wyciągów.
+**Eksport XLSX** zapisuje obie listy i ciągłość wyciągów w jednym pliku Excel.
 
 ---
 
@@ -205,7 +207,8 @@ Na początku miesiąca, za miesiąc poprzedni:
 3. Na wyciągu włącz **„Tylko do ustalenia”** i rozlicz każdą operację: zatwierdź propozycje ✓, połącz ręcznie,
    oznacz koszty bez faktury (dla stałych — zapisz regułę).
 4. **Faktury**: przypisz nowe faktury do projektów / kosztów ogólnych, ustaw kategorie i **wyślij do akceptacji**.
-5. **Rozliczenia → Eksport XLSX** i przekaż księgowej listę **wydatków bez faktury**. Sprawdź **faktury po terminie**.
+5. **Rozliczenia → Eksport XLSX** i przekaż księgowej listę **płatności bez faktury**. Sprawdź **faktury bez płatności w banku**
+   (szczególnie po terminie).
 6. **Koszty per projekt** — przejrzyj miesiąc; kolumna „Nieprzypisane” powinna być pusta.
 
 Na bieżąco (raz w tygodniu):

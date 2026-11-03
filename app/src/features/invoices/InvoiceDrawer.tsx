@@ -384,6 +384,11 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
               </Text>
             )}
           </Group>
+          {d.paymentStatus && (
+            <Text size="xs" c="dimmed">
+              {t('invoices.pay.infaktStatus', { status: t(`invoices.paymentStatus.${d.paymentStatus}`, { defaultValue: d.paymentStatus }) })}
+            </Text>
+          )}
           {d.payments.length ? (
             <Table fz="sm" withRowBorders={false}>
               <Table.Tbody>

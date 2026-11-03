@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { BankImportResult, BankMatchResult, BankRuleDto, BankRuleResult, BankStatementDetailDto, BankStatementDto, BankTransactionDto, InvoiceDetailDto, InvoiceListResponse } from '#shared'
-import { counterpartyKey, paymentState, statementContinuity, type BankReportDto } from '#shared'
+import { counterpartyKey, invoiceDueState, invoicePaymentState, paymentState, statementContinuity, type BankReportDto } from '#shared'
 import { INVOICES_SETTING_KEY } from '../../auth/access.ts'
 import { createUser, eq, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
 import { FIXTURE_PAGES, buildPkoFixture, type FixtureTx } from '../../test/pko-fixture.tsx'
@@ -63,6 +63,16 @@ describe('silnik dopasowań', () => {
     expect(paymentState(1000, 400)).toBe('partial')
     expect(paymentState(1000, 1000)).toBe('paid')
     expect(paymentState(null, 1)).toBe('paid')
+    // Stan w aplikacji: status z inFakt albo wyciągi — korzystniejszy.
+    const inv = (paidAmount: number, paymentStatus: string | null) => ({ grossPrice: 1000, paidAmount, paymentStatus })
+    expect(invoicePaymentState(inv(0, 'paid'))).toBe('paid')
+    expect(invoicePaymentState(inv(0, 'payment_not_applicable'))).toBe('paid')
+    expect(invoicePaymentState(inv(1000, 'unpaid'))).toBe('paid')
+    expect(invoicePaymentState(inv(0, 'partial_payment'))).toBe('partial')
+    expect(invoicePaymentState(inv(400, null))).toBe('partial')
+    expect(invoicePaymentState(inv(0, 'unpaid'))).toBe('unpaid')
+    expect(invoiceDueState({ ...inv(0, 'paid'), dueDate: '2026-01-01' }, '2026-11-03')).toBe('paid')
+    expect(invoiceDueState({ ...inv(0, 'unpaid'), dueDate: '2026-01-01' }, '2026-11-03')).toBe('overdue')
     expect(counterpartyKey({ counterpartyAccount: '11', counterpartyName: 'X', merchant: null })).toBe('11')
     expect(counterpartyKey({ counterpartyAccount: null, counterpartyName: null, merchant: 'Allegro.pl' })).toBe('ALLEGRO PL')
     expect(counterpartyKey({ counterpartyAccount: null, counterpartyName: null, merchant: null })).toBeNull()
@@ -206,6 +216,13 @@ describe('rekoncyliacja przez API', () => {
     expect(r.unpaid[0]!.id).toBe(ids.fv1)
     // Zapłacona (połączona) faktura nie jest na liście.
     expect(r.unpaid.map((x) => x.number)).not.toContain('FV 12/10/2026')
+    expect(fv1).toMatchObject({ paidInInfakt: false })
+
+    // Opłacona wg inFakt (np. z innego rachunku): zostaje na liście, oznaczona i bez dni po terminie.
+    await h.db.update(schema.costInvoices).set({ paymentStatus: 'paid' }).where(eq(schema.costInvoices.id, ids.fv1))
+    const r2 = (await (await req(h, 'GET', '/api/bank/report', ania.headers)).json()) as BankReportDto
+    expect(r2.unpaid.find((x) => x.id === ids.fv1)).toMatchObject({ paidInInfakt: true, infaktPaymentStatus: 'paid', overdueDays: null })
+    await h.db.update(schema.costInvoices).set({ paymentStatus: null }).where(eq(schema.costInvoices.id, ids.fv1))
 
     // Okres bez operacji.
     const empty = (await (await req(h, 'GET', '/api/bank/report?from=2025-01-01&to=2025-01-31', ania.headers)).json()) as BankReportDto
