@@ -33,6 +33,7 @@ import {
 } from '../../db/schema.ts'
 import { AiError, type AiContentBlock, type AiRequest, type AiResult } from '../../integrations/ai/types.ts'
 import { CUSTOM_PREFIX, getChecklist, pinSpecList, specListFor } from '../quotes/checklist.ts'
+import { listDriveFolder } from '../quotes/drive-folder.ts'
 import { getQuote, loadSettings, touch } from '../quotes/service.ts'
 
 export const AI_SETTINGS_KEY = 'ai.settings'
@@ -46,7 +47,17 @@ const ROLE = `Jesteś inżynierem ofertowym firmy Envcheck — polskiego produce
 
 // ---------------- Materiały (krok 2) jako treść dla modelu ----------------
 
-/** Pliki z Drive (PDF, obrazy, tekst) i wklejone teksty; pozostałe typy są pomijane z informacją. */
+/** Eksport plików Google (Dokumenty, Prezentacje → PDF, Arkusze → CSV) do formatu czytanego przez model. */
+const GOOGLE_EXPORT: Record<string, string> = {
+  'application/vnd.google-apps.document': 'application/pdf',
+  'application/vnd.google-apps.presentation': 'application/pdf',
+  'application/vnd.google-apps.spreadsheet': 'text/csv',
+}
+
+/**
+ * Pliki z Drive (PDF, obrazy, tekst), wklejone teksty i zawartość folderu Drive podpiętego do wyceny;
+ * pozostałe typy są pomijane z informacją.
+ */
 export async function buildMaterials(deps: AppDeps, quoteId: string): Promise<{ blocks: AiContentBlock[]; skipped: string[]; names: string[] }> {
   const rows = await deps.db
     .select()
@@ -57,6 +68,17 @@ export async function buildMaterials(deps: AppDeps, quoteId: string): Promise<{ 
   const texts: AiContentBlock[] = []
   const skipped: string[] = []
   const names: string[] = []
+  const addFile = async (name: string, driveFileId: string, mimeType: string) => {
+    const exportAs = GOOGLE_EXPORT[mimeType]
+    const res = exportAs ? await deps.drive!.exportFile(driveFileId, exportAs) : await deps.drive!.download(driveFileId)
+    if (!res.ok) throw new AiError('api_error', `Nie udało się pobrać „${name}” z Google Drive (${res.status})`)
+    const bytes = Buffer.from(await res.arrayBuffer())
+    const mime = exportAs ?? mimeType
+    if (mime === 'application/pdf') blocks.push({ type: 'pdf', title: name, data: bytes.toString('base64') })
+    else if (mime.startsWith('image/')) blocks.push({ type: 'image', title: name, mediaType: mime as 'image/png', data: bytes.toString('base64') })
+    else texts.push({ type: 'text', text: `=== Materiał: ${name} ===\n${bytes.toString('utf8')}` })
+    names.push(name)
+  }
   for (const r of rows) {
     if (r.kind === 'text') {
       texts.push({ type: 'text', text: `=== Materiał: ${r.name} (tekst wklejony) ===\n${r.text ?? ''}` })
@@ -67,13 +89,19 @@ export async function buildMaterials(deps: AppDeps, quoteId: string): Promise<{ 
       skipped.push(r.name)
       continue
     }
-    const res = r.mimeType === 'application/vnd.google-apps.document' ? await deps.drive.exportFile(r.driveFileId, 'application/pdf') : await deps.drive.download(r.driveFileId)
-    const bytes = Buffer.from(await res.arrayBuffer())
-    const mime = r.mimeType === 'application/vnd.google-apps.document' ? 'application/pdf' : r.mimeType!
-    if (mime === 'application/pdf') blocks.push({ type: 'pdf', title: r.name, data: bytes.toString('base64') })
-    else if (mime.startsWith('image/')) blocks.push({ type: 'image', title: r.name, mediaType: mime as 'image/png', data: bytes.toString('base64') })
-    else texts.push({ type: 'text', text: `=== Materiał: ${r.name} ===\n${bytes.toString('utf8')}` })
-    names.push(r.name)
+    await addFile(r.name, r.driveFileId, r.mimeType!)
+  }
+  const [q] = await deps.db.select({ driveFolderId: quotes.driveFolderId }).from(quotes).where(eq(quotes.id, quoteId))
+  if (q?.driveFolderId) {
+    const folder = await listDriveFolder(deps.drive, q.driveFolderId)
+    if (folder.error === 'not_accessible')
+      throw new AiError('api_error', `Brak dostępu do folderu Google Drive wyceny — udostępnij go kontu ${folder.accountEmail ?? 'serwisowemu'} (Czytelnik)`)
+    if (folder.error === 'not_configured') throw new AiError('api_error', 'Google Drive nie jest skonfigurowany (brak konta serwisowego) — AI nie odczyta folderu wyceny')
+    for (const f of folder.files) {
+      const name = `${f.path}${f.name}`
+      if (f.aiReadable) await addFile(name, f.id, f.mimeType)
+      else skipped.push(name)
+    }
   }
   const total = blocks.reduce((a, b) => a + ('data' in b ? b.data.length : 0), 0)
   if (total > 30 * 1024 * 1024) throw new AiError('api_error', 'Materiały przekraczają 30 MB — usuń część plików lub podziel SIWZ')
@@ -198,7 +226,7 @@ async function extractChecklist(ctx: JobCtx) {
   const [q] = await deps.db.select().from(quotes).where(eq(quotes.id, quoteId))
   const spec = await specListFor(deps.db, q!)
   const materials = await buildMaterials(deps, quoteId)
-  if (!materials.names.length) throw new AiError('api_error', 'Brak materiałów do analizy — dodaj SIWZ, zapytanie lub mail w kroku „Materiały”')
+  if (!materials.names.length) throw new AiError('api_error', 'Brak materiałów do analizy — dodaj SIWZ, zapytanie lub mail albo podepnij folder Google Drive w kroku „Zapytanie i pliki”')
   const defs = spec.items.map(({ key, group, label, type, unit, options, help }) => ({ key, group, label, type, unit, options, help }))
   const result = await callAi(ctx, {
     purpose: 'extract_checklist',
@@ -320,7 +348,7 @@ const TIME_RE = /^\d{2}:\d{2}$/
 async function extractFormal(ctx: JobCtx) {
   const { deps, quoteId } = ctx
   const materials = await buildMaterials(deps, quoteId)
-  if (!materials.names.length) throw new AiError('api_error', 'Brak materiałów do analizy — dodaj SIWZ, zapytanie lub mail w kroku „Materiały”')
+  if (!materials.names.length) throw new AiError('api_error', 'Brak materiałów do analizy — dodaj SIWZ, zapytanie lub mail albo podepnij folder Google Drive w kroku „Zapytanie i pliki”')
   const result = await callAi(ctx, {
     purpose: 'extract_formal',
     system: ROLE,

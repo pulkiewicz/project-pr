@@ -49,6 +49,30 @@ export class GoogleDriveClient implements DriveClient {
 
   constructor(private readonly email: string, private readonly privateKeyPem: string) {}
 
+  get accountEmail() {
+    return this.email
+  }
+
+  async listFolder(folderId: string) {
+    const out: DriveItem[] = []
+    let pageToken: string | undefined
+    do {
+      const q = new URLSearchParams({
+        q: `'${folderId.replace(/'/g, '')}' in parents and trashed = false`,
+        corpora: 'allDrives',
+        includeItemsFromAllDrives: 'true',
+        supportsAllDrives: 'true',
+        pageSize: '1000',
+        fields: `nextPageToken,files(${FIELDS})`,
+        ...(pageToken ? { pageToken } : {}),
+      })
+      const r = await this.json<{ files: RawFile[]; nextPageToken?: string }>(`${API}/files?${q}`)
+      out.push(...r.files.map(toItem))
+      pageToken = r.nextPageToken
+    } while (pageToken)
+    return out
+  }
+
   private async accessToken(): Promise<string> {
     if (this.token && this.token.until > Date.now() + 60_000) return this.token.value
     const key = await importPKCS8(this.privateKeyPem, 'RS256')

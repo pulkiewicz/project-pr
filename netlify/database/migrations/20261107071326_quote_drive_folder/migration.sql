@@ -1,0 +1,1 @@
+ALTER TABLE "quotes" ADD COLUMN "drive_folder_id" text;

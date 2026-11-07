@@ -45,6 +45,7 @@ import { HttpProblem, forbidden, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
 import { writeAudit } from '../audit/service.ts'
 import { assertEditable, getQuoteRow, touch } from '../quotes/service.ts'
+import { listDriveFolder } from '../quotes/drive-folder.ts'
 import { AI_SETTINGS_KEY, expireStaleJobs, loadAiSettings, sha256 } from './ops.ts'
 
 export const aiRouter = newRouter()
@@ -99,6 +100,7 @@ aiRouter.openapi(route({ method: 'get', path: '/drive/status', responses: ok }, 
     fake: deps.drive?.constructor.name === 'FakeDrive',
     sharedDriveId: cfg?.sharedDriveId ?? null,
     driveName: cfg?.driveName ?? null,
+    accountEmail: deps.drive?.accountEmail ?? null,
   }
   return c.json(status, 200)
 })
@@ -160,6 +162,13 @@ async function quoteForInputs(c: Context<AppEnv>, id: string) {
   if (q.kind !== 'quote' || !q.opportunityId) throw new HttpProblem(422, 'not_a_quote')
   return q
 }
+
+/** Krok 2: pliki w folderze Google Drive podpiętym do wyceny (czytane także przez AI). */
+aiRouter.openapi(route({ method: 'get', path: '/quotes/{id}/drive-folder', request: { params: idParam }, responses: ok }, 'quotes', 'view'), async (c) => {
+  const q = await getQuoteRow(c.get('deps').db, c.req.valid('param').id)
+  if (q.kind !== 'quote') throw new HttpProblem(422, 'not_a_quote')
+  return c.json(await listDriveFolder(c.get('deps').drive, q.driveFolderId), 200)
+})
 
 aiRouter.openapi(route({ method: 'get', path: '/quotes/{id}/inputs', request: { params: idParam }, responses: ok }, 'quotes', 'view'), async (c) => {
   const { id } = c.req.valid('param')

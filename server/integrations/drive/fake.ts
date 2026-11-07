@@ -34,6 +34,13 @@ export class FakeDrive implements DriveClient {
     return this.add(s.name, s.mimeType, s.parentId, data)
   }
 
+  readonly accountEmail = 'pmo-sa@fake.iam.gserviceaccount.com'
+
+  async listFolder(folderId: string) {
+    if (!this.items.has(folderId)) throw Object.assign(new Error('File not found'), { status: 404 })
+    return [...this.items.values()].filter((i) => i.parents.includes(folderId) && !i.trashed)
+  }
+
   async getDrive(driveId: string) {
     if (driveId !== this.driveId) throw Object.assign(new Error('not found'), { status: 404 })
     return { id: driveId, name: 'Shared' }

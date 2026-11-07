@@ -164,6 +164,7 @@ export async function getQuote(db: Database, perms: Perms, id: string): Promise<
     canEditPricing: has(perms, 'quotesPricing', 'edit'),
     workflow: r.q.kind === 'quote' ? await workflowCounts(db, id) : null,
     companyId: r.companyId,
+    driveFolderId: r.q.driveFolderId,
     checklistProgress: r.q.kind === 'quote' ? (({ confirmed, total }) => ({ confirmed, total }))((await getChecklist(db, r.q)).progress) : null,
     approvedAt: r.q.approvedAt,
     approvedByName: r.approvedByName,

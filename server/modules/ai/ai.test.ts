@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { and } from 'drizzle-orm'
-import type { AiJobDto, AiStatusDto, AiSuggestionDto, ChecklistDto, DriveStatusDto, OpportunityDetailDto, QuestionDto, QuoteDto, QuoteInputDto, RequiredDocDto } from '#shared'
+import type { AiJobDto, AiStatusDto, AiSuggestionDto, ChecklistDto, DriveStatusDto, OpportunityDetailDto, QuestionDto, QuoteDto, QuoteInputDto, RequiredDocDto, DriveFolderDto } from '#shared'
 import { AiError } from '../../integrations/ai/types.ts'
 import { createUser, eq, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
 import { runAiJob } from './ops.ts'
@@ -220,5 +220,50 @@ describe('AI: parametry formalne z SIWZ (krok 3)', () => {
       ['Karty katalogowe urządzeń', 'ai'],
     ])
     expect(q.workflow).toMatchObject({ docs: { total: 2, ready: 0, todo: 2 } })
+  })
+})
+
+describe('folder Google Drive wyceny (krok 2)', () => {
+  const FOLDER = '1FolderPrzetargUJ_materialy'
+  const getQ = async () => (await (await req(h, 'GET', `/api/quotes/${quote.id}`, kamil.headers)).json()) as QuoteDto
+  const folder = async () => (await (await req(h, 'GET', `/api/quotes/${quote.id}/drive-folder`, kamil.headers)).json()) as DriveFolderDto
+
+  it('niepoprawny link → 422; folder bez dostępu → komunikat z adresem konta serwisowego', async () => {
+    expect((await req(h, 'PATCH', `/api/quotes/${quote.id}`, kamil.headers, { driveFolderUrl: 'https://example.com/x', version: (await getQ()).version })).status).toBe(422)
+    const res = await req(h, 'PATCH', `/api/quotes/${quote.id}`, kamil.headers, { driveFolderUrl: `https://drive.google.com/drive/folders/${FOLDER}?usp=sharing`, version: (await getQ()).version })
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as QuoteDto).driveFolderId).toBe(FOLDER)
+    expect(await folder()).toMatchObject({ error: 'not_accessible', accountEmail: 'pmo-sa@fake.iam.gserviceaccount.com', files: [] })
+    const { job } = await runJob({ kind: 'extract_formal' })
+    expect(job.status).toBe('error')
+    expect(job.error).toContain('pmo-sa@fake.iam.gserviceaccount.com')
+  })
+
+  it('lista plików z podfolderami; AI czyta pliki z folderu, nieobsługiwane formaty pomija', async () => {
+    const root = await h.drive.createFolder('drive-1', 'Przetarg UJ')
+    h.drive.items.set(FOLDER, { ...root, id: FOLDER })
+    const sub = await h.drive.createFolder(FOLDER, 'Rysunki')
+    h.drive.externalAdd(FOLDER, 'SIWZ.pdf')
+    h.drive.externalAdd(sub.id, 'Rzut.png', 'image/png', new Uint8Array([137, 80, 78, 71]))
+    h.drive.externalAdd(FOLDER, 'Kosztorys.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    h.drive.externalAdd(FOLDER, 'Opis', 'application/vnd.google-apps.document')
+    const list = await folder()
+    expect(list).toMatchObject({ error: null, url: `https://drive.google.com/drive/folders/${FOLDER}` })
+    expect(list.files.map((f) => [f.path + f.name, f.aiReadable])).toEqual([
+      ['Kosztorys.xlsx', false],
+      ['Opis', true],
+      ['Rysunki/Rzut.png', true],
+      ['SIWZ.pdf', true],
+    ])
+    const { job } = await runJob({ kind: 'extract_formal' })
+    expect(job.status).toBe('done')
+    expect(job.summary).toContain('Kosztorys.xlsx')
+    const titles = h.ai.calls.at(-1)!.content.filter((b) => b.type === 'pdf' || b.type === 'image').map((b) => (b as { title: string }).title)
+    expect(titles).toEqual(expect.arrayContaining(['SIWZ.pdf', 'Opis', 'Rysunki/Rzut.png']))
+  })
+
+  it('pusty link odpina folder', async () => {
+    const res = await req(h, 'PATCH', `/api/quotes/${quote.id}`, kamil.headers, { driveFolderUrl: null, version: (await getQ()).version })
+    expect(((await res.json()) as QuoteDto).driveFolderId).toBeNull()
   })
 })

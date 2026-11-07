@@ -180,6 +180,8 @@ export const quoteCreateInput = z
 export type QuoteCreateInput = z.input<typeof quoteCreateInput>
 
 export const quotePatch = z.object({
+  /** Krok 2 — link do folderu Google Drive z materiałami (null = usunięcie). */
+  driveFolderUrl: z.string().trim().max(1000).nullable().optional(),
   /** Krok 1 — zmiana szansy (tylko wycena robocza); rewizja jest nadawana od nowa w obrębie nowej szansy. */
   opportunityId: z.uuid().optional(),
   name: optText(300),
@@ -372,6 +374,8 @@ export interface QuoteDto extends QuoteListItemDto {
   /** Liczniki kroków przepływu; null dla profili. */
   workflow: QuoteWorkflowDto | null
   companyId: string | null
+  /** Folder Google Drive z materiałami wyceny (krok 2); AI czyta jego zawartość. */
+  driveFolderId: string | null
   approvedAt: string | null
   approvedByName: string | null
   version: number

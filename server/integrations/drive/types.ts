@@ -29,6 +29,10 @@ export const FOLDER_MIME = 'application/vnd.google-apps.folder'
 
 /** Operacje na Shared Drive używane przez aplikację (konto serwisowe, supportsAllDrives). */
 export interface DriveClient {
+  /** E-mail konta serwisowego — temu adresowi trzeba udostępnić foldery spoza Shared Drive. */
+  readonly accountEmail: string | null
+  /** Zawartość dowolnego folderu dostępnego dla konta (Shared Drive lub folder udostępniony). */
+  listFolder(folderId: string): Promise<DriveItem[]>
   getDrive(driveId: string): Promise<{ id: string; name: string }>
   listChildren(driveId: string, parentId: string): Promise<DriveItem[]>
   getFile(fileId: string): Promise<DriveItem>

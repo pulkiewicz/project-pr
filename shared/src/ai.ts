@@ -62,7 +62,55 @@ export type InputKind = (typeof INPUT_KINDS)[number]
 export const DIRECT_UPLOAD_MAX_BYTES = 4 * 1024 * 1024
 export const INPUT_MAX_BYTES = 30 * 1024 * 1024
 /** Typy, które AI czyta bezpośrednio (PDF, obrazy, tekst); inne zapisujemy, ale AI je pomija. */
-export const AI_READABLE_MIME = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif', 'text/plain', 'text/markdown', 'message/rfc822', 'text/csv', 'application/vnd.google-apps.document']
+export const AI_READABLE_MIME = [
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'text/plain',
+  'text/markdown',
+  'message/rfc822',
+  'text/csv',
+  'application/vnd.google-apps.document',
+  'application/vnd.google-apps.spreadsheet',
+  'application/vnd.google-apps.presentation',
+]
+
+/** Identyfikator folderu z linku Drive (…/folders/<id>, …?id=<id>) albo samego identyfikatora; null = nierozpoznany. */
+export function parseDriveFolderId(input: string): string | null {
+  const s = input.trim()
+  const m = s.match(/\/folders\/([A-Za-z0-9_-]{10,})/) ?? s.match(/[?&]id=([A-Za-z0-9_-]{10,})/)
+  if (m) return m[1]!
+  return /^[A-Za-z0-9_-]{10,}$/.test(s) ? s : null
+}
+
+export const driveFolderUrl = (folderId: string) => `https://drive.google.com/drive/folders/${folderId}`
+
+/** Plik w folderze Drive wyceny (z podfolderami — `path`). */
+export interface DriveFolderFileDto {
+  id: string
+  name: string
+  /** Ścieżka podfolderów względem folderu wyceny, np. „Rysunki/”; pusta dla plików w głównym folderze. */
+  path: string
+  mimeType: string
+  size: number | null
+  modifiedTime: string | null
+  webViewLink: string | null
+  aiReadable: boolean
+}
+
+export interface DriveFolderDto {
+  folderId: string | null
+  url: string | null
+  files: DriveFolderFileDto[]
+  /** Brak dostępu / folder nie istnieje / Drive nieskonfigurowany. */
+  error: 'not_configured' | 'not_accessible' | 'not_a_folder' | null
+  /** Adres konta serwisowego, któremu trzeba udostępnić folder. */
+  accountEmail: string | null
+  /** Pliki pominięte przez limit (zbyt wiele / zbyt głęboko). */
+  truncated: boolean
+}
 
 export const textInput = z.object({ name: z.string().trim().min(1).max(300), text: z.string().trim().min(1).max(200_000) })
 export const uploadSessionInput = z.object({ name: z.string().trim().min(1).max(300), mimeType: z.string().min(1).max(200), size: z.number().int().min(1).max(INPUT_MAX_BYTES) })
@@ -185,4 +233,6 @@ export interface DriveStatusDto {
   fake: boolean
   sharedDriveId: string | null
   driveName: string | null
+  /** Konto serwisowe — foldery spoza Shared Drive trzeba mu udostępnić. */
+  accountEmail: string | null
 }

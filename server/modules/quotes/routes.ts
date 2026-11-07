@@ -10,6 +10,7 @@ import {
   linePatch,
   lineInput,
   nextRevision,
+  parseDriveFolderId,
   quoteCreateInput,
   quotePatch,
   quoteSettingsInput,
@@ -182,7 +183,7 @@ quotesRouter.openapi(route({ method: 'get', path: '/quotes/{id}', request: { par
 
 quotesRouter.openapi(route({ method: 'patch', path: '/quotes/{id}', request: { params: idParam, body: body(quotePatch) }, responses: ok }, 'quotes', 'edit'), async (c) => {
   const { id } = c.req.valid('param')
-  const { version, params, info, opportunityId, ...rest } = c.req.valid('json')
+  const { version, params, info, opportunityId, driveFolderUrl, ...rest } = c.req.valid('json')
   const db = c.get('deps').db
   const current = await assertEditable(db, perms(c), id)
   // Krok 1: przepięcie wyceny na inną szansę — nowa litera rewizji w obrębie docelowej szansy.
@@ -201,6 +202,7 @@ quotesRouter.openapi(route({ method: 'patch', path: '/quotes/{id}', request: { p
     ...(params ? { params: { ...DEFAULT_PARAMS, ...current.params, ...params } } : {}),
     ...(info ? { info: { ...(current.info ?? {}), ...info } } : {}),
     ...(reassign ?? {}),
+    ...(driveFolderUrl !== undefined ? { driveFolderId: folderIdFrom(driveFolderUrl) } : {}),
   }
   const updated = await db.transaction(async (tx) => {
     const [r] = await tx
@@ -214,6 +216,14 @@ quotesRouter.openapi(route({ method: 'patch', path: '/quotes/{id}', request: { p
   if (!updated) throw conflict(await getQuote(db, perms(c), id))
   return respond(c, id)
 })
+
+/** Link do folderu Drive → identyfikator; pusty = odpięcie, nierozpoznany = 422. */
+function folderIdFrom(url: string | null): string | null {
+  if (!url?.trim()) return null
+  const id = parseDriveFolderId(url)
+  if (!id) throw new HttpProblem(422, 'drive_folder_invalid')
+  return id
+}
 
 /** Roboczy ↔ zatwierdzony (approve) → wysłany. Zatwierdzona/wysłana jest tylko do odczytu; zmiany = nowa rewizja. */
 quotesRouter.openapi(
@@ -254,7 +264,7 @@ quotesRouter.openapi(route({ method: 'post', path: '/quotes/{id}/revision', requ
   if (base.kind !== 'quote') throw new HttpProblem(422, 'not_a_quote')
   const newId = await db.transaction(async (tx) => {
     const nid = await createQuote(c, tx, { kind: 'quote', opportunityId: base.opportunityId, name: base.name, description: base.description, basedOnId: id })
-    await tx.update(quotes).set({ notes: base.notes, params: base.params }).where(eq(quotes.id, nid))
+    await tx.update(quotes).set({ notes: base.notes, params: base.params, driveFolderId: base.driveFolderId }).where(eq(quotes.id, nid))
     await copyChecklist(tx, id, nid)
     await copyCalcs(tx, id, nid)
     await copyRequiredDocs(tx, id, nid)

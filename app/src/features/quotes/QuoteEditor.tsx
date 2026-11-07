@@ -713,7 +713,7 @@ export function QuoteEditor({ id }: { id: string }) {
               {t('quotes.basedOn')}: {q.basedOnLabel}
             </Text>
           )}
-          {!isProfile && <OpportunityFolder opportunityId={q.opportunityId} />}
+          {!isProfile && (q.driveFolderId ? <FolderLink folderId={q.driveFolderId} label={t('driveFolder.quoteFolder')} /> : <OpportunityFolder opportunityId={q.opportunityId} />)}
           {q.approvedAt && (
             <Text size="xs" c="dimmed">
               {t('quotes.approvedBy', { name: q.approvedByName ?? '', date: formatDateTime(q.approvedAt) })}

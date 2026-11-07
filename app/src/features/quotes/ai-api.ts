@@ -1,6 +1,6 @@
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { AiJobDto, AiJobInput, AiSettings, AiStatusDto, AiSuggestionDto, DriveStatusDto, QuestionDto, QuoteInputDto } from '#shared'
+import type { DriveFolderDto, AiJobDto, AiJobInput, AiSettings, AiStatusDto, AiSuggestionDto, DriveStatusDto, QuestionDto, QuoteInputDto } from '#shared'
 import { api } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 
@@ -80,6 +80,9 @@ export function useQuestionMutation(quoteId: string) {
 }
 
 export const useAiStatus = () => useQuery({ queryKey: ['ai-status'], queryFn: () => api<AiStatusDto>('/ai/status'), staleTime: 30_000 })
+export const useDriveFolder = (quoteId: string, folderId: string | null) =>
+  useQuery({ queryKey: ['drive-folder', quoteId, folderId], queryFn: () => api<DriveFolderDto>(`/quotes/${quoteId}/drive-folder`), enabled: !!folderId, staleTime: 15_000 })
+
 export const useDriveStatus = () => useQuery({ queryKey: ['drive-status'], queryFn: () => api<DriveStatusDto>('/drive/status'), staleTime: 60_000 })
 
 export function useSaveAiSettings() {

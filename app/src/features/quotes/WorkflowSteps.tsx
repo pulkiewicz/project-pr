@@ -62,7 +62,10 @@ export function stepInfos(q: QuoteDto, t: (k: string, o?: Record<string, unknown
   const qd = q.info.questionsDeadline
   const states: Record<QuoteStep, Omit<StepInfo, 'step' | 'n'>> = {
     identification: q.opportunityId ? { state: 'done', caption: [q.opportunityCode, q.companyName].filter(Boolean).join(' · ') } : { state: 'todo', caption: t('workflow.cap.noOpportunity') },
-    inputs: w.inputs ? { state: 'done', caption: t('workflow.cap.inputs', { count: w.inputs }) } : { state: 'todo', caption: t('workflow.cap.noInputs') },
+    inputs:
+      w.inputs || q.driveFolderId
+        ? { state: 'done', caption: [q.driveFolderId ? t('workflow.cap.folder') : null, w.inputs ? t('workflow.cap.inputs', { count: w.inputs }) : null].filter(Boolean).join(' · ') }
+        : { state: 'todo', caption: t('workflow.cap.noInputs') },
     formal: {
       state: sub && daysUntil(sub) < 0 && q.status === 'draft' ? 'warn' : sub && w.docs.total > 0 && w.docs.todo === 0 ? 'done' : sub || w.docs.total ? 'progress' : 'todo',
       caption: [sub ? t('workflow.cap.submission', { date: formatDate(sub) }) : t('workflow.cap.noDeadline'), w.docs.total ? t('workflow.cap.docs', { ready: w.docs.ready, total: w.docs.total }) : null].filter(Boolean).join(' · '),

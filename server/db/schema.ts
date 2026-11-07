@@ -667,6 +667,8 @@ export const quotes = pgTable(
     params: jsonb('params').$type<QuoteParams>().notNull(),
     info: jsonb('info').$type<QuoteInfo>().notNull().default({}),
     notes: text('notes'),
+    /** Folder Google Drive z materiałami wyceny (link wklejony w kroku 2). */
+    driveFolderId: text('drive_folder_id'),
     /** Wersja listy specyfikacyjnej, wg której wypełniono checklistę (ustalana przy pierwszym zapisie). */
     specListVersionId: uuid('spec_list_version_id'),
     approvedAt: ts('approved_at'),

@@ -370,7 +370,8 @@
     "bank_tx_not_expense": "Z fakturą kosztową można połączyć tylko wydatek",
     "invoice_not_found": "Nie znaleziono faktury",
     "bank_rule_no_counterparty": "Operacja nie ma kontrahenta ani miejsca zakupu — reguły nie da się utworzyć",
-    "bank_rule_needs_no_invoice": "Regułę tworzy się z operacji oznaczonej jako „Koszt bez faktury”"
+    "bank_rule_needs_no_invoice": "Regułę tworzy się z operacji oznaczonej jako „Koszt bez faktury”",
+    "drive_folder_invalid": "Nierozpoznany link do folderu Google Drive"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -1454,18 +1455,19 @@
     "model": "Model"
   },
   "inputs": {
-    "hint": "SIWZ, zapytania, maile, rysunki. Pliki trafiają do folderu szansy na dysku współdzielonym; AI czyta PDF, obrazy i tekst.",
+    "hint": "Wklej treść maila z zapytaniem. AI czyta je razem z plikami z folderu Drive (PDF, obrazy, tekst, Dokumenty/Arkusze/Prezentacje Google).",
     "addFile": "Dodaj pliki",
     "paste": "Wklej treść maila",
     "mailDefault": "Mail z zapytaniem",
     "name": "Nazwa",
     "text": "Treść",
-    "empty": "Brak materiałów. Dodaj SIWZ lub wklej treść zapytania.",
+    "empty": "Brak wklejonych treści.",
     "uploading": "wysyłanie",
     "notReadable": "AI nie czyta",
     "notReadableHint": "Format nieobsługiwany przez AI (np. DOCX, XLSX) — zapisz jako PDF.",
     "folder": "Folder szansy na Drive",
-    "driveMissing": "Dysk Google nie jest skonfigurowany — Administrator ustawia go w Bazie wiedzy → Ustawienia."
+    "driveMissing": "Dysk Google nie jest skonfigurowany — Administrator ustawia go w Bazie wiedzy → Ustawienia.",
+    "title": "Treść zapytania i pliki przesłane w aplikacji"
   },
   "questions": {
     "audience": {
@@ -1865,7 +1867,7 @@
     },
     "desc": {
       "identification": "Klient i szansa (deal) z CRM, do której należy wycena.",
-      "inputs": "Wklej treść zapytania lub dodaj pliki (SIWZ, OPZ, rysunki, maile) — na nich pracuje AI w kolejnych krokach.",
+      "inputs": "Podepnij folder Google Drive z plikami zapytania (SIWZ, OPZ, rysunki) i/lub wklej treść maila — na tych materiałach pracuje AI w kolejnych krokach.",
       "formal": "Terminy złożenia oferty i zadawania pytań, warunki postępowania oraz lista dokumentów wymaganych przez SIWZ (AI + ręczne uzupełnienie).",
       "checklist": "Parametry techniczne z materiałów przypisane do standardowej listy specyfikacyjnej — każdy potwierdź.",
       "questions": "Pytania do zamawiającego (do wysłania przed terminem) i pytania wewnętrzne.",
@@ -1894,7 +1896,8 @@
       "calcs_many": "{{count}} kalkulacji",
       "calcs_other": "{{count}} kalkulacji",
       "noCalcs": "brak kalkulacji",
-      "noLines": "brak pozycji"
+      "noLines": "brak pozycji",
+      "folder": "folder Drive"
     },
     "identification": {
       "title": "Klient i szansa",
@@ -1953,5 +1956,31 @@
       "openSteps_many": "{{count}} kroków nie jest jeszcze ukończonych.",
       "openSteps_other": "{{count}} kroków nie jest jeszcze ukończonych."
     }
+  },
+  "driveFolder": {
+    "title": "Folder Google Drive wyceny",
+    "hint": "Utwórz folder na Dysku Google, wgraj do niego pliki zapytania (SIWZ, OPZ, rysunki, załączniki) i wklej tu link. Pliki dodajesz i zmieniasz bezpośrednio na Dysku — AI czyta aktualną zawartość folderu.",
+    "shareWith": "Aby AI widziało pliki, udostępnij folder kontu",
+    "shareRole": "(rola: Czytelnik).",
+    "copyEmail": "Kopiuj adres",
+    "link": "Link do folderu",
+    "invalid": "To nie jest link do folderu Google Drive",
+    "attach": "Podepnij folder",
+    "open": "Otwórz folder",
+    "refresh": "Odśwież listę plików",
+    "change": "Zmień link",
+    "detach": "Odepnij folder",
+    "none": "Folder nie jest podpięty.",
+    "noAccess": "Aplikacja nie ma dostępu do folderu",
+    "noAccessGeneric": "Udostępnij folder kontu serwisowemu aplikacji (rola: Czytelnik).",
+    "notAFolder": "Link nie wskazuje folderu — wklej link do folderu, nie do pliku.",
+    "notConfigured": "Konto serwisowe Google nie jest skonfigurowane — AI nie odczyta folderu.",
+    "empty": "Folder jest pusty.",
+    "truncated": "Pokazano część plików (limit 200 plików / 3 poziomy podfolderów).",
+    "count_one": "{{count}} plik",
+    "count_few": "{{count}} pliki",
+    "count_many": "{{count}} plików",
+    "count_other": "{{count}} plików",
+    "quoteFolder": "Folder wyceny na Drive"
   }
 }
