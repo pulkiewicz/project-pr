@@ -1,0 +1,145 @@
+/* Globalny wygląd aplikacji: granatowy sidebar, jasne tło treści, białe karty, „spokojne” tabele. */
+:root {
+  --app-bg: #f6f7f9;
+  --app-sidebar-bg: #0e3a66;
+  --app-sidebar-text: rgba(255, 255, 255, 0.92);
+  --app-sidebar-muted: rgba(255, 255, 255, 0.55);
+  --app-sidebar-hover: rgba(255, 255, 255, 0.07);
+  --app-sidebar-active: rgba(255, 255, 255, 0.16);
+  --app-sidebar-border: rgba(255, 255, 255, 0.1);
+  --app-border: #e9eaee;
+}
+
+body {
+  background: var(--app-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Sidebar ---------- */
+.app-navbar {
+  background: var(--app-sidebar-bg);
+  border-inline-end: none;
+  color: var(--app-sidebar-text);
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--app-sidebar-border);
+  color: #fff;
+  text-decoration: none;
+}
+
+.app-brand-mark {
+  width: 28px;
+  height: 34px;
+  flex-shrink: 0;
+  filter: brightness(0) invert(1);
+}
+
+.app-brand-name {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.app-brand-sub {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--app-sidebar-muted);
+  margin-top: 4px;
+}
+
+.app-nav-section {
+  margin: 18px 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--app-sidebar-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-nav-section-sub {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0 2px 30px;
+  font-size: 11px;
+  color: var(--app-sidebar-muted);
+}
+
+.app-nav-divider {
+  margin: 10px 6px;
+  border-top: 1px solid var(--app-sidebar-border);
+}
+
+.app-navbar .mantine-NavLink-root {
+  border-radius: var(--mantine-radius-md);
+  color: var(--app-sidebar-text);
+  padding-block: 9px;
+  margin-bottom: 2px;
+  font-size: 14px;
+}
+
+.app-navbar .mantine-NavLink-root:hover {
+  background: var(--app-sidebar-hover);
+}
+
+.app-navbar .mantine-NavLink-root[data-active] {
+  background: var(--app-sidebar-active);
+  color: #fff;
+  font-weight: 600;
+}
+
+.app-navbar .mantine-NavLink-section {
+  color: var(--app-sidebar-text);
+}
+
+.app-navbar .mantine-NavLink-label {
+  font-size: 14px;
+}
+
+/* ---------- Nagłówek ---------- */
+.app-header {
+  background: #fff;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.app-main {
+  background: var(--app-bg);
+}
+
+/* ---------- Karty ---------- */
+.mantine-Card-root[data-with-border],
+.mantine-Paper-root[data-with-border] {
+  border-color: var(--app-border);
+}
+
+/* ---------- Tabele ---------- */
+.mantine-Table-table {
+  font-variant-numeric: tabular-nums;
+}
+
+.mantine-Table-th {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mantine-color-gray-6);
+  white-space: nowrap;
+}
+
+/* Tabele mantine-react-table: ten sam styl nagłówków. */
+.mrt-table-head-cell,
+.mantine-Table-thead .mantine-Table-th .mrt-table-head-cell-content-label {
+  text-transform: uppercase;
+}

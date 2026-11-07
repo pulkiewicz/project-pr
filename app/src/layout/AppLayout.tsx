@@ -1,4 +1,4 @@
-import { AppShell, Badge, Box, Burger, Divider, Group, Image, Indicator, Menu, NavLink, ScrollArea, Text, TextInput, Tooltip, UnstyledButton, ActionIcon, Popover } from '@mantine/core'
+import { AppShell, Badge, Box, Burger, Group, Image, Indicator, Menu, NavLink, ScrollArea, Text, TextInput, Tooltip, UnstyledButton, ActionIcon, Popover } from '@mantine/core'
 import { useDisclosure, useLocalStorage, useMediaQuery } from '@mantine/hooks'
 import {
   IconAddressBook,
@@ -142,7 +142,7 @@ export function AppLayout() {
               </Badge>
             </Tooltip>
           ) : opts.badge ? (
-            <Badge size="xs" variant="light" color="gray">
+            <Badge size="xs" variant="outline" color="gray.4">
               {opts.badge}
             </Badge>
           ) : internalMark ? (
@@ -170,16 +170,17 @@ export function AppLayout() {
   }
   const projectLink = (code: string) => (n: (typeof PROJECT_NAV)[number]) =>
     item(`${code}-${n.module}`, projectPath(code, n.path), t(`nav.${n.module}`), ICONS[n.module] ?? IconFileText, isInternal(n.module), { indent: true })
-  const section = (label: React.ReactNode) => (collapsed ? <Divider my="xs" /> : <Divider my="xs" label={label} labelPosition="left" />)
+  const section = (label: React.ReactNode) => (collapsed ? <div className="app-nav-divider" /> : <div className="app-nav-section">{label}</div>)
 
   return (
     <AppShell
+      layout="alt"
       header={{ height: 60 }}
       navbar={{ width: collapsed ? 64 : 260, breakpoint: 'sm', collapsed: { mobile: !opened } }}
       padding="md"
       transitionDuration={150}
     >
-      <AppShell.Header>
+      <AppShell.Header className="app-header">
         <Group h="100%" px="md" justify="space-between" wrap="nowrap">
           <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
@@ -188,8 +189,8 @@ export function AppLayout() {
                 {collapsedPref ? <IconLayoutSidebarLeftExpand size={20} /> : <IconLayoutSidebarLeftCollapse size={20} />}
               </ActionIcon>
             </Tooltip>
-            <Image src="/brand/envcheck-mark.svg" w={34} h={34} alt="Envcheck" />
-            <Text fw={600} truncate visibleFrom="md" maw={420}>
+            <Image src="/brand/envcheck-mark.svg" w={30} h={30} alt="Envcheck" hiddenFrom="sm" />
+            <Text fw={600} size="lg" truncate visibleFrom="md" maw={480}>
               {project ? `${project.code} · ${project.name}` : t('app.name')}
             </Text>
           </Group>
@@ -247,8 +248,22 @@ export function AppLayout() {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p={collapsed ? 6 : 'xs'}>
-        <AppShell.Section grow component={ScrollArea}>
+      <AppShell.Navbar className="app-navbar">
+        <AppShell.Section>
+          <Group justify="space-between" wrap="nowrap" className="app-brand" style={collapsed ? { justifyContent: 'center', paddingInline: 0 } : undefined}>
+            <UnstyledButton component={RouterLink} to="/" onClick={close} aria-label={t('home.title')} style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'inherit' }}>
+              <img src="/brand/envcheck-mark-light.svg" alt="" className="app-brand-mark" />
+              {!collapsed && (
+                <div>
+                  <div className="app-brand-name">Envcheck</div>
+                  <div className="app-brand-sub">Hub</div>
+                </div>
+              )}
+            </UnstyledButton>
+            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" color="white" aria-label={t('app.collapseMenu')} />
+          </Group>
+        </AppShell.Section>
+        <AppShell.Section grow component={ScrollArea} p={collapsed ? 6 : 'sm'} pt={collapsed ? 6 : 4}>
           {item('home', '/', t('home.title'), IconHome)}
           {me.projects.length > 0 && section(t('nav.projects'))}
           {me.projects.map((p) => (
@@ -260,12 +275,10 @@ export function AppLayout() {
                   {internal.length > 0 && (
                     <>
                       {!collapsed && (
-                        <Group gap={4} pl={28} mt={6} mb={2}>
+                        <div className="app-nav-section-sub">
                           <IconLock size={12} />
-                          <Text size="xs" c="dimmed">
-                            {t('app.internalSection')}
-                          </Text>
-                        </Group>
+                          {t('app.internalSection')}
+                        </div>
                       )}
                       {internal.map(projectLink(p.code))}
                     </>
@@ -310,7 +323,7 @@ export function AppLayout() {
         </AppShell.Section>
       </AppShell.Navbar>
 
-      <AppShell.Main>
+      <AppShell.Main className="app-main">
         <ErrorBoundary resetKey={location.pathname}>
           <Outlet />
         </ErrorBoundary>

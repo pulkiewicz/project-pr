@@ -1,4 +1,4 @@
-import { createTheme, type MantineColorsTuple } from '@mantine/core'
+import { Card, Paper, Table, Title, createTheme, type MantineColorsTuple } from '@mantine/core'
 
 // Granat Envcheck #1F3A5F jako odcień 7 (domyślny primaryShade dla jasnego motywu to 6 → ustawiamy 7).
 const navy: MantineColorsTuple = [
@@ -19,7 +19,15 @@ export const theme = createTheme({
   primaryShade: 7,
   colors: { navy },
   fontFamily: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-  defaultRadius: 'sm',
+  defaultRadius: 'md',
+  headings: { fontWeight: '600' },
+  components: {
+    // Białe karty z delikatną ramką i większym zaokrągleniem (jak w panelach Cashflow).
+    Card: Card.extend({ defaultProps: { radius: 'lg', padding: 'lg' } }),
+    Paper: Paper.extend({ defaultProps: { radius: 'lg' } }),
+    Table: Table.extend({ defaultProps: { verticalSpacing: 'xs', horizontalSpacing: 'sm', borderColor: 'var(--app-border)' } }),
+    Title: Title.extend({ styles: { root: { letterSpacing: '-0.01em' } } }),
+  },
 })
 
 /** Kolory statusów (sekcja 11): zielony / żółty / czerwony / szary. */
