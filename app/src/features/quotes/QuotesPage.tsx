@@ -9,18 +9,20 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { QuoteListItemDto } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
-import { formatDateTime, formatPLNWhole } from '../../lib/format'
-import { useOpportunities } from '../crm/api'
+import { formatDate, formatDateTime, formatPLNWhole } from '../../lib/format'
+import { useCompanies, useOpportunities } from '../crm/api'
 import { useCreateQuote, useQuotes } from './api'
 import { QuoteEditor } from './QuoteEditor'
 
 const STATUS_COLOR = { draft: 'gray', approved: 'green', sent: 'blue', imported: 'violet' } as const
 
-/** Nowa wycena: krok 1 (szansa z CRM) i krok 4 (baza: pusta, profil, poprzednia wycena). */
+/** Nowa wycena: krok 1 przepływu (klient i szansa z CRM) oraz baza struktury (pusta, profil, poprzednia wycena). */
 export function NewQuoteModal({ opened, onClose, opportunityId }: { opened: boolean; onClose: () => void; opportunityId?: string | null }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const opps = useOpportunities()
+  const companies = useCompanies()
+  const [company, setCompany] = useState<string | null>(null)
   const profiles = useQuotes('profile')
   const previous = useQuotes('quote')
   const create = useCreateQuote()
@@ -30,11 +32,12 @@ export function NewQuoteModal({ opened, onClose, opportunityId }: { opened: bool
   useEffect(() => {
     if (opened) {
       setOpp(opportunityId ?? null)
+      setCompany(null)
       setBaseId(null)
     }
   }, [opened, opportunityId])
 
-  const oppData = (opps.data ?? []).filter((o) => !['lost', 'on_hold'].includes(o.stage) || o.id === opp).map((o) => ({ value: o.id, label: `${o.code} · ${o.name}${o.companyName ? ` (${o.companyName})` : ''}` }))
+  const oppData = (opps.data ?? []).filter((o) => (!company || o.companyId === company) && (!['lost', 'on_hold'].includes(o.stage) || o.id === opp)).map((o) => ({ value: o.id, label: `${o.code} · ${o.name}${o.companyName ? ` (${o.companyName})` : ''}` }))
   const baseData =
     basis === 'profile'
       ? (profiles.data ?? []).map((p) => ({ value: p.id, label: p.name ?? '' }))
@@ -43,7 +46,23 @@ export function NewQuoteModal({ opened, onClose, opportunityId }: { opened: bool
   return (
     <Modal opened={opened} onClose={onClose} title={t('quotes.new')} size="lg">
       <Stack>
-        <Select label={t('quotes.opportunity')} placeholder={t('quotes.chooseOpportunity')} searchable selectFirstOptionOnChange required data={oppData} value={opp} onChange={setOpp} data-testid="new-quote-opportunity" />
+        <Select
+          label={t('workflow.identification.client')}
+          placeholder={t('workflow.identification.anyClient')}
+          searchable
+          clearable
+          data={(companies.data ?? []).map((c) => ({ value: c.id, label: c.name }))}
+          value={company}
+          onChange={(v) => {
+            setCompany(v)
+            if (v && opps.data?.find((o) => o.id === opp)?.companyId !== v) setOpp(null)
+          }}
+        />
+        <Select label={t('quotes.opportunity')} placeholder={t('quotes.chooseOpportunity')} searchable selectFirstOptionOnChange required data={oppData} value={opp} onChange={(v) => {
+          setOpp(v)
+          const c = opps.data?.find((o) => o.id === v)?.companyId
+          if (c) setCompany(c)
+        }} data-testid="new-quote-opportunity" />
         <Stack gap={4}>
           <Text size="sm" fw={500}>
             {t('quotes.basisLabel')}
@@ -81,7 +100,7 @@ export function NewQuoteModal({ opened, onClose, opportunityId }: { opened: bool
                 {
                   onSuccess: (q) => {
                     onClose()
-                    navigate(`/wyceny/${q.id}`)
+                    navigate(`/wyceny/${q.id}?krok=2`)
                   },
                   onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
                 },
@@ -116,6 +135,7 @@ function QuotesList() {
       { accessorKey: 'opportunityName', header: t('quotes.opportunity'), size: 260, grow: true },
       { accessorKey: 'companyName', header: t('quotes.company'), size: 180 },
       { accessorKey: 'status', header: t('quotes.statusLabel'), size: 150, Cell: ({ row }) => <Badge variant="light" color={STATUS_COLOR[row.original.status]}>{t(`quotes.status.${row.original.status}`)}</Badge> },
+      { accessorKey: 'submissionDeadline', header: t('quotes.submissionDeadline'), size: 130, Cell: ({ row }) => (row.original.submissionDeadline ? formatDate(row.original.submissionDeadline) : '') },
       { accessorKey: 'basedOnLabel', header: t('quotes.basedOn'), size: 190 },
       { accessorKey: 'cost', header: t('quotes.cost'), size: 120, Cell: ({ cell }) => (cell.getValue<number | null>() != null ? formatPLNWhole(cell.getValue<number>()) : '') },
       { accessorKey: 'net', header: t('quotes.net'), size: 120, Cell: ({ cell }) => (cell.getValue<number | null>() != null ? formatPLNWhole(cell.getValue<number>()) : '') },

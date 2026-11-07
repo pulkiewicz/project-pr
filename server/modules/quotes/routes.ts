@@ -45,6 +45,7 @@ import {
 } from './service.ts'
 import { copyChecklist } from './checklist.ts'
 import { copyCalcs } from './spec-routes.ts'
+import { copyRequiredDocs } from './formal-routes.ts'
 
 export const quotesRouter = newRouter()
 
@@ -181,15 +182,25 @@ quotesRouter.openapi(route({ method: 'get', path: '/quotes/{id}', request: { par
 
 quotesRouter.openapi(route({ method: 'patch', path: '/quotes/{id}', request: { params: idParam, body: body(quotePatch) }, responses: ok }, 'quotes', 'edit'), async (c) => {
   const { id } = c.req.valid('param')
-  const { version, params, info, ...rest } = c.req.valid('json')
+  const { version, params, info, opportunityId, ...rest } = c.req.valid('json')
   const db = c.get('deps').db
   const current = await assertEditable(db, perms(c), id)
+  // Krok 1: przepięcie wyceny na inną szansę — nowa litera rewizji w obrębie docelowej szansy.
+  let reassign: { opportunityId: string; revision: string } | null = null
+  if (opportunityId && opportunityId !== current.opportunityId) {
+    if (current.kind !== 'quote') throw new HttpProblem(422, 'not_a_quote')
+    const [opp] = await db.select({ id: opportunities.id }).from(opportunities).where(and(eq(opportunities.id, opportunityId), isNull(opportunities.deletedAt)))
+    if (!opp) throw new HttpProblem(422, 'opportunity_not_found')
+    const existing = await db.select({ revision: quotes.revision }).from(quotes).where(and(eq(quotes.opportunityId, opportunityId), eq(quotes.kind, 'quote')))
+    reassign = { opportunityId, revision: nextRevision(existing.map((r) => r.revision ?? '')) }
+  }
   const pricingKeys = ['marginMultiplier', 'reservePctOverride', 'riskPct', 'vatPct'] as const
   if (params && pricingKeys.some((k) => params[k] !== undefined) && !canPricing(c, 'edit')) throw forbidden('pricing_forbidden')
   const set = {
     ...rest,
     ...(params ? { params: { ...DEFAULT_PARAMS, ...current.params, ...params } } : {}),
     ...(info ? { info: { ...(current.info ?? {}), ...info } } : {}),
+    ...(reassign ?? {}),
   }
   const updated = await db.transaction(async (tx) => {
     const [r] = await tx
@@ -246,6 +257,7 @@ quotesRouter.openapi(route({ method: 'post', path: '/quotes/{id}/revision', requ
     await tx.update(quotes).set({ notes: base.notes, params: base.params }).where(eq(quotes.id, nid))
     await copyChecklist(tx, id, nid)
     await copyCalcs(tx, id, nid)
+    await copyRequiredDocs(tx, id, nid)
     return nid
   })
   return respond(c, newId, 201)

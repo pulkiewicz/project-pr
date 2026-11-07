@@ -12,6 +12,7 @@ import {
   type ChecklistItemDto,
   type SpecItemDef,
   type SpecValue,
+  type QuoteInfo,
   type SuggestionPayload,
 } from '#shared'
 import type { AppDeps } from '../../context.ts'
@@ -27,6 +28,7 @@ import {
   quoteChecklistItems,
   quoteInputs,
   quoteQuestions,
+  quoteRequiredDocs,
   quotes,
 } from '../../db/schema.ts'
 import { AiError, type AiContentBlock, type AiRequest, type AiResult } from '../../integrations/ai/types.ts'
@@ -213,7 +215,7 @@ Zasady:
 - Temperatury w °C, wilgotność w %RH, prędkość zmian w K/min (°C/min = K/min). Jeśli podano wartość minimalną i rekomendowaną, użyj odpowiednich parametrów listy.
 - "sourceRef": krótki dosłowny cytat z materiału (do 200 znaków) i miejsce, np. „„Zakres temperatur: -60…+70 °C” — Opis komory, str. 2”.
 - "confidence": high — wprost w materiałach; medium — wymaga interpretacji; low — wniosek pośredni.
-- "extra": wymagania istotne dla wyceny, których nie ma na liście (np. dokumenty do oferty, warunki serwisu, nietypowe wyposażenie).
+- "extra": wymagania techniczne istotne dla wyceny, których nie ma na liście (np. warunki serwisu, nietypowe wyposażenie). Dokumentów do oferty, terminów i warunków formalnych tu NIE podawaj — są w osobnym kroku „Parametry formalne”.
 
 Lista parametrów (JSON):
 ${JSON.stringify(defs)}`,
@@ -280,6 +282,103 @@ async function upsertItem(
     .insert(quoteChecklistItems)
     .values({ quoteId, key, sortOrder, ...values })
     .onConflictDoUpdate({ target: [quoteChecklistItems.quoteId, quoteChecklistItems.key], set: values })
+}
+
+// ---------------- 1b. Parametry formalne z materiałów (krok 3) ----------------
+
+const formalSchema = z.object({
+  submissionDeadline: z.string().nullable(),
+  submissionTime: z.string().nullable(),
+  questionsDeadline: z.string().nullable(),
+  questionsTime: z.string().nullable(),
+  budget: z.number().nullable(),
+  deliveryTerm: z.string().nullable(),
+  deliveryPlace: z.string().nullable(),
+  participationConditions: z.string().nullable(),
+  evaluationCriteria: z.string().nullable(),
+  documents: z.array(z.object({ name: z.string().min(1), note: z.string().nullable(), sourceRef: z.string().nullable() })),
+})
+export type FormalOutput = z.infer<typeof formalSchema>
+
+const formalJsonSchema = obj({
+  submissionDeadline: nullable('string'),
+  submissionTime: nullable('string'),
+  questionsDeadline: nullable('string'),
+  questionsTime: nullable('string'),
+  budget: nullable('number'),
+  deliveryTerm: nullable('string'),
+  deliveryPlace: nullable('string'),
+  participationConditions: nullable('string'),
+  evaluationCriteria: nullable('string'),
+  documents: { type: 'array', items: obj({ name: { type: 'string' }, note: nullable('string'), sourceRef: nullable('string') }) },
+})
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const TIME_RE = /^\d{2}:\d{2}$/
+
+/** Terminy, budżet, warunki i wymagane dokumenty z SIWZ. Uzupełnia tylko puste pola; dokumenty dopisuje bez duplikatów. */
+async function extractFormal(ctx: JobCtx) {
+  const { deps, quoteId } = ctx
+  const materials = await buildMaterials(deps, quoteId)
+  if (!materials.names.length) throw new AiError('api_error', 'Brak materiałów do analizy — dodaj SIWZ, zapytanie lub mail w kroku „Materiały”')
+  const result = await callAi(ctx, {
+    purpose: 'extract_formal',
+    system: ROLE,
+    content: [
+      ...materials.blocks,
+      {
+        type: 'text',
+        text: `Powyżej są materiały zapytania ofertowego / SIWZ (${materials.names.join(', ')}). Wyodrębnij parametry formalne postępowania.
+
+Zasady:
+- "submissionDeadline" / "submissionTime": termin złożenia oferty — data RRRR-MM-DD i godzina GG:MM (null, gdy nie podano).
+- "questionsDeadline" / "questionsTime": termin zadawania pytań / wniosków o wyjaśnienie treści SIWZ (null, gdy nie podano wprost; jeśli podano regułę względną, np. „najpóźniej 4 dni przed terminem składania ofert”, wylicz datę).
+- "budget": kwota, jaką zamawiający przeznaczył na realizację zamówienia [PLN], null gdy brak.
+- "deliveryTerm", "deliveryPlace", "participationConditions" (warunki udziału, wadium, doświadczenie), "evaluationCriteria" (kryteria oceny z wagami): zwięźle, po polsku; null gdy brak.
+- "documents": KAŻDY dokument / oświadczenie / załącznik, który wykonawca musi złożyć z ofertą (formularz ofertowy, JEDZ/oświadczenia, pełnomocnictwo, wadium, karty katalogowe, opis techniczny, certyfikaty, harmonogram, polisa OC itp.). "name" — krótka nazwa dokumentu; "note" — istotne wymagania (forma, podpis, termin, numer załącznika); "sourceRef" — krótki cytat i miejsce w materiale (do 200 znaków).
+- Nie zgaduj — tylko to, co wynika z materiałów.`,
+      },
+    ],
+    schema: formalJsonSchema,
+    maxTokens: 16000,
+    effort: 'medium',
+    context: { materials: materials.blocks.filter((b) => b.type === 'text').map((b) => (b as { text: string }).text) },
+  })
+  const out = parse(formalSchema, result.json)
+  const [q] = await deps.db.select().from(quotes).where(eq(quotes.id, quoteId))
+  const info: QuoteInfo = { ...(q!.info ?? {}) }
+  const filled: string[] = []
+  const setIfEmpty = <K extends keyof QuoteInfo>(k: K, v: QuoteInfo[K] | null | undefined, valid = true) => {
+    if (v == null || v === '' || !valid || (info[k] != null && info[k] !== '')) return
+    info[k] = v
+    filled.push(k)
+  }
+  setIfEmpty('submissionDeadline', out.submissionDeadline, DATE_RE.test(out.submissionDeadline ?? ''))
+  setIfEmpty('submissionTime', out.submissionTime, TIME_RE.test(out.submissionTime ?? ''))
+  setIfEmpty('questionsDeadline', out.questionsDeadline, DATE_RE.test(out.questionsDeadline ?? ''))
+  setIfEmpty('questionsTime', out.questionsTime, TIME_RE.test(out.questionsTime ?? ''))
+  setIfEmpty('budget', out.budget, (out.budget ?? -1) >= 0)
+  setIfEmpty('deliveryTerm', out.deliveryTerm?.slice(0, 200))
+  setIfEmpty('deliveryPlace', out.deliveryPlace?.slice(0, 500))
+  setIfEmpty('participationConditions', out.participationConditions?.slice(0, 2000))
+  setIfEmpty('evaluationCriteria', out.evaluationCriteria?.slice(0, 2000))
+  let added = 0
+  await deps.db.transaction(async (tx) => {
+    const existing = await tx.select({ name: quoteRequiredDocs.name, sortOrder: quoteRequiredDocs.sortOrder }).from(quoteRequiredDocs).where(eq(quoteRequiredDocs.quoteId, quoteId))
+    const names = new Set(existing.map((d) => d.name.trim().toLowerCase()))
+    let order = existing.reduce((m, d) => Math.max(m, d.sortOrder), -1)
+    for (const d of out.documents) {
+      const name = d.name.trim().slice(0, 500)
+      if (!name || names.has(name.toLowerCase())) continue
+      names.add(name.toLowerCase())
+      added++
+      await tx.insert(quoteRequiredDocs).values({ quoteId, name, note: d.note?.slice(0, 2000) ?? null, source: 'ai', sourceRef: d.sourceRef?.slice(0, 2000) ?? null, sortOrder: ++order, updatedBy: ctx.userId })
+    }
+    if (filled.length) await tx.update(quotes).set({ info }).where(eq(quotes.id, quoteId))
+    await touch(tx, quoteId, ctx.userId)
+  })
+  const skippedNote = materials.skipped.length ? ` Pominięte (format nieobsługiwany): ${materials.skipped.join(', ')}.` : ''
+  return `Uzupełnione pola: ${filled.length}, nowe dokumenty: ${added}.${skippedNote}`
 }
 
 // ---------------- 2. Propozycja pozycji / przeliczenie pozycji (krok 5) ----------------
@@ -553,7 +652,9 @@ export async function runAiJob(deps: AppDeps, jobId: string, token: string): Pro
     const summary =
       claimed.kind === 'extract_checklist'
         ? await extractChecklist(ctx)
-        : claimed.kind === 'questions'
+        : claimed.kind === 'extract_formal'
+          ? await extractFormal(ctx)
+          : claimed.kind === 'questions'
           ? await generateQuestions(ctx)
           : await proposeLines(ctx, params)
     await deps.db.update(aiJobs).set({ status: 'done', summary, finishedAt: sql`now()` }).where(eq(aiJobs.id, jobId))

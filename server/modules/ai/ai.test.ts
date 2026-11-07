@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { and } from 'drizzle-orm'
-import type { AiJobDto, AiStatusDto, AiSuggestionDto, ChecklistDto, DriveStatusDto, OpportunityDetailDto, QuestionDto, QuoteDto, QuoteInputDto } from '#shared'
+import type { AiJobDto, AiStatusDto, AiSuggestionDto, ChecklistDto, DriveStatusDto, OpportunityDetailDto, QuestionDto, QuoteDto, QuoteInputDto, RequiredDocDto } from '#shared'
 import { AiError } from '../../integrations/ai/types.ts'
 import { createUser, eq, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
 import { runAiJob } from './ops.ts'
@@ -200,5 +200,25 @@ describe('AI: pytania (krok 6) i koszty', () => {
     h.deps.ai = null
     expect((await runJob({ kind: 'questions' })).status).toBe(503)
     h.deps.ai = ai
+  })
+})
+
+describe('AI: parametry formalne z SIWZ (krok 3)', () => {
+  it('terminy uzupełniają tylko puste pola, dokumenty dopisywane bez duplikatów', async () => {
+    await req(h, 'POST', `/api/quotes/${quote.id}/inputs/text`, kamil.headers, { name: 'Terminy', text: 'Pytania do 2026-11-20. Składanie ofert do 2026-11-30 godz. 10:00.' })
+    const q0 = (await (await req(h, 'GET', `/api/quotes/${quote.id}`, kamil.headers)).json()) as QuoteDto
+    await req(h, 'PATCH', `/api/quotes/${quote.id}`, kamil.headers, { info: { questionsDeadline: '2026-11-18' }, version: q0.version })
+    await req(h, 'POST', `/api/quotes/${quote.id}/required-docs`, kamil.headers, { name: 'Formularz ofertowy' })
+    const { job } = await runJob({ kind: 'extract_formal' })
+    expect(job).toMatchObject({ kind: 'extract_formal', status: 'done' })
+    const q = (await (await req(h, 'GET', `/api/quotes/${quote.id}`, kamil.headers)).json()) as QuoteDto
+    expect(q.info).toMatchObject({ submissionDeadline: '2026-11-30', submissionTime: '10:00', questionsDeadline: '2026-11-18' })
+    expect(q.submissionDeadline).toBe('2026-11-30')
+    const docs = (await (await req(h, 'GET', `/api/quotes/${quote.id}/required-docs`, kamil.headers)).json()) as RequiredDocDto[]
+    expect(docs.map((d) => [d.name, d.source])).toEqual([
+      ['Formularz ofertowy', 'manual'],
+      ['Karty katalogowe urządzeń', 'ai'],
+    ])
+    expect(q.workflow).toMatchObject({ docs: { total: 2, ready: 0, todo: 2 } })
   })
 })

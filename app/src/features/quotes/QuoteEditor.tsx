@@ -24,24 +24,25 @@ import {
 } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
-import { IconArrowDown, IconArrowUp, IconCheck, IconDots, IconDownload, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
-import { useEffect, useState } from 'react'
+import { IconArrowDown, IconArrowLeft, IconArrowRight, IconArrowUp, IconCheck, IconDots, IconDownload, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   COMPLEXITIES,
   CONFIDENCES,
   LINE_SOURCES,
+  QUOTE_STEPS,
   type Complexity,
   type Confidence,
   type LineInput,
   type LineSource,
   type QuoteDeviceDto,
   type QuoteDto,
-  type QuoteInfo,
   type QuoteLineDto,
   type QuoteParamsView,
   type QuoteSectionDto,
+  type QuoteStep,
 } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import i18n from '../../i18n'
@@ -54,6 +55,7 @@ import { useOpportunity } from '../crm/api'
 import { useStartAiJob } from './ai-api'
 import { CalcPanel } from './CalcPanel'
 import { ChecklistPanel } from './ChecklistPanel'
+import { FormalStep, IdentificationStep, QuestionsDeadline, StepNav, SummaryStep, deadlineLabel, stepInfos } from './WorkflowSteps'
 
 const STATUS_COLOR = { draft: 'gray', approved: 'green', sent: 'blue', imported: 'violet' } as const
 const SOURCE_COLOR: Record<LineSource, string> = { manual: 'gray', profile: 'blue', previous: 'cyan', calculator: 'teal', ai: 'grape', import: 'violet', catalog: 'orange' }
@@ -425,7 +427,7 @@ function SummaryPanel({ q }: { q: QuoteDto }) {
   const price = editable && q.canEditPricing
   const changed = JSON.stringify(p) !== JSON.stringify(q.params)
   const row = (label: string, value: string, bold = false) => (
-    <Table.Tr>
+    <Table.Tr key={label}>
       <Table.Td>{bold ? <b>{label}</b> : label}</Table.Td>
       <Table.Td ta="right">{bold ? <b>{value}</b> : value}</Table.Td>
     </Table.Tr>
@@ -556,40 +558,21 @@ function SummaryPanel({ q }: { q: QuoteDto }) {
   )
 }
 
+/** Profil wyceny: nazwa, opis i notatki (wyceny mają te dane w krokach 3 i 8). */
 function InfoPanel({ q }: { q: QuoteDto }) {
   const { t } = useTranslation()
   const mutation = useQuoteMutation(q.id)
-  const [info, setInfo] = useState<QuoteInfo>(q.info)
   const [meta, setMeta] = useState({ name: q.name, description: q.description, notes: q.notes })
-  useEffect(() => {
-    setInfo(q.info)
-    setMeta({ name: q.name, description: q.description, notes: q.notes })
-  }, [q.version]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => setMeta({ name: q.name, description: q.description, notes: q.notes }), [q.version]) // eslint-disable-line react-hooks/exhaustive-deps
   const editable = q.canEdit
-  const text = (k: Exclude<keyof QuoteInfo, 'budget'>, label: string) => (
-    <Textarea label={label} autosize minRows={1} disabled={!editable} value={info[k] ?? ''} onChange={(e) => setInfo({ ...info, [k]: e.currentTarget.value || null })} />
-  )
   return (
     <Stack maw={900}>
-      {q.kind === 'profile' && (
-        <>
-          <TextInput label={t('quotes.profileName')} disabled={!editable} value={meta.name ?? ''} onChange={(e) => setMeta({ ...meta, name: e.currentTarget.value })} />
-          <Textarea label={t('quotes.description')} autosize minRows={2} disabled={!editable} value={meta.description ?? ''} onChange={(e) => setMeta({ ...meta, description: e.currentTarget.value || null })} />
-        </>
-      )}
-      {q.kind === 'quote' && (
-        <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          <NumberInput label={t('quotes.budget')} min={0} thousandSeparator=" " decimalSeparator="," disabled={!editable} value={info.budget ?? ''} onChange={(v) => setInfo({ ...info, budget: v === '' ? null : Number(v) })} />
-          {text('deliveryTerm', t('quotes.deliveryTerm'))}
-          {text('deliveryPlace', t('quotes.deliveryPlace'))}
-          {text('participationConditions', t('quotes.participationConditions'))}
-        </SimpleGrid>
-      )}
-      {q.kind === 'quote' && text('evaluationCriteria', t('quotes.evaluationCriteria'))}
+      <TextInput label={t('quotes.profileName')} disabled={!editable} value={meta.name ?? ''} onChange={(e) => setMeta({ ...meta, name: e.currentTarget.value })} />
+      <Textarea label={t('quotes.description')} autosize minRows={2} disabled={!editable} value={meta.description ?? ''} onChange={(e) => setMeta({ ...meta, description: e.currentTarget.value || null })} />
       <Textarea label={t('quotes.notes')} autosize minRows={3} disabled={!editable} value={meta.notes ?? ''} onChange={(e) => setMeta({ ...meta, notes: e.currentTarget.value || null })} />
       {editable && (
         <Group justify="flex-end">
-          <Button loading={mutation.isPending} onClick={() => mutation.mutate(quoteOps.patch({ ...(q.kind === 'quote' ? { info } : { name: meta.name, description: meta.description }), notes: meta.notes, version: q.version }))}>
+          <Button loading={mutation.isPending} onClick={() => mutation.mutate(quoteOps.patch({ name: meta.name, description: meta.description, notes: meta.notes, version: q.version }))}>
             {t('app.save')}
           </Button>
         </Group>
@@ -603,9 +586,6 @@ function OpportunityFolder({ opportunityId }: { opportunityId: string | null }) 
   return <FolderLink folderId={opp.data?.driveFolderId ?? null} />
 }
 
-/** Kroki przepływu wyceny (plan §3); kroki z kolejnych etapów oznaczone etapem wdrożenia. */
-const STEP_STAGE: Record<number, string | null> = { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null, 8: 'R5' }
-
 export function QuoteEditor({ id }: { id: string }) {
   const { t } = useTranslation()
   const { can } = useAuth()
@@ -614,15 +594,99 @@ export function QuoteEditor({ id }: { id: string }) {
   const mutation = useQuoteMutation(id)
   const action = useQuoteAction()
   const del = useDeleteQuote()
+  const [params, setParams] = useSearchParams()
   const [tab, setTab] = useState<string | null>('items')
   const [lineEdit, setLineEdit] = useState<{ line: QuoteLineDto | null; sectionId: string } | null>(null)
+  const q = query.data
+  const steps = useMemo(() => (q && q.kind === 'quote' ? stepInfos(q, t) : []), [q, t])
+  const stepParam = Number(params.get('krok'))
+  // Bez `?krok` — wznowienie od pierwszego nieukończonego kroku (zapisane w URL, by nie „skakało” przy zmianach danych).
+  useEffect(() => {
+    if (!q || q.kind !== 'quote' || (stepParam >= 1 && stepParam <= QUOTE_STEPS.length)) return
+    const first = steps.find((s) => s.step !== 'summary' && s.state !== 'done')?.n ?? QUOTE_STEPS.length
+    setParams((p) => {
+      p.set('krok', String(first))
+      return p
+    }, { replace: true })
+  }, [q?.id, stepParam]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (query.isLoading) return <Loader />
   if (query.error) return <Alert color="red">{errorMessage(query.error)}</Alert>
-  const q = query.data!
+  if (!q) return null
   const isProfile = q.kind === 'profile'
   const backTo = isProfile ? '/baza-wiedzy' : '/wyceny'
   const fail = (e: unknown) => notifications.show({ color: 'red', message: errorMessage(e) })
+  const activeN = stepParam >= 1 && stepParam <= QUOTE_STEPS.length ? stepParam : 1
+  const active = QUOTE_STEPS[activeN - 1]!
+  const goTo = (step: QuoteStep) => {
+    setParams((p) => {
+      p.set('krok', String(QUOTE_STEPS.indexOf(step) + 1))
+      return p
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const statusActions = !isProfile && (
+    <>
+      {can('quotes', 'approve') && q.status === 'draft' && (
+        <Button color="green" onClick={() => mutation.mutate(quoteOps.status('approved', q.version))}>
+          {t('quotes.approve')}
+        </Button>
+      )}
+      {can('quotes', 'approve') && q.status === 'approved' && (
+        <>
+          <Button variant="default" onClick={() => mutation.mutate(quoteOps.status('draft', q.version))}>
+            {t('quotes.backToDraft')}
+          </Button>
+          <Button onClick={() => mutation.mutate(quoteOps.status('sent', q.version))}>{t('quotes.markSent')}</Button>
+        </>
+      )}
+    </>
+  )
+  const exportButton = q.canSeePricing && (
+    <Tooltip label={t('quotes.exportXlsx')}>
+      <ActionIcon variant="light" size="lg" aria-label={t('quotes.exportXlsx')} onClick={() => downloadFile(`/quotes/${q.id}/export.xlsx`, `${quoteLabel(q)}.xlsx`).catch(fail)}>
+        <IconDownload size={18} />
+      </ActionIcon>
+    </Tooltip>
+  )
+  const itemsPanel = (
+    <Stack>
+      {!isProfile && q.canEdit && <SuggestionsPanel q={q} />}
+      {q.devices.map((d) => (
+        <DeviceCard key={d.id} q={q} device={d} onLine={(line, sectionId) => setLineEdit({ line, sectionId })} />
+      ))}
+      {!isProfile && q.canEdit && (
+        <Button variant="light" w="fit-content" leftSection={<IconPlus size={16} />} onClick={() => promptName(t('quotes.addDevice'), t('quotes.deviceName'), '', (name) => mutation.mutate(quoteOps.addDevice({ name })))}>
+          {t('quotes.addDevice')}
+        </Button>
+      )}
+    </Stack>
+  )
+  const stepContent: Record<QuoteStep, () => ReactNode> = {
+    identification: () => <IdentificationStep q={q} />,
+    inputs: () => <InputsPanel q={q} />,
+    formal: () => <FormalStep q={q} />,
+    checklist: () => <ChecklistPanel q={q} />,
+    questions: () => (
+      <Stack>
+        <QuestionsDeadline q={q} />
+        <QuestionsPanel q={q} />
+      </Stack>
+    ),
+    calc: () => <CalcPanel q={q} />,
+    pricing: () => (
+      <Stack gap="lg">
+        {itemsPanel}
+        <SummaryPanel q={q} />
+      </Stack>
+    ),
+    summary: () => (
+      <SummaryStep q={q} steps={steps} onSelect={goTo} actions={<>{statusActions}{exportButton}</>} />
+    ),
+  }
+  const prev = activeN > 1 ? QUOTE_STEPS[activeN - 2]! : null
+  const next = activeN < QUOTE_STEPS.length ? QUOTE_STEPS[activeN] : null
 
   return (
     <Stack>
@@ -640,13 +704,11 @@ export function QuoteEditor({ id }: { id: string }) {
           {!isProfile && (
             <Text size="sm" c="dimmed">
               {q.opportunityName}
-              {q.companyName ? ` · ${q.companyName}` : ''} ·{' '}
-              <Anchor component={Link} to={`/crm?szansa=${q.opportunityId}`} size="sm">
-                {t('quotes.openOpportunity')}
-              </Anchor>
+              {q.companyName ? ` · ${q.companyName}` : ''}
+              {q.info.submissionDeadline ? ` · ${t('workflow.cap.submission', { date: deadlineLabel(q.info.submissionDeadline, q.info.submissionTime) })}` : ''}
             </Text>
           )}
-          {q.basedOnLabel && (
+          {isProfile && q.basedOnLabel && (
             <Text size="xs" c="dimmed">
               {t('quotes.basedOn')}: {q.basedOnLabel}
             </Text>
@@ -659,26 +721,8 @@ export function QuoteEditor({ id }: { id: string }) {
           )}
         </Stack>
         <Group gap="xs">
-          {!isProfile && can('quotes', 'approve') && q.status === 'draft' && (
-            <Button color="green" onClick={() => mutation.mutate(quoteOps.status('approved', q.version))}>
-              {t('quotes.approve')}
-            </Button>
-          )}
-          {!isProfile && can('quotes', 'approve') && q.status === 'approved' && (
-            <>
-              <Button variant="default" onClick={() => mutation.mutate(quoteOps.status('draft', q.version))}>
-                {t('quotes.backToDraft')}
-              </Button>
-              <Button onClick={() => mutation.mutate(quoteOps.status('sent', q.version))}>{t('quotes.markSent')}</Button>
-            </>
-          )}
-          {q.canSeePricing && (
-            <Tooltip label={t('quotes.exportXlsx')}>
-              <ActionIcon variant="light" size="lg" aria-label={t('quotes.exportXlsx')} onClick={() => downloadFile(`/quotes/${q.id}/export.xlsx`, `${quoteLabel(q)}.xlsx`).catch(fail)}>
-                <IconDownload size={18} />
-              </ActionIcon>
-            </Tooltip>
-          )}
+          {statusActions}
+          {exportButton}
           <Menu position="bottom-end" withinPortal>
             <Menu.Target>
               <ActionIcon variant="light" size="lg" aria-label="menu">
@@ -723,89 +767,64 @@ export function QuoteEditor({ id }: { id: string }) {
         </Group>
       </Group>
 
-      {!isProfile && (
-        <Group gap={6} wrap="wrap" data-testid="quote-steps">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => {
-            const later = STEP_STAGE[n]
-            const target = ({ 2: 'inputs', 3: 'checklist', 5: 'items', 6: 'questions', 7: 'summary' } as Record<number, string>)[n] ?? null
-            const current = target !== null && tab === target
-            const done = n === 1 || n === 4 || (n === 3 && !!q.checklistProgress && q.checklistProgress.total > 0 && q.checklistProgress.confirmed === q.checklistProgress.total)
-            return (
-              <Tooltip key={n} label={t('quotes.stepLater', { stage: later })} disabled={!later}>
-                <Badge
-                  size="lg"
-                  radius="sm"
-                  variant={current ? 'filled' : later ? 'outline' : 'light'}
-                  color={later ? 'gray' : done ? 'green' : 'navy'}
-                  leftSection={done ? <IconCheck size={12} /> : `${n}.`}
-                  style={{ cursor: target ? 'pointer' : 'default', opacity: later ? 0.6 : 1, textTransform: 'none' }}
-                  onClick={() => target && setTab(target)}
-                >
-                  {t(`quotes.steps.${n}`)}
-                  {n === 3 && q.checklistProgress ? ` ${q.checklistProgress.confirmed}/${q.checklistProgress.total}` : ''}
-                </Badge>
-              </Tooltip>
-            )
-          })}
-        </Group>
-      )}
+      {!isProfile && <StepNav steps={steps} active={active} onSelect={goTo} />}
 
       {!q.canEdit && q.status !== 'draft' && <Alert variant="light">{t('quotes.locked', { status: t(`quotes.status.${q.status}`).toLowerCase() })}</Alert>}
       {!q.canSeeCosts && <Alert variant="light" color="gray">{t('quotes.costsHidden')}</Alert>}
 
-      <Tabs value={tab} onChange={setTab} keepMounted={false}>
-        <Tabs.List>
-          {!isProfile && <Tabs.Tab value="inputs">{t('quotes.tabs.inputs')}</Tabs.Tab>}
-          {!isProfile && <Tabs.Tab value="checklist">{t('quotes.tabs.checklist')}</Tabs.Tab>}
-          <Tabs.Tab value="items">{t('quotes.tabs.items')}</Tabs.Tab>
-          {!isProfile && <Tabs.Tab value="calc">{t('quotes.tabs.calc')}</Tabs.Tab>}
-          {!isProfile && <Tabs.Tab value="questions">{t('quotes.tabs.questions')}</Tabs.Tab>}
-          <Tabs.Tab value="summary">
-            {t('quotes.tabs.summary')}
-            {(q.summary || q.costSummary) && (
-              <Text span c="dimmed" size="sm">
-                {' '}
-                · {q.summary ? `${formatPLN(q.summary.net)} ${t('quotes.net').toLowerCase()}` : `${formatPLN(q.costSummary!.cost)} ${t('quotes.cost').toLowerCase()}`}
-              </Text>
+      {isProfile ? (
+        <Tabs value={tab} onChange={setTab} keepMounted={false}>
+          <Tabs.List>
+            <Tabs.Tab value="items">{t('quotes.tabs.items')}</Tabs.Tab>
+            <Tabs.Tab value="summary">
+              {t('quotes.tabs.summary')}
+              {(q.summary || q.costSummary) && (
+                <Text span c="dimmed" size="sm">
+                  {' '}
+                  · {q.summary ? `${formatPLN(q.summary.net)} ${t('quotes.net').toLowerCase()}` : `${formatPLN(q.costSummary!.cost)} ${t('quotes.cost').toLowerCase()}`}
+                </Text>
+              )}
+            </Tabs.Tab>
+            <Tabs.Tab value="info">{t('quotes.tabs.info')}</Tabs.Tab>
+          </Tabs.List>
+          <Tabs.Panel value="items" pt="sm">
+            {itemsPanel}
+          </Tabs.Panel>
+          <Tabs.Panel value="summary" pt="sm">
+            <SummaryPanel q={q} />
+          </Tabs.Panel>
+          <Tabs.Panel value="info" pt="sm">
+            <InfoPanel q={q} />
+          </Tabs.Panel>
+        </Tabs>
+      ) : (
+        <Stack gap="md" data-testid={`step-panel-${active}`}>
+          <div>
+            <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+              {t('workflow.stepOf', { n: activeN, total: QUOTE_STEPS.length })}
+            </Text>
+            <Title order={3}>{t(`workflow.step.${active}`)}</Title>
+            <Text size="sm" c="dimmed" maw={760}>
+              {t(`workflow.desc.${active}`)}
+            </Text>
+          </div>
+          <div key={active}>{stepContent[active]()}</div>
+          <Group justify="space-between" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-3)' }}>
+            {prev ? (
+              <Button variant="default" leftSection={<IconArrowLeft size={16} />} onClick={() => goTo(prev)} data-testid="step-prev">
+                {t(`workflow.step.${prev}`)}
+              </Button>
+            ) : (
+              <span />
             )}
-          </Tabs.Tab>
-          <Tabs.Tab value="info">{t('quotes.tabs.info')}</Tabs.Tab>
-        </Tabs.List>
-        <Tabs.Panel value="items" pt="sm">
-          <Stack>
-            {!isProfile && q.canEdit && <SuggestionsPanel q={q} />}
-            {q.devices.map((d) => (
-              <DeviceCard key={d.id} q={q} device={d} onLine={(line, sectionId) => setLineEdit({ line, sectionId })} />
-            ))}
-          </Stack>
-        </Tabs.Panel>
-        {!isProfile && (
-          <Tabs.Panel value="inputs" pt="sm">
-            <InputsPanel q={q} />
-          </Tabs.Panel>
-        )}
-        {!isProfile && (
-          <Tabs.Panel value="questions" pt="sm">
-            <QuestionsPanel q={q} />
-          </Tabs.Panel>
-        )}
-        {!isProfile && (
-          <Tabs.Panel value="checklist" pt="sm">
-            <ChecklistPanel q={q} />
-          </Tabs.Panel>
-        )}
-        {!isProfile && (
-          <Tabs.Panel value="calc" pt="sm">
-            <CalcPanel q={q} />
-          </Tabs.Panel>
-        )}
-        <Tabs.Panel value="summary" pt="sm">
-          <SummaryPanel q={q} />
-        </Tabs.Panel>
-        <Tabs.Panel value="info" pt="sm">
-          <InfoPanel q={q} />
-        </Tabs.Panel>
-      </Tabs>
+            {next && (
+              <Button rightSection={<IconArrowRight size={16} />} onClick={() => goTo(next)} data-testid="step-next">
+                {t('workflow.next', { step: t(`workflow.step.${next}`) })}
+              </Button>
+            )}
+          </Group>
+        </Stack>
+      )}
       <LineModal q={q} line={lineEdit?.line ?? null} sectionId={lineEdit?.sectionId ?? null} onClose={() => setLineEdit(null)} />
     </Stack>
   )

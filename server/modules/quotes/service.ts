@@ -15,10 +15,11 @@ import {
   type QuoteKind,
   type QuoteListItemDto,
   type QuoteSettings,
+  type QuoteWorkflowDto,
   type LineSource,
 } from '#shared'
 import type { Database } from '../../db/client.ts'
-import { appSettings, companies, opportunities, quoteDevices, quoteLines, quoteSections, quotes, users } from '../../db/schema.ts'
+import { appSettings, companies, opportunities, quoteCalcs, quoteDevices, quoteInputs, quoteLines, quoteQuestions, quoteRequiredDocs, quoteSections, quotes, users } from '../../db/schema.ts'
 import { HttpProblem, forbidden, notFound } from '../../lib/problem.ts'
 import { getChecklist } from './checklist.ts'
 
@@ -45,7 +46,7 @@ const approvers = aliasedTable(users, 'approver')
 
 async function baseRows(db: Database, where?: SQL) {
   return db
-    .select({ q: quotes, oppCode: opportunities.code, oppName: opportunities.name, companyName: companies.name, updatedByName: updaters.name, approvedByName: approvers.name })
+    .select({ q: quotes, oppCode: opportunities.code, oppName: opportunities.name, companyId: opportunities.companyId, companyName: companies.name, updatedByName: updaters.name, approvedByName: approvers.name })
     .from(quotes)
     .leftJoin(opportunities, eq(opportunities.id, quotes.opportunityId))
     .leftJoin(companies, eq(companies.id, opportunities.companyId))
@@ -121,6 +122,7 @@ function listItem(r: BaseRow, perms: Perms, devices: QuoteDeviceDto[], settings:
     net: has(perms, 'quotesPricing', 'view') ? summary.net : null,
     updatedAt: r.q.updatedAt,
     updatedByName: r.updatedByName,
+    submissionDeadline: r.q.info?.submissionDeadline ?? null,
   }
 }
 
@@ -160,10 +162,30 @@ export async function getQuote(db: Database, perms: Perms, id: string): Promise<
     canEditCosts: has(perms, 'quotesCost', 'edit'),
     canSeePricing,
     canEditPricing: has(perms, 'quotesPricing', 'edit'),
+    workflow: r.q.kind === 'quote' ? await workflowCounts(db, id) : null,
+    companyId: r.companyId,
     checklistProgress: r.q.kind === 'quote' ? (({ confirmed, total }) => ({ confirmed, total }))((await getChecklist(db, r.q)).progress) : null,
     approvedAt: r.q.approvedAt,
     approvedByName: r.approvedByName,
     version: r.q.version,
+  }
+}
+
+/** Liczniki do stanu kroków przepływu (materiały, dokumenty, pytania, kalkulacje). */
+async function workflowCounts(db: Database, quoteId: string): Promise<QuoteWorkflowDto> {
+  const n = sql<number>`count(*)::int`
+  const [[inputs], docs, questions, [calcs]] = await Promise.all([
+    db.select({ n }).from(quoteInputs).where(and(eq(quoteInputs.quoteId, quoteId), isNull(quoteInputs.deletedAt), isNull(quoteInputs.uploadSessionHash))),
+    db.select({ status: quoteRequiredDocs.status, n }).from(quoteRequiredDocs).where(eq(quoteRequiredDocs.quoteId, quoteId)).groupBy(quoteRequiredDocs.status),
+    db.select({ status: quoteQuestions.status, n }).from(quoteQuestions).where(eq(quoteQuestions.quoteId, quoteId)).groupBy(quoteQuestions.status),
+    db.select({ n }).from(quoteCalcs).where(eq(quoteCalcs.quoteId, quoteId)),
+  ])
+  const by = <T extends string>(rows: { status: T; n: number }[], s: T) => rows.find((r) => r.status === s)?.n ?? 0
+  return {
+    inputs: inputs?.n ?? 0,
+    docs: { total: by(docs, 'todo') + by(docs, 'ready'), ready: by(docs, 'ready'), todo: by(docs, 'todo') },
+    questions: { total: by(questions, 'open') + by(questions, 'answered'), open: by(questions, 'open') },
+    calcs: calcs?.n ?? 0,
   }
 }
 

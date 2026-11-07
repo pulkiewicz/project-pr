@@ -138,7 +138,16 @@ export function nextRevision(existing: readonly string[]): string {
 const optText = (max: number) => z.string().trim().max(max).nullable().optional()
 const money = z.number().min(0).max(1e11)
 
+const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'validation.date')
+const timeStr = z.string().regex(/^\d{2}:\d{2}$/, 'validation.time')
+
 export const quoteInfoSchema = z.object({
+  /** Krok 3 — termin złożenia oferty (data `yyyy-MM-dd` i godzina `HH:mm`, czas warszawski). */
+  submissionDeadline: dateStr.nullable().optional(),
+  submissionTime: timeStr.nullable().optional(),
+  /** Krok 3 — termin zadawania pytań zamawiającemu. */
+  questionsDeadline: dateStr.nullable().optional(),
+  questionsTime: timeStr.nullable().optional(),
   /** Wartość zamówienia (budżet zamawiającego), PLN brutto lub netto — wg dokumentu. */
   budget: money.nullable().optional(),
   deliveryPlace: optText(500),
@@ -171,6 +180,8 @@ export const quoteCreateInput = z
 export type QuoteCreateInput = z.input<typeof quoteCreateInput>
 
 export const quotePatch = z.object({
+  /** Krok 1 — zmiana szansy (tylko wycena robocza); rewizja jest nadawana od nowa w obrębie nowej szansy. */
+  opportunityId: z.uuid().optional(),
   name: optText(300),
   description: optText(2000),
   notes: optText(20000),
@@ -234,6 +245,49 @@ export const quoteSettingsInput = z.object({
   priceMaxAgeMonths: z.number().int().min(1).max(120).default(12),
 })
 
+// ---------------- Krok 3: wymagane dokumenty oferty ----------------
+
+/** Do przygotowania → gotowy; „nie dotyczy” dla pozycji, które po analizie nie są wymagane. */
+export const REQUIRED_DOC_STATUSES = ['todo', 'ready', 'na'] as const
+export type RequiredDocStatus = (typeof REQUIRED_DOC_STATUSES)[number]
+
+export const requiredDocInput = z.object({
+  name: z.string().trim().min(1).max(500),
+  note: optText(2000),
+  status: z.enum(REQUIRED_DOC_STATUSES).default('todo'),
+})
+export const requiredDocPatch = z.object({
+  name: z.string().trim().min(1).max(500).optional(),
+  note: optText(2000),
+  status: z.enum(REQUIRED_DOC_STATUSES).optional(),
+  sortOrder: z.number().int().min(0).max(10000).optional(),
+})
+
+export interface RequiredDocDto {
+  id: string
+  name: string
+  note: string | null
+  status: RequiredDocStatus
+  /** `ai` — wyodrębniony z SIWZ; `manual` — dodany ręcznie. */
+  source: 'ai' | 'manual'
+  sourceRef: string | null
+  sortOrder: number
+  updatedAt: string
+}
+
+// ---------------- Przepływ wyceny (8 kroków) ----------------
+
+export const QUOTE_STEPS = ['identification', 'inputs', 'formal', 'checklist', 'questions', 'calc', 'pricing', 'summary'] as const
+export type QuoteStep = (typeof QUOTE_STEPS)[number]
+
+/** Liczniki do stanu kroków (wyceny; null dla profili). */
+export interface QuoteWorkflowDto {
+  inputs: number
+  docs: { total: number; ready: number; todo: number }
+  questions: { total: number; open: number }
+  calcs: number
+}
+
 // ---------------- DTO ----------------
 
 /** Pola kosztowe są null bez uprawnienia `quotesCost:view`. */
@@ -292,6 +346,8 @@ export interface QuoteListItemDto {
   net: number | null
   updatedAt: string
   updatedByName: string | null
+  /** Termin złożenia oferty (krok 3), `yyyy-MM-dd`. */
+  submissionDeadline: string | null
 }
 
 /** Parametry w DTO: pola cenowe (marża, rezerwa, ryzyko, VAT) są null bez `quotesPricing:view`. */
@@ -313,6 +369,9 @@ export interface QuoteDto extends QuoteListItemDto {
   canEditPricing: boolean
   /** Postęp checklisty (krok 3); null dla profili. */
   checklistProgress: { confirmed: number; total: number } | null
+  /** Liczniki kroków przepływu; null dla profili. */
+  workflow: QuoteWorkflowDto | null
+  companyId: string | null
   approvedAt: string | null
   approvedByName: string | null
   version: number

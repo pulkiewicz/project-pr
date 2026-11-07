@@ -29,7 +29,7 @@ export function useAiJobs(quoteId: string) {
       for (const j of finished) {
         if (j.status === 'error') notifications.show({ color: 'red', title: 'AI', message: j.error ?? '' })
         else notifications.show({ color: 'green', title: 'AI', message: j.summary ?? '' })
-        for (const key of [['checklist', quoteId], ['quote', quoteId], ['ai-suggestions', quoteId], ['questions', quoteId], ['ai-status']]) void qc.invalidateQueries({ queryKey: key })
+        for (const key of [['checklist', quoteId], ['quote', quoteId], ['ai-suggestions', quoteId], ['questions', quoteId], ['required-docs', quoteId], ['ai-status']]) void qc.invalidateQueries({ queryKey: key })
       }
       return jobs
     },

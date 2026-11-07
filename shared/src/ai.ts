@@ -26,7 +26,7 @@ export function aiCostUsd(model: string, u: AiUsage): number | null {
 }
 
 /** Operacje AI na wycenie (zadania w tle). */
-export const AI_JOB_KINDS = ['extract_checklist', 'propose_lines', 'reestimate_line', 'questions'] as const
+export const AI_JOB_KINDS = ['extract_checklist', 'propose_lines', 'reestimate_line', 'questions', 'extract_formal'] as const
 export type AiJobKind = (typeof AI_JOB_KINDS)[number]
 export const AI_JOB_STATUSES = ['queued', 'running', 'done', 'error'] as const
 export type AiJobStatus = (typeof AI_JOB_STATUSES)[number]
@@ -36,6 +36,7 @@ export const aiJobInput = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('propose_lines'), hint: z.string().trim().max(5000).nullable().optional() }),
   z.object({ kind: z.literal('reestimate_line'), lineId: z.uuid(), comment: z.string().trim().min(1).max(5000) }),
   z.object({ kind: z.literal('questions') }),
+  z.object({ kind: z.literal('extract_formal') }),
 ])
 export type AiJobInput = z.input<typeof aiJobInput>
 

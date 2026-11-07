@@ -40,6 +40,24 @@ const DEFAULTS: Record<string, Handler> = {
       extra: text ? [{ label: 'Oferta z kartami katalogowymi i warunkami serwisu', value: 'wg zapytania', sourceRef: null }] : [],
     }
   },
+  /** Daty RRRR-MM-DD z materiałów: pierwsza → termin pytań, ostatnia → termin złożenia; dwa typowe dokumenty. */
+  extract_formal: (req) => {
+    const ctx = req.context as { materials: string[] }
+    const text = ctx.materials.join('\n')
+    const dates = [...text.matchAll(/\b(\d{4}-\d{2}-\d{2})\b/g)].map((m) => m[1]!).sort()
+    return {
+      submissionDeadline: dates.at(-1) ?? null,
+      submissionTime: dates.length ? '10:00' : null,
+      questionsDeadline: dates.length > 1 ? dates[0]! : null,
+      questionsTime: null,
+      budget: null,
+      deliveryTerm: null,
+      deliveryPlace: null,
+      participationConditions: null,
+      evaluationCriteria: null,
+      documents: text ? [{ name: 'Formularz ofertowy', note: 'Załącznik nr 1, podpis kwalifikowany', sourceRef: null }, { name: 'Karty katalogowe urządzeń', note: null, sourceRef: null }] : [],
+    }
+  },
   /** Pozycje bez kosztu dostają 1000 zł; przy przeliczeniu jednej pozycji — koszt +10%. */
   propose_lines: (req) => {
     const ctx = req.context as { structure: { sekcje: { sectionId: string; pozycje: { lineId: string; nazwa: string; ilosc: number; cenaJedn: number | null }[] }[] }[] }

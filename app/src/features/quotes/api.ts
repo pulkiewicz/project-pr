@@ -13,6 +13,7 @@ import type {
   QuoteListItemDto,
   QuotePatch,
   QuoteSettings,
+  RequiredDocDto,
   SpecItemDef,
   SpecListDto,
 } from '#shared'
@@ -149,5 +150,21 @@ export function useSaveSpecList() {
   return useMutation({
     mutationFn: (v: { items: SpecItemDef[]; notes?: string | null }) => api<SpecListDto>('/spec-list', { method: 'POST', json: v }),
     onSettled: () => void qc.invalidateQueries({ queryKey: ['spec-list'] }),
+  })
+}
+
+// ---------------- Krok 3: wymagane dokumenty oferty ----------------
+
+export const useRequiredDocs = (quoteId: string) => useQuery({ queryKey: ['required-docs', quoteId], queryFn: () => api<RequiredDocDto[]>(`/quotes/${quoteId}/required-docs`) })
+
+export function useRequiredDocMutation(quoteId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { method: 'POST' | 'PATCH' | 'DELETE'; docId?: string; json?: unknown }) => api<RequiredDocDto[]>(`/quotes/${quoteId}/required-docs${v.docId ? `/${v.docId}` : ''}`, { method: v.method, json: v.json }),
+    onSuccess: (docs) => {
+      qc.setQueryData(['required-docs', quoteId], docs)
+      void qc.invalidateQueries({ queryKey: ['quote', quoteId] })
+    },
+    onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
   })
 }

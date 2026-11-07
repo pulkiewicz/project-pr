@@ -394,7 +394,8 @@
     "duplicateProject": "Projekt wybrany więcej niż raz",
     "sharesOver100": "Suma udziałów przekracza 100%",
     "currency": "Kod waluty: 3 wielkie litery, np. PLN",
-    "projectCode": "Kod: 2–30 znaków, litery, cyfry, - i _ (np. WEW-BIURO)"
+    "projectCode": "Kod: 2–30 znaków, litery, cyfry, - i _ (np. WEW-BIURO)",
+    "time": "Niepoprawna godzina (GG:MM)"
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -1028,8 +1029,8 @@
     },
     "activity": {
       "note": "Notatka wewnętrzna",
-    "noteHint": "Komentarz do całej faktury (np. dla osoby akceptującej). Nie trafia do kosztów projektów ani do eksportu — do tego służy „Opis kosztu” przy projekcie.",
-    "assignedHint": "Faktura jest przypisana, ale jeszcze nie wysłana do akceptacji — wyślij ją przyciskiem poniżej lub zbiorczo z listy.",
+      "noteHint": "Komentarz do całej faktury (np. dla osoby akceptującej). Nie trafia do kosztów projektów ani do eksportu — do tego służy „Opis kosztu” przy projekcie.",
+      "assignedHint": "Faktura jest przypisana, ale jeszcze nie wysłana do akceptacji — wyślij ją przyciskiem poniżej lub zbiorczo z listy.",
       "call": "Telefon",
       "email": "E-mail",
       "meeting": "Spotkanie",
@@ -1141,29 +1142,14 @@
       "profile": "Profil wyceny",
       "previous": "Poprzednia wycena"
     },
-    "basisLabel": "Baza wyceny (krok 4)",
+    "basisLabel": "Baza struktury wyceny",
     "chooseProfile": "Wybierz profil",
     "choosePrevious": "Wybierz wycenę",
     "chooseOpportunity": "Wybierz szansę z CRM",
-    "steps": {
-      "1": "Szansa",
-      "2": "Materiały",
-      "3": "Checklista",
-      "4": "Baza",
-      "5": "Wycena",
-      "6": "Pytania",
-      "7": "Podsumowanie",
-      "8": "Dokument"
-    },
-    "stepLater": "etap {{stage}}",
     "tabs": {
       "items": "Wycena",
       "summary": "Podsumowanie",
-      "info": "Informacje i notatki",
-      "checklist": "Checklista",
-      "calc": "Kalkulator mocy",
-      "inputs": "Materiały",
-      "questions": "Pytania"
+      "info": "Informacje i notatki"
     },
     "device": "Urządzenie",
     "addDevice": "Dodaj urządzenie / opcję",
@@ -1262,7 +1248,8 @@
     "openOpportunity": "Karta szansy",
     "forOpportunity": "Wyceny tej szansy",
     "none": "Brak wycen dla tej szansy",
-    "costsHidden": "Koszty są widoczne tylko z uprawnieniem „Wyceny — koszty”."
+    "costsHidden": "Koszty są widoczne tylko z uprawnieniem „Wyceny — koszty”.",
+    "submissionDeadline": "Termin złożenia"
   },
   "knowledge": {
     "title": "Baza wiedzy wycen",
@@ -1863,6 +1850,108 @@
       "unpaidTitle": "Faktury niezapłacone: {{count}}",
       "unpaidHint": "Faktury z okresu bez połączonych płatności z wyciągów (lub zapłacone częściowo); najpierw najdłużej po terminie. Faktury, które inFakt ma jako opłacone (np. z innego rachunku), są domyślnie ukryte. Kliknij wiersz, aby otworzyć kartę faktury.",
       "overdue": "{{count}} dni po terminie"
+    }
+  },
+  "workflow": {
+    "step": {
+      "identification": "Identyfikacja",
+      "inputs": "Zapytanie i pliki",
+      "formal": "Parametry formalne",
+      "checklist": "Checklista parametrów",
+      "questions": "Pytania do zamawiającego",
+      "calc": "Kalkulator mocy",
+      "pricing": "Wycena",
+      "summary": "Podsumowanie"
+    },
+    "desc": {
+      "identification": "Klient i szansa (deal) z CRM, do której należy wycena.",
+      "inputs": "Wklej treść zapytania lub dodaj pliki (SIWZ, OPZ, rysunki, maile) — na nich pracuje AI w kolejnych krokach.",
+      "formal": "Terminy złożenia oferty i zadawania pytań, warunki postępowania oraz lista dokumentów wymaganych przez SIWZ (AI + ręczne uzupełnienie).",
+      "checklist": "Parametry techniczne z materiałów przypisane do standardowej listy specyfikacyjnej — każdy potwierdź.",
+      "questions": "Pytania do zamawiającego (do wysłania przed terminem) i pytania wewnętrzne.",
+      "calc": "Bilans mocy chłodniczej / grzewczej dla urządzeń z wyceny.",
+      "pricing": "Urządzenia, sekcje i pozycje kosztowe (z propozycjami AI), parametry marży i cena.",
+      "summary": "Stan wszystkich kroków, kluczowe dane i cena, zatwierdzenie i eksport."
+    },
+    "stepOf": "Krok {{n}} z {{total}}",
+    "next": "Dalej: {{step}}",
+    "cap": {
+      "noOpportunity": "brak szansy",
+      "inputs_one": "{{count}} materiał",
+      "inputs_few": "{{count}} materiały",
+      "inputs_many": "{{count}} materiałów",
+      "inputs_other": "{{count}} materiałów",
+      "noInputs": "brak materiałów",
+      "submission": "złożenie {{date}}",
+      "noDeadline": "brak terminu",
+      "docs": "dokumenty {{ready}}/{{total}}",
+      "confirmed": "{{confirmed}}/{{total}} potwierdzonych",
+      "questions": "{{open}} otwartych z {{total}}",
+      "questionsUntil": "pytania do {{date}}",
+      "noQuestions": "brak pytań",
+      "calcs_one": "{{count}} kalkulacja",
+      "calcs_few": "{{count}} kalkulacje",
+      "calcs_many": "{{count}} kalkulacji",
+      "calcs_other": "{{count}} kalkulacji",
+      "noCalcs": "brak kalkulacji",
+      "noLines": "brak pozycji"
+    },
+    "identification": {
+      "title": "Klient i szansa",
+      "client": "Klient",
+      "anyClient": "Wszyscy klienci",
+      "deal": "Szansa (deal)",
+      "changeHint": "Zmiana szansy przepnie wycenę i nada jej nową literę rewizji w obrębie wybranej szansy.",
+      "dealDetails": "Szansa w CRM"
+    },
+    "formal": {
+      "extract": "Wyodrębnij z SIWZ (AI)",
+      "deadlines": "Terminy",
+      "submission": "Termin złożenia oferty",
+      "questions": "Termin zadawania pytań",
+      "time": "Godzina",
+      "crmDeadline": "W CRM: {{date}}.",
+      "useCrm": "Użyj",
+      "conditions": "Warunki zamówienia",
+      "overdue_one": "minął {{count}} dzień temu",
+      "overdue_few": "minął {{count}} dni temu",
+      "overdue_many": "minął {{count}} dni temu",
+      "overdue_other": "minął {{count}} dni temu",
+      "today": "dziś",
+      "inDays_one": "za {{count}} dzień",
+      "inDays_few": "za {{count}} dni",
+      "inDays_many": "za {{count}} dni",
+      "inDays_other": "za {{count}} dni",
+      "docs": "Wymagane dokumenty",
+      "docsHint": "Dokumenty, oświadczenia i załączniki wymagane przez SIWZ. Zaznacz przygotowane; pozycje niewymagane oznacz „nie dotyczy”.",
+      "noDocs": "Brak dokumentów. Użyj „Wyodrębnij z SIWZ (AI)” albo dodaj ręcznie.",
+      "addDoc": "Dodaj dokument",
+      "docName": "Nazwa dokumentu",
+      "docNamePlaceholder": "np. Formularz ofertowy, wadium, karty katalogowe",
+      "docNote": "Uwagi (forma, podpis, nr załącznika)",
+      "add": "Dodaj",
+      "editDoc": "Edytuj",
+      "restore": "Przywróć",
+      "docStatus": {
+        "todo": "do przygotowania",
+        "ready": "gotowy",
+        "na": "nie dotyczy"
+      }
+    },
+    "questions": {
+      "deadline": "Termin zadawania pytań: {{date}}",
+      "open": "Pytania do zamawiającego wyślij przed terminem.",
+      "closed": "Termin zadawania pytań minął.",
+      "noDeadline": "Termin zadawania pytań nie jest ustawiony (krok „Parametry formalne”)."
+    },
+    "summary": {
+      "steps": "Kroki wyceny",
+      "go": "Przejdź",
+      "key": "Kluczowe dane",
+      "openSteps_one": "{{count}} krok nie jest jeszcze ukończony.",
+      "openSteps_few": "{{count}} kroki nie są jeszcze ukończone.",
+      "openSteps_many": "{{count}} kroków nie jest jeszcze ukończonych.",
+      "openSteps_other": "{{count}} kroków nie jest jeszcze ukończonych."
     }
   }
 }
