@@ -55,6 +55,7 @@ import { useOpportunity } from '../crm/api'
 import { useStartAiJob } from './ai-api'
 import { CalcPanel } from './CalcPanel'
 import { ChecklistPanel } from './ChecklistPanel'
+import { RevisionModal } from './RevisionModal'
 import { FormalStep, IdentificationStep, QuestionsDeadline, StepNav, SummaryStep, deadlineLabel, stepInfos } from './WorkflowSteps'
 
 const STATUS_COLOR = { draft: 'gray', approved: 'green', sent: 'blue', imported: 'violet' } as const
@@ -596,6 +597,7 @@ export function QuoteEditor({ id }: { id: string }) {
   const del = useDeleteQuote()
   const [params, setParams] = useSearchParams()
   const [tab, setTab] = useState<string | null>('items')
+  const [revisionOpen, setRevisionOpen] = useState(false)
   const [lineEdit, setLineEdit] = useState<{ line: QuoteLineDto | null; sectionId: string } | null>(null)
   const q = query.data
   const steps = useMemo(() => (q && q.kind === 'quote' ? stepInfos(q, t) : []), [q, t])
@@ -731,7 +733,7 @@ export function QuoteEditor({ id }: { id: string }) {
             </Menu.Target>
             <Menu.Dropdown>
               {!isProfile && can('quotes', 'create') && (
-                <Menu.Item onClick={() => action.mutate({ id: q.id, path: '/revision' }, { onSuccess: (r) => navigate(`/wyceny/${r.id}`), onError: fail })}>{t('quotes.newRevision')}</Menu.Item>
+                <Menu.Item onClick={() => setRevisionOpen(true)}>{t('quotes.newRevision')}…</Menu.Item>
               )}
               {can('quoteKnowledge', 'create') && (
                 <Menu.Item
@@ -767,6 +769,7 @@ export function QuoteEditor({ id }: { id: string }) {
         </Group>
       </Group>
 
+      {!isProfile && <RevisionModal quote={q} opened={revisionOpen} onClose={() => setRevisionOpen(false)} />}
       {!isProfile && <StepNav steps={steps} active={active} onSelect={goTo} />}
 
       {!q.canEdit && q.status !== 'draft' && <Alert variant="light">{t('quotes.locked', { status: t(`quotes.status.${q.status}`).toLowerCase() })}</Alert>}

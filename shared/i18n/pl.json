@@ -1237,6 +1237,15 @@
     "backToDraft": "Cofnij do roboczej",
     "markSent": "Oznacz jako wysłaną",
     "newRevision": "Nowa rewizja",
+    "revisionMode": {
+      "copy": "Na bazie bieżącej (rew. {{revision}})",
+      "copyHint": "Kopia pozycji, parametrów, checklisty, kalkulacji, wymaganych dokumentów i terminów.",
+      "empty": "Pusta",
+      "emptyHint": "Ta sama szansa i folder Drive — pozycje, checklista i parametry formalne od zera.",
+      "note": "Bieżąca rewizja pozostaje bez zmian.",
+      "create": "Utwórz rewizję"
+    },
+    "deleteLocked": "Wyceny wysłanej lub zaimportowanej nie można usunąć",
     "saveAsProfile": "Zapisz jako profil",
     "exportXlsx": "Eksport XLSX",
     "delete": "Usuń wycenę",

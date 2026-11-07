@@ -74,3 +74,19 @@ describe('krok 3 — parametry formalne', () => {
     expect((await req(h, 'POST', docsUrl(), staff.headers, { name: 'X' })).status).toBe(409)
   })
 })
+
+describe('nowa rewizja — pusta albo kopia', () => {
+  it('pusta rewizja: ta sama szansa i kolejna litera, bez dokumentów, terminów i bazy', async () => {
+    const src = await get()
+    const rev = (await (await req(h, 'POST', `/api/quotes/${quote.id}/revision`, staff.headers, { mode: 'empty' })).json()) as QuoteDto
+    expect(rev).toMatchObject({ opportunityId: src.opportunityId, status: 'draft', basedOnLabel: null, info: {} })
+    expect(rev.revision).not.toBe(src.revision)
+    expect(rev.workflow).toEqual({ inputs: 0, docs: { total: 0, ready: 0, todo: 0 }, questions: { total: 0, open: 0 }, calcs: 0 })
+  })
+
+  it('jawna kopia działa jak dotąd; nieznany tryb → 422', async () => {
+    const rev = (await (await req(h, 'POST', `/api/quotes/${quote.id}/revision`, staff.headers, { mode: 'copy' })).json()) as QuoteDto
+    expect(rev.basedOnLabel).toMatch(/rew\./)
+    expect((await req(h, 'POST', `/api/quotes/${quote.id}/revision`, staff.headers, { mode: 'inna' })).status).toBe(422)
+  })
+})

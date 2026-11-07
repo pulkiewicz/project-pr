@@ -15,6 +15,7 @@ import {
   quotePatch,
   quoteSettingsInput,
   quoteStatusInput,
+  quoteRevisionInput,
   saveAsProfileInput,
   sectionInput,
   sectionPatch,
@@ -257,21 +258,31 @@ quotesRouter.openapi(
   },
 )
 
-quotesRouter.openapi(route({ method: 'post', path: '/quotes/{id}/revision', request: { params: idParam }, responses: created }, 'quotes', 'create'), async (c) => {
-  const { id } = c.req.valid('param')
-  const db = c.get('deps').db
-  const base = await getQuoteRow(db, id)
-  if (base.kind !== 'quote') throw new HttpProblem(422, 'not_a_quote')
-  const newId = await db.transaction(async (tx) => {
-    const nid = await createQuote(c, tx, { kind: 'quote', opportunityId: base.opportunityId, name: base.name, description: base.description, basedOnId: id })
-    await tx.update(quotes).set({ notes: base.notes, params: base.params, driveFolderId: base.driveFolderId }).where(eq(quotes.id, nid))
-    await copyChecklist(tx, id, nid)
-    await copyCalcs(tx, id, nid)
-    await copyRequiredDocs(tx, id, nid)
-    return nid
-  })
-  return respond(c, newId, 201)
-})
+// Treść opcjonalna — bez niej (starsi klienci) rewizja jest kopią bieżącej.
+quotesRouter.openapi(
+  route({ method: 'post', path: '/quotes/{id}/revision', request: { params: idParam, body: { ...json(quoteRevisionInput), required: false } }, responses: created }, 'quotes', 'create'),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const { mode } = quoteRevisionInput.parse(c.req.valid('json') ?? {})
+    const db = c.get('deps').db
+    const base = await getQuoteRow(db, id)
+    if (base.kind !== 'quote') throw new HttpProblem(422, 'not_a_quote')
+    const newId = await db.transaction(async (tx) => {
+      if (mode === 'empty') {
+        const nid = await createQuote(c, tx, { kind: 'quote', opportunityId: base.opportunityId, name: base.name, description: base.description, basedOnId: null })
+        await tx.update(quotes).set({ driveFolderId: base.driveFolderId }).where(eq(quotes.id, nid))
+        return nid
+      }
+      const nid = await createQuote(c, tx, { kind: 'quote', opportunityId: base.opportunityId, name: base.name, description: base.description, basedOnId: id })
+      await tx.update(quotes).set({ notes: base.notes, params: base.params, driveFolderId: base.driveFolderId }).where(eq(quotes.id, nid))
+      await copyChecklist(tx, id, nid)
+      await copyCalcs(tx, id, nid)
+      await copyRequiredDocs(tx, id, nid)
+      return nid
+    })
+    return respond(c, newId, 201)
+  },
+)
 
 quotesRouter.openapi(
   route({ method: 'post', path: '/quotes/{id}/save-as-profile', request: { params: idParam, body: body(saveAsProfileInput) }, responses: created }, 'quotes', 'view'),

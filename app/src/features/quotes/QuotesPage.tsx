@@ -1,6 +1,7 @@
-import { Alert, Badge, Button, Group, Loader, Modal, SegmentedControl, Select, Stack, Text, TextInput, Title } from '@mantine/core'
+import { ActionIcon, Alert, Badge, Button, Group, Loader, Modal, SegmentedControl, Select, Stack, Text, TextInput, Title, Tooltip } from '@mantine/core'
+import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
-import { IconPlus, IconSearch } from '@tabler/icons-react'
+import { IconPlus, IconSearch, IconTrash } from '@tabler/icons-react'
 import { MantineReactTable, useMantineReactTable, type MRT_ColumnDef } from 'mantine-react-table'
 import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mjs'
 import { useEffect, useMemo, useState } from 'react'
@@ -11,8 +12,8 @@ import { useAuth } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime, formatPLNWhole } from '../../lib/format'
 import { useCompanies, useOpportunities } from '../crm/api'
-import { useCreateQuote, useQuotes } from './api'
-import { QuoteEditor } from './QuoteEditor'
+import { useCreateQuote, useDeleteQuote, useQuotes } from './api'
+import { QuoteEditor, quoteLabel } from './QuoteEditor'
 
 const STATUS_COLOR = { draft: 'gray', approved: 'green', sent: 'blue', imported: 'violet' } as const
 
@@ -123,6 +124,8 @@ function QuotesList() {
   const q = useQuotes('quote')
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(params.has('nowa'))
+  const del = useDeleteQuote()
+  const canDelete = can('quotes', 'delete')
   const items = useMemo(() => {
     const s = search.trim().toLocaleLowerCase('pl')
     return (q.data ?? []).filter((x) => !s || [x.opportunityCode, x.opportunityName, x.companyName].some((v) => v?.toLocaleLowerCase('pl').includes(s)))
@@ -150,12 +153,41 @@ function QuotesList() {
     layoutMode: 'grid',
     enableColumnActions: false,
     enableGlobalFilter: false,
-    initialState: { density: 'xs' },
+    initialState: { density: 'xs', columnPinning: { right: ['mrt-row-actions'] } },
+    enableColumnPinning: canDelete,
     enablePagination: false,
     enableStickyHeader: true,
     mantineTableContainerProps: { style: { maxHeight: 'calc(100vh - 260px)' } },
     mantineTableBodyRowProps: ({ row }) => ({ onClick: () => navigate(`/wyceny/${row.original.id}`), style: { cursor: 'pointer' } }),
     getRowId: (r) => r.id,
+    enableRowActions: canDelete,
+    positionActionsColumn: 'last',
+    displayColumnDefOptions: { 'mrt-row-actions': { header: '', size: 50 } },
+    renderRowActions: ({ row }) => {
+      const x = row.original
+      const locked = x.status === 'sent' || x.status === 'imported'
+      return (
+        <Tooltip label={locked ? t('quotes.deleteLocked') : t('quotes.delete')} withinPortal>
+          <ActionIcon
+            variant="subtle"
+            color="red"
+            disabled={locked}
+            aria-label={t('quotes.delete')}
+            onClick={(e) => {
+              e.stopPropagation()
+              modals.openConfirmModal({
+                title: t('quotes.deleteConfirm', { label: quoteLabel({ ...x, kind: 'quote', name: null }) }),
+                labels: { confirm: t('app.yes'), cancel: t('app.cancel') },
+                confirmProps: { color: 'red' },
+                onConfirm: () => del.mutate(x.id, { onError: (err) => notifications.show({ color: 'red', message: errorMessage(err) }) }),
+              })
+            }}
+          >
+            <IconTrash size={16} />
+          </ActionIcon>
+        </Tooltip>
+      )
+    },
   })
 
   if (q.isLoading) return <Loader />

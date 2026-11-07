@@ -195,6 +195,11 @@ export type QuotePatch = z.input<typeof quotePatch>
 
 export const quoteStatusInput = z.object({ status: z.enum(['draft', 'approved', 'sent']), version: z.number().int() })
 
+/** Nowa rewizja wyceny: kopia bieżącej albo pusta (ta sama szansa i folder Drive, reszta od zera). */
+export const QUOTE_REVISION_MODES = ['copy', 'empty'] as const
+export type QuoteRevisionMode = (typeof QUOTE_REVISION_MODES)[number]
+export const quoteRevisionInput = z.object({ mode: z.enum(QUOTE_REVISION_MODES).default('copy') })
+
 export const saveAsProfileInput = z.object({ name: z.string().trim().min(1).max(300), description: optText(2000) })
 
 export const deviceInput = z.object({
