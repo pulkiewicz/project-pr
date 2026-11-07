@@ -45,7 +45,7 @@ function aiClient(): AiClient | null {
   // Lokalnie atrapa (deterministyczne odpowiedzi, bez kosztów) na jawne żądanie ma pierwszeństwo przed kluczem.
   if (localDev() && env('DEV_FAKE_AI') === '1') return new FakeAiClient()
   const key = env('ANTHROPIC_API_KEY')
-  if (key) return new ClaudeClient(key)
+  if (key) return new ClaudeClient(key, env('ANTHROPIC_WORKSPACE_ID'))
   return null
 }
 

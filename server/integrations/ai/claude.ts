@@ -11,8 +11,9 @@ export class ClaudeClient implements AiClient {
   readonly fake = false
   private readonly client: Anthropic
 
-  constructor(apiKey: string) {
-    this.client = new Anthropic({ apiKey })
+  /** `workspaceId` — wymagany przez API dla kluczy organizacji niezwiązanych z workspace'em (nagłówek `anthropic-workspace-id`). */
+  constructor(apiKey: string, workspaceId?: string | null) {
+    this.client = new Anthropic({ apiKey, defaultHeaders: workspaceId ? { 'anthropic-workspace-id': workspaceId } : undefined })
   }
 
   async run(req: AiRequest): Promise<AiResult> {
