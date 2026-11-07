@@ -58,6 +58,11 @@ const DEFAULTS: Record<string, Handler> = {
       documents: text ? [{ name: 'Formularz ofertowy', note: 'Załącznik nr 1, podpis kwalifikowany', sourceRef: null }, { name: 'Karty katalogowe urządzeń', note: null, sourceRef: null }] : [],
     }
   },
+  /** Projekt dokumentu: nagłówek z nazwą dokumentu i zamawiającym. */
+  draft_doc: (req) => {
+    const ctx = req.context as { document: string; client: string | null }
+    return { title: ctx.document, html: `<h1>${ctx.document}</h1><p>Zamawiający: ${ctx.client ?? '[●]'}</p><p>Wykonawca: Envcheck [●]</p>`, gaps: ['dane wykonawcy'] }
+  },
   /** Pozycje bez kosztu dostają 1000 zł; przy przeliczeniu jednej pozycji — koszt +10%. */
   propose_lines: (req) => {
     const ctx = req.context as { structure: { sekcje: { sectionId: string; pozycje: { lineId: string; nazwa: string; ilosc: number; cenaJedn: number | null }[] }[] }[] }

@@ -36,6 +36,7 @@ import {
   quoteInputs,
   quoteLines,
   quoteQuestions,
+  quoteRequiredDocs,
   quoteSections,
   quotes,
   users,
@@ -295,6 +296,7 @@ async function listJobs(db: Database, quoteId: string): Promise<AiJobDto[]> {
     status: j.status,
     summary: j.summary,
     error: j.error,
+    docId: (j.params as { docId?: string } | null)?.docId ?? null,
     costUsd: cost != null ? Number(cost) : null,
     createdAt: j.createdAt,
     finishedAt: j.finishedAt,
@@ -317,8 +319,15 @@ aiRouter.openapi(route({ method: 'post', path: '/quotes/{id}/ai/jobs', request: 
   if (q.kind !== 'quote') throw new HttpProblem(422, 'not_a_quote')
   // Propozycje kosztów czytają i zapisują koszty — tylko z uprawnieniem do kosztów.
   if ((input.kind === 'propose_lines' || input.kind === 'reestimate_line') && !has(c, 'quotesCost:edit')) throw forbidden('cost_forbidden')
+  if (input.kind === 'draft_doc') {
+    const [doc] = await deps.db.select({ id: quoteRequiredDocs.id }).from(quoteRequiredDocs).where(and(eq(quoteRequiredDocs.id, input.docId), eq(quoteRequiredDocs.quoteId, id)))
+    if (!doc) throw notFound('required_doc_not_found')
+    if (!q.driveFolderId) throw new HttpProblem(422, 'drive_folder_missing')
+  }
   await expireStaleJobs(deps.db, id)
-  const [busy] = await deps.db.select({ id: aiJobs.id }).from(aiJobs).where(and(eq(aiJobs.quoteId, id), eq(aiJobs.kind, input.kind), inArray(aiJobs.status, ['queued', 'running'])))
+  // Projekty dokumentów mogą powstawać równolegle — blokada per dokument, pozostałe zadania per rodzaj.
+  const sameDoc = input.kind === 'draft_doc' ? sql`${aiJobs.params}->>'docId' = ${input.docId}` : undefined
+  const [busy] = await deps.db.select({ id: aiJobs.id }).from(aiJobs).where(and(eq(aiJobs.quoteId, id), eq(aiJobs.kind, input.kind), inArray(aiJobs.status, ['queued', 'running']), sameDoc))
   if (busy) throw new HttpProblem(409, 'ai_job_running')
   const token = randomBytes(32).toString('base64url')
   const { kind, ...params } = input

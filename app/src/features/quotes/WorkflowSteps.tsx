@@ -9,6 +9,7 @@ import {
   Group,
   Loader,
   Menu,
+  Modal,
   NumberInput,
   Select,
   SimpleGrid,
@@ -24,7 +25,7 @@ import {
 } from '@mantine/core'
 import { DateInput, TimeInput } from '@mantine/dates'
 import { modals } from '@mantine/modals'
-import { IconAlertTriangle, IconCheck, IconDots, IconPlus, IconQuote, IconTrash } from '@tabler/icons-react'
+import { IconAlertTriangle, IconCheck, IconDots, IconExternalLink, IconLink, IconPlus, IconQuote, IconSparkles, IconTrash } from '@tabler/icons-react'
 import { format } from 'date-fns'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -34,6 +35,7 @@ import { useAuth } from '../../auth/AuthProvider'
 import { daysUntil, formatDate, formatPLN } from '../../lib/format'
 import { useCompanies, useOpportunities, useOpportunity } from '../crm/api'
 import { AiJobButton, FolderLink } from './AiPanels'
+import { useAiJobs, useAiStatus, useDriveFolder, useStartAiJob } from './ai-api'
 import { quoteOps, useQuoteMutation, useRequiredDocMutation, useRequiredDocs } from './api'
 
 // ---------------- Stan kroków ----------------
@@ -288,11 +290,118 @@ function DeadlineBadge({ date }: { date: string | null | undefined }) {
 
 const DOC_COLOR: Record<RequiredDocStatus, string> = { todo: 'orange', ready: 'green', na: 'gray' }
 
+/** Link do gotowego dokumentu (otwierany w nowej karcie) oraz przyciski: podepnij link, utwórz przez AI (Dokument Google w folderze wyceny). */
+function DocActions({ q, d, onLink }: { q: QuoteDto; d: RequiredDocDto; onLink: () => void }) {
+  const { t } = useTranslation()
+  const ai = useAiStatus()
+  const jobs = useAiJobs(q.id)
+  const start = useStartAiJob(q.id)
+  const running = jobs.data?.some((j) => j.kind === 'draft_doc' && j.docId === d.id && (j.status === 'queued' || j.status === 'running'))
+  const aiBlocked = !q.driveFolderId ? t('workflow.formal.aiNeedsFolder') : ai.data && !ai.data.available ? t('ai.unavailable') : null
+  const generate = () => {
+    let hint = ''
+    modals.openConfirmModal({
+      title: t('workflow.formal.aiCreateTitle', { name: d.name }),
+      children: (
+        <Stack>
+          <Text size="sm">{t('workflow.formal.aiCreateHint')}</Text>
+          {d.link && (
+            <Alert variant="light" color="orange">
+              {t('workflow.formal.aiReplaces')}
+            </Alert>
+          )}
+          <Textarea label={t('workflow.formal.aiHint')} placeholder={t('workflow.formal.aiHintPlaceholder')} autosize minRows={2} onChange={(e) => (hint = e.currentTarget.value)} data-autofocus />
+        </Stack>
+      ),
+      labels: { confirm: t('workflow.formal.aiCreate'), cancel: t('app.cancel') },
+      confirmProps: { color: 'grape' },
+      onConfirm: () => start.mutate({ kind: 'draft_doc', docId: d.id, hint: hint.trim() || null }),
+    })
+  }
+  if (!d.link && (!q.canEdit || d.status === 'na')) return null
+  return (
+    <Group gap={6} mt={4} wrap="wrap">
+      {d.link && (
+        <Button component="a" href={d.link} target="_blank" rel="noopener noreferrer" size="compact-xs" variant="light" leftSection={<IconExternalLink size={12} />}>
+          {d.driveFileId ? t('workflow.formal.openGoogleDoc') : t('workflow.formal.openDoc')}
+        </Button>
+      )}
+      {q.canEdit && d.status !== 'na' && (
+        <>
+          <Button size="compact-xs" variant="subtle" color="gray" leftSection={<IconLink size={12} />} onClick={onLink}>
+            {d.link ? t('workflow.formal.changeLink') : t('workflow.formal.attachLink')}
+          </Button>
+          <Tooltip label={aiBlocked} disabled={!aiBlocked} withinPortal>
+            <Button size="compact-xs" variant="subtle" color="grape" leftSection={<IconSparkles size={12} />} loading={running || start.isPending} disabled={!!aiBlocked} onClick={generate}>
+              {t('workflow.formal.aiCreate')}
+            </Button>
+          </Tooltip>
+          {running && (
+            <Text size="xs" c="dimmed">
+              {t('ai.running')}
+            </Text>
+          )}
+        </>
+      )}
+    </Group>
+  )
+}
+
+/** Podpięcie linku: wklejony adres albo plik z folderu Drive wyceny; „Odepnij” usuwa powiązanie (plik zostaje). */
+function DocLinkModal({ q, doc, onClose }: { q: QuoteDto; doc: RequiredDocDto | null; onClose: () => void }) {
+  const { t } = useTranslation()
+  const m = useRequiredDocMutation(q.id)
+  const folder = useDriveFolder(q.id, doc ? q.driveFolderId : null)
+  const [url, setUrl] = useState('')
+  useEffect(() => {
+    if (doc) setUrl(doc.link ?? '')
+  }, [doc])
+  const valid = /^https?:\/\/\S+$/.test(url.trim())
+  const files = (folder.data?.files ?? []).filter((f) => f.webViewLink)
+  const save = (link: string | null) => doc && m.mutate({ method: 'PATCH', docId: doc.id, json: { link } }, { onSuccess: onClose })
+  return (
+    <Modal opened={!!doc} onClose={onClose} title={doc ? t('workflow.formal.linkTitle', { name: doc.name }) : ''} size="lg">
+      <Stack>
+        <TextInput label={t('workflow.formal.linkUrl')} placeholder="https://docs.google.com/…" value={url} onChange={(e) => setUrl(e.currentTarget.value)} error={url.trim() && !valid ? t('validation.url') : null} data-autofocus />
+        {q.driveFolderId && (
+          <Select
+            label={t('workflow.formal.linkFromFolder')}
+            placeholder={folder.isLoading ? t('app.loading') : files.length ? t('workflow.formal.linkPick') : t('workflow.formal.linkNoFiles')}
+            disabled={!files.length}
+            searchable
+            data={files.map((f) => ({ value: f.webViewLink!, label: `${f.path}${f.name}` }))}
+            value={files.some((f) => f.webViewLink === url) ? url : null}
+            onChange={(v) => v && setUrl(v)}
+          />
+        )}
+        <Group justify="space-between">
+          {doc?.link ? (
+            <Button variant="subtle" color="red" onClick={() => save(null)} loading={m.isPending}>
+              {t('workflow.formal.unlink')}
+            </Button>
+          ) : (
+            <span />
+          )}
+          <Group gap="xs">
+            <Button variant="default" onClick={onClose}>
+              {t('app.cancel')}
+            </Button>
+            <Button disabled={!valid} loading={m.isPending} onClick={() => save(url.trim())}>
+              {t('workflow.formal.attach')}
+            </Button>
+          </Group>
+        </Group>
+      </Stack>
+    </Modal>
+  )
+}
+
 function RequiredDocs({ q }: { q: QuoteDto }) {
   const { t } = useTranslation()
   const docs = useRequiredDocs(q.id)
   const m = useRequiredDocMutation(q.id)
   const [draft, setDraft] = useState({ name: '', note: '' })
+  const [linkDoc, setLinkDoc] = useState<RequiredDocDto | null>(null)
   const list = docs.data ?? []
   const active = list.filter((d) => d.status !== 'na')
   const ready = active.filter((d) => d.status === 'ready').length
@@ -367,6 +476,7 @@ function RequiredDocs({ q }: { q: QuoteDto }) {
                       {d.note}
                     </Text>
                   )}
+                  <DocActions q={q} d={d} onLink={() => setLinkDoc(d)} />
                 </Table.Td>
                 <Table.Td w={170} ta="right">
                   <Badge size="sm" variant="light" color={DOC_COLOR[d.status]} styles={{ root: { maxWidth: 'none' }, label: { overflow: 'visible' } }}>
@@ -399,6 +509,7 @@ function RequiredDocs({ q }: { q: QuoteDto }) {
           </Table.Tbody>
         </Table>
       )}
+      <DocLinkModal q={q} doc={linkDoc} onClose={() => setLinkDoc(null)} />
       {q.canEdit && (
         <Group align="flex-end" wrap="wrap">
           <TextInput label={t('workflow.formal.addDoc')} placeholder={t('workflow.formal.docNamePlaceholder')} style={{ flex: 2, minWidth: 200 }} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.currentTarget.value })} />

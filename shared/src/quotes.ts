@@ -268,6 +268,8 @@ export const requiredDocPatch = z.object({
   note: optText(2000),
   status: z.enum(REQUIRED_DOC_STATUSES).optional(),
   sortOrder: z.number().int().min(0).max(10000).optional(),
+  /** Link do gotowego dokumentu (np. Dysk Google); null — odpięcie. */
+  link: z.url({ protocol: /^https?$/ }).max(2000).nullable().optional(),
 })
 
 export interface RequiredDocDto {
@@ -278,6 +280,10 @@ export interface RequiredDocDto {
   /** `ai` — wyodrębniony z SIWZ; `manual` — dodany ręcznie. */
   source: 'ai' | 'manual'
   sourceRef: string | null
+  /** Link do dokumentu (wklejony albo do Dokumentu Google utworzonego przez AI). */
+  link: string | null
+  /** Plik Drive utworzony przez AI (null dla linku wklejonego ręcznie). */
+  driveFileId: string | null
   sortOrder: number
   updatedAt: string
 }

@@ -20,7 +20,7 @@ const route = <R extends RouteConfig>(r: R, module: ModuleKey, action: Action) =
 
 export async function listRequiredDocs(db: Database, quoteId: string): Promise<RequiredDocDto[]> {
   const rows = await db.select().from(quoteRequiredDocs).where(eq(quoteRequiredDocs.quoteId, quoteId)).orderBy(asc(quoteRequiredDocs.sortOrder), asc(quoteRequiredDocs.createdAt))
-  return rows.map((r) => ({ id: r.id, name: r.name, note: r.note, status: r.status, source: r.source, sourceRef: r.sourceRef, sortOrder: r.sortOrder, updatedAt: r.updatedAt }))
+  return rows.map((r) => ({ id: r.id, name: r.name, note: r.note, status: r.status, source: r.source, sourceRef: r.sourceRef, link: r.link, driveFileId: r.driveFileId, sortOrder: r.sortOrder, updatedAt: r.updatedAt }))
 }
 
 /** Kopia listy przy nowej rewizji — statusy zostają (dokumenty zwykle są te same). */
@@ -74,7 +74,8 @@ formalRouter.openapi(
     await db.transaction(async (tx) => {
       const [r] = await tx
         .update(quoteRequiredDocs)
-        .set({ ...input, updatedAt: sql`now()`, updatedBy: user.id })
+        // Wklejony link zastępuje plik utworzony przez AI (plik zostaje na Drive).
+        .set({ ...input, ...(input.link !== undefined ? { driveFileId: null } : {}), updatedAt: sql`now()`, updatedBy: user.id })
         .where(and(eq(quoteRequiredDocs.id, docId), eq(quoteRequiredDocs.quoteId, id)))
         .returning({ id: quoteRequiredDocs.id })
       if (!r) throw notFound('required_doc_not_found')

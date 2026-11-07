@@ -814,6 +814,8 @@ export const quoteRequiredDocs = pgTable(
     status: text('status').$type<RequiredDocStatus>().notNull().default('todo'),
     source: text('source').$type<'ai' | 'manual'>().notNull().default('manual'),
     sourceRef: text('source_ref'),
+    link: text('link'),
+    driveFileId: text('drive_file_id'),
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),

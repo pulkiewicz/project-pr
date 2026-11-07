@@ -26,7 +26,7 @@ export function aiCostUsd(model: string, u: AiUsage): number | null {
 }
 
 /** Operacje AI na wycenie (zadania w tle). */
-export const AI_JOB_KINDS = ['extract_checklist', 'propose_lines', 'reestimate_line', 'questions', 'extract_formal'] as const
+export const AI_JOB_KINDS = ['extract_checklist', 'propose_lines', 'reestimate_line', 'questions', 'extract_formal', 'draft_doc'] as const
 export type AiJobKind = (typeof AI_JOB_KINDS)[number]
 export const AI_JOB_STATUSES = ['queued', 'running', 'done', 'error'] as const
 export type AiJobStatus = (typeof AI_JOB_STATUSES)[number]
@@ -37,6 +37,8 @@ export const aiJobInput = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('reestimate_line'), lineId: z.uuid(), comment: z.string().trim().min(1).max(5000) }),
   z.object({ kind: z.literal('questions') }),
   z.object({ kind: z.literal('extract_formal') }),
+  /** Projekt wymaganego dokumentu (krok 3) jako Dokument Google w folderze wyceny. */
+  z.object({ kind: z.literal('draft_doc'), docId: z.uuid(), hint: z.string().trim().max(5000).nullable().optional() }),
 ])
 export type AiJobInput = z.input<typeof aiJobInput>
 
@@ -47,6 +49,8 @@ export interface AiJobDto {
   /** Krótki opis wyniku (np. „uzupełniono 23 parametry, 5 brakuje”). */
   summary: string | null
   error: string | null
+  /** Dla `draft_doc` — wymagany dokument, którego dotyczy zadanie. */
+  docId: string | null
   costUsd: number | null
   createdAt: string
   finishedAt: string | null

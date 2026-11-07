@@ -1,6 +1,9 @@
 import { AI_READABLE_MIME, driveFolderUrl, type DriveFolderDto, type DriveFolderFileDto } from '#shared'
 import { FOLDER_MIME, type DriveClient } from '../../integrations/drive/types.ts'
 
+export const GOOGLE_DOC_MIME = 'application/vnd.google-apps.document'
+export const driveFileUrl = (id: string) => `https://docs.google.com/document/d/${id}/edit`
+
 /** Limity przeglądania folderu wyceny (ochrona przed przypadkowo podpiętym dużym drzewem). */
 const MAX_DEPTH = 3
 const MAX_FILES = 200

@@ -39,7 +39,8 @@ export interface DriveClient {
   createFolder(parentId: string, name: string): Promise<DriveItem>
   /** Sesja resumable z nagłówkiem Origin — przeglądarka wysyła plik bezpośrednio do Google. */
   createUploadSession(p: { parentId: string; name: string; mimeType: string; size: number; origin: string }): Promise<string>
-  uploadSmall(p: { parentId: string; name: string; mimeType: string; data: Uint8Array }): Promise<DriveItem>
+  /** `convertTo` — typ Google (np. Dokument), na który Drive konwertuje przesłaną treść (np. HTML). */
+  uploadSmall(p: { parentId: string; name: string; mimeType: string; data: Uint8Array; convertTo?: string }): Promise<DriveItem>
   /** Pobranie zawartości (opcjonalnie zakresu `bytes=a-b`) — odpowiedź Google przekazywana dalej. */
   download(fileId: string, range?: string): Promise<Response>
   exportFile(fileId: string, mimeType: string): Promise<Response>

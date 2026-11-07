@@ -165,9 +165,9 @@ export class GoogleDriveClient implements DriveClient {
     return location
   }
 
-  async uploadSmall(p: { parentId: string; name: string; mimeType: string; data: Uint8Array }) {
+  async uploadSmall(p: { parentId: string; name: string; mimeType: string; data: Uint8Array; convertTo?: string }) {
     const boundary = `pmo${crypto.randomUUID()}`
-    const meta = JSON.stringify({ name: p.name, parents: [p.parentId], mimeType: p.mimeType })
+    const meta = JSON.stringify({ name: p.name, parents: [p.parentId], mimeType: p.convertTo ?? p.mimeType })
     const enc = new TextEncoder()
     const head = enc.encode(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: ${p.mimeType}\r\n\r\n`)
     const tail = enc.encode(`\r\n--${boundary}--`)

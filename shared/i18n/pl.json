@@ -371,7 +371,9 @@
     "invoice_not_found": "Nie znaleziono faktury",
     "bank_rule_no_counterparty": "Operacja nie ma kontrahenta ani miejsca zakupu — reguły nie da się utworzyć",
     "bank_rule_needs_no_invoice": "Regułę tworzy się z operacji oznaczonej jako „Koszt bez faktury”",
-    "drive_folder_invalid": "Nierozpoznany link do folderu Google Drive"
+    "drive_folder_invalid": "Nierozpoznany link do folderu Google Drive",
+    "drive_folder_missing": "Najpierw podepnij folder Google Drive wyceny",
+    "required_doc_not_found": "Nie znaleziono dokumentu"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -396,7 +398,8 @@
     "sharesOver100": "Suma udziałów przekracza 100%",
     "currency": "Kod waluty: 3 wielkie litery, np. PLN",
     "projectCode": "Kod: 2–30 znaków, litery, cyfry, - i _ (np. WEW-BIURO)",
-    "time": "Niepoprawna godzina (GG:MM)"
+    "time": "Niepoprawna godzina (GG:MM)",
+    "url": "Podaj adres zaczynający się od http:// lub https://"
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -1944,6 +1947,24 @@
       "add": "Dodaj",
       "editDoc": "Edytuj",
       "restore": "Przywróć",
+      "attachLink": "Podepnij link",
+      "changeLink": "Zmień link",
+      "openDoc": "Otwórz dokument",
+      "openGoogleDoc": "Otwórz Dokument Google",
+      "linkTitle": "Link do dokumentu: {{name}}",
+      "linkUrl": "Adres dokumentu",
+      "linkFromFolder": "…albo wybierz plik z folderu wyceny",
+      "linkPick": "Wybierz plik",
+      "linkNoFiles": "Brak plików w folderze (albo brak dostępu)",
+      "attach": "Podepnij",
+      "unlink": "Odepnij",
+      "aiCreate": "Utwórz przez AI",
+      "aiCreateTitle": "Utwórz przez AI: {{name}}",
+      "aiCreateHint": "AI przygotuje projekt dokumentu na podstawie SIWZ i danych wyceny (wzór z załącznika, jeśli jest) i zapisze go jako Dokument Google w folderze wyceny. Brakujące dane oznaczy jako [●].",
+      "aiReplaces": "Obecny link zostanie zastąpiony nowym dokumentem (poprzedni plik zostaje na Dysku).",
+      "aiHint": "Wskazówki dla AI (opcjonalnie)",
+      "aiHintPlaceholder": "np. oferujemy dwie komory, gwarancja 36 miesięcy",
+      "aiNeedsFolder": "Najpierw podepnij folder Google Drive wyceny (krok 2)",
       "docStatus": {
         "todo": "do przygotowania",
         "ready": "gotowy",

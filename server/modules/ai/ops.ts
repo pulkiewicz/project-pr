@@ -33,7 +33,7 @@ import {
 } from '../../db/schema.ts'
 import { AiError, type AiContentBlock, type AiRequest, type AiResult } from '../../integrations/ai/types.ts'
 import { CUSTOM_PREFIX, getChecklist, pinSpecList, specListFor } from '../quotes/checklist.ts'
-import { listDriveFolder } from '../quotes/drive-folder.ts'
+import { GOOGLE_DOC_MIME, driveFileUrl, listDriveFolder } from '../quotes/drive-folder.ts'
 import { getQuote, loadSettings, touch } from '../quotes/service.ts'
 
 export const AI_SETTINGS_KEY = 'ai.settings'
@@ -409,6 +409,72 @@ Zasady:
   return `Uzupełnione pola: ${filled.length}, nowe dokumenty: ${added}.${skippedNote}`
 }
 
+// ---------------- 1c. Projekt wymaganego dokumentu jako Dokument Google (krok 3) ----------------
+
+const draftDocSchema = z.object({ title: z.string().min(1), html: z.string().min(1), gaps: z.array(z.string()) })
+const draftDocJsonSchema = obj({ title: { type: 'string' }, html: { type: 'string' }, gaps: { type: 'array', items: { type: 'string' } } })
+
+async function draftDoc(ctx: JobCtx, params: { docId?: string; hint?: string | null }) {
+  const { deps, quoteId } = ctx
+  const [doc] = await deps.db.select().from(quoteRequiredDocs).where(and(eq(quoteRequiredDocs.id, params.docId ?? ''), eq(quoteRequiredDocs.quoteId, quoteId)))
+  if (!doc) throw new AiError('api_error', 'Dokument nie istnieje — odśwież listę wymaganych dokumentów')
+  const [row] = await deps.db.select().from(quotes).where(eq(quotes.id, quoteId))
+  if (!row?.driveFolderId) throw new AiError('api_error', 'Najpierw podepnij folder Google Drive wyceny (krok „Zapytanie i pliki”) — tam powstanie dokument')
+  if (!deps.drive) throw new AiError('api_error', 'Dysk Google nie jest skonfigurowany')
+  const q = await getQuote(deps.db, new Set<`${ModuleKey}:${Action}`>(['quotes:view', 'quotesPricing:view']), quoteId)
+  const materials = await buildMaterials(deps, quoteId)
+  const info = q.info ?? {}
+  const result = await callAi(ctx, {
+    purpose: 'draft_doc',
+    system: ROLE,
+    content: [
+      ...materials.blocks,
+      {
+        type: 'text',
+        text: `${materials.names.length ? `Powyżej są materiały postępowania (${materials.names.join(', ')}).` : 'Brak materiałów postępowania.'} Przygotuj projekt dokumentu wymaganego od wykonawcy (Envcheck) do złożenia z ofertą.
+
+Dokument: ${doc.name}${doc.note ? `\nWymagania: ${doc.note}` : ''}${doc.sourceRef ? `\nŹródło w SIWZ: ${doc.sourceRef}` : ''}
+Postępowanie: ${q.opportunityCode ?? ''} — ${q.opportunityName ?? ''}; zamawiający: ${q.companyName ?? 'nieznany'}
+Termin złożenia oferty: ${info.submissionDeadline ?? 'nieznany'} ${info.submissionTime ?? ''}
+Cena oferty (z wyceny): ${q.summary ? `netto ${q.summary.net} zł, brutto ${q.summary.gross} zł` : 'jeszcze nie wyliczona'}
+Termin dostawy: ${info.deliveryTerm ?? 'nieznany'}; miejsce: ${info.deliveryPlace ?? 'nieznane'}
+${params.hint ? `Wskazówki użytkownika: ${params.hint}\n` : ''}
+Zasady:
+- Jeśli SIWZ zawiera wzór tego dokumentu (załącznik), odwzoruj jego strukturę i treść możliwie wiernie.
+- Dane, których nie znasz (dane rejestrowe Envcheck, osoby, numery, kwoty, daty), oznacz jako [●] — nie zmyślaj.
+- "html": treść dokumentu jako prosty HTML (h1–h3, p, ul/ol, table, strong) — bez stylów, skryptów i obrazów.
+- "title": krótki tytuł pliku; "gaps": lista pól [●] do uzupełnienia przez użytkownika.`,
+      },
+    ],
+    schema: draftDocJsonSchema,
+    maxTokens: 16000,
+    effort: 'medium',
+    context: { document: doc.name, client: q.companyName },
+  })
+  const out = parse(draftDocSchema, result.json)
+  const name = `${q.opportunityCode ?? 'Wycena'} rew. ${q.revision ?? ''} — ${out.title}`.slice(0, 250)
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(name)}</title></head><body>${out.html.replace(/<(script|style)[\s\S]*?<\/\1>/gi, '')}</body></html>`
+  let file
+  try {
+    file = await deps.drive.uploadSmall({ parentId: row.driveFolderId, name, mimeType: 'text/html', data: new TextEncoder().encode(html), convertTo: GOOGLE_DOC_MIME })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new AiError(
+      'api_error',
+      /quota/i.test(msg)
+        ? 'Konto serwisowe nie może tworzyć plików w „Mój dysk” — przenieś folder wyceny na Dysk współdzielony'
+        : `Nie udało się utworzyć dokumentu w folderze wyceny — udostępnij folder kontu ${deps.drive.accountEmail ?? 'serwisowemu'} z rolą Edytor (${msg.slice(0, 200)})`,
+    )
+  }
+  await deps.db.transaction(async (tx) => {
+    await tx.update(quoteRequiredDocs).set({ link: file.webViewLink ?? driveFileUrl(file.id), driveFileId: file.id, updatedAt: sql`now()`, updatedBy: ctx.userId }).where(eq(quoteRequiredDocs.id, doc.id))
+    await touch(tx, quoteId, ctx.userId)
+  })
+  return `Utworzono „${name}”${out.gaps.length ? ` — do uzupełnienia: ${out.gaps.slice(0, 8).join(', ')}` : ''}.`
+}
+
+const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+
 // ---------------- 2. Propozycja pozycji / przeliczenie pozycji (krok 5) ----------------
 
 const suggestionSchema = z.object({
@@ -675,13 +741,15 @@ export async function runAiJob(deps: AppDeps, jobId: string, token: string): Pro
     .returning()
   if (!claimed) return 'rejected'
   const ctx: JobCtx = { deps, jobId, quoteId: claimed.quoteId, userId: claimed.createdBy }
-  const params = claimed.params as { hint?: string | null; lineId?: string; comment?: string }
+  const params = claimed.params as { hint?: string | null; lineId?: string; comment?: string; docId?: string }
   try {
     const summary =
       claimed.kind === 'extract_checklist'
         ? await extractChecklist(ctx)
         : claimed.kind === 'extract_formal'
           ? await extractFormal(ctx)
+          : claimed.kind === 'draft_doc'
+          ? await draftDoc(ctx, params)
           : claimed.kind === 'questions'
           ? await generateQuestions(ctx)
           : await proposeLines(ctx, params)

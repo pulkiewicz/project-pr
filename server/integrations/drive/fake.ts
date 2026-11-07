@@ -61,8 +61,9 @@ export class FakeDrive implements DriveClient {
     this.sessions.set(url, p)
     return url
   }
-  async uploadSmall(p: { parentId: string; name: string; mimeType: string; data: Uint8Array }) {
-    return this.add(p.name, p.mimeType, p.parentId, p.data)
+  async uploadSmall(p: { parentId: string; name: string; mimeType: string; data: Uint8Array; convertTo?: string }) {
+    if (!this.items.has(p.parentId)) throw Object.assign(new Error('File not found'), { status: 404 })
+    return this.add(p.name, p.convertTo ?? p.mimeType, p.parentId, p.data)
   }
   async download(id: string, range?: string) {
     const data = this.items.get(id)?.data ?? new Uint8Array()

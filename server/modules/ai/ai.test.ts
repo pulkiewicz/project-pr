@@ -267,3 +267,56 @@ describe('folder Google Drive wyceny (krok 2)', () => {
     expect(((await res.json()) as QuoteDto).driveFolderId).toBeNull()
   })
 })
+
+describe('wymagane dokumenty: link i projekt przez AI (krok 3)', () => {
+  const FOLDER = '1FolderPrzetargUJ_materialy'
+  const docsUrl = () => `/api/quotes/${quote.id}/required-docs`
+  const docs = async () => (await (await req(h, 'GET', docsUrl(), kamil.headers)).json()) as RequiredDocDto[]
+
+  it('link: tylko http(s), null odpina', async () => {
+    const [d] = await docs()
+    expect((await req(h, 'PATCH', `${docsUrl()}/${d!.id}`, kamil.headers, { link: 'javascript:alert(1)' })).status).toBe(422)
+    let list = (await (await req(h, 'PATCH', `${docsUrl()}/${d!.id}`, kamil.headers, { link: 'https://docs.google.com/document/d/abc/edit' })).json()) as RequiredDocDto[]
+    expect(list.find((x) => x.id === d!.id)).toMatchObject({ link: 'https://docs.google.com/document/d/abc/edit', driveFileId: null })
+    list = (await (await req(h, 'PATCH', `${docsUrl()}/${d!.id}`, kamil.headers, { link: null })).json()) as RequiredDocDto[]
+    expect(list.find((x) => x.id === d!.id)!.link).toBeNull()
+  })
+
+  it('projekt AI wymaga folderu wyceny i istniejącego dokumentu', async () => {
+    const [d] = await docs()
+    expect((await runJob({ kind: 'draft_doc', docId: d!.id })).status).toBe(422)
+    expect((await runJob({ kind: 'draft_doc', docId: crypto.randomUUID() })).status).toBe(404)
+  })
+
+  it('tworzy Dokument Google w folderze wyceny i podpina go do pozycji', async () => {
+    const q = (await (await req(h, 'GET', `/api/quotes/${quote.id}`, kamil.headers)).json()) as QuoteDto
+    await req(h, 'PATCH', `/api/quotes/${quote.id}`, kamil.headers, { driveFolderUrl: `https://drive.google.com/drive/folders/${FOLDER}`, version: q.version })
+    const [d] = await docs()
+    const { status, job } = await runJob({ kind: 'draft_doc', docId: d!.id, hint: 'gwarancja 36 mies.' })
+    expect(status).toBe(200)
+    expect(job).toMatchObject({ kind: 'draft_doc', status: 'done', docId: d!.id })
+    const doc = (await docs()).find((x) => x.id === d!.id)!
+    expect(doc.driveFileId).toBeTruthy()
+    expect(doc.link).toBeTruthy()
+    const file = h.drive.items.get(doc.driveFileId!)!
+    expect(file).toMatchObject({ mimeType: 'application/vnd.google-apps.document', parents: [FOLDER] })
+    expect(new TextDecoder().decode(file.data)).toContain(`<h1>${d!.name}</h1>`)
+    const prompt = h.ai.calls.at(-1)!.content.at(-1) as { text: string }
+    expect(prompt.text).toContain('gwarancja 36 mies.')
+  })
+
+  it('folder w „Mój dysk” (brak limitu konta serwisowego) → czytelny błąd', async () => {
+    const [d] = await docs()
+    const orig = h.drive.uploadSmall.bind(h.drive)
+    h.drive.uploadSmall = async () => {
+      throw new Error('Service Accounts do not have storage quota.')
+    }
+    try {
+      const { job } = await runJob({ kind: 'draft_doc', docId: d!.id })
+      expect(job.status).toBe('error')
+      expect(job.error).toContain('Dysk współdzielony')
+    } finally {
+      h.drive.uploadSmall = orig
+    }
+  })
+})
