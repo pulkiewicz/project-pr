@@ -1702,7 +1702,8 @@
       "thisMonth": "Bieżący miesiąc",
       "thisYear": "Bieżący rok",
       "run": "Pobierz XLSX"
-    }
+    },
+    "month": "Miesiąc"
   },
   "projectsAdmin": {
     "title": "Projekty",

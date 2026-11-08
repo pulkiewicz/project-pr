@@ -278,6 +278,16 @@ function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen
   const categories = useMemo(() => categoriesQ.data ?? [], [categoriesQ.data])
   const [missing, setMissing] = useState(false)
   const [payments, setPayments] = useState<string[]>([])
+  // Miesiące kosztu (wystawienie, a dla plików bez daty — dodanie do inFakt); kilka naraz, np. kwartał.
+  const [months, setMonths] = useState<string[]>([])
+  const monthOptions = useMemo(
+    () =>
+      [...new Set(items.map(costMonth).filter(Boolean))]
+        .sort()
+        .reverse()
+        .map((m) => ({ value: m, label: dayjs(`${m}-01`).locale('pl').format('MMMM YYYY') })),
+    [items],
+  )
 
   const today = todayWarsaw()
   const filtered = useMemo(() => {
@@ -291,9 +301,10 @@ function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen
           (project === 'general' ? i.general || (i.allocatedShare > 0 && i.allocatedShare < 100) : project === 'unassigned' ? !i.allocations.length && !i.general : i.allocations.some((a) => a.projectId === project))) &&
         (!categoryFilter.length || categoryFilter.includes(i.costCategoryId ?? NO_CATEGORY)) &&
         (!payments.length || payments.includes(invoiceDueState(i, today))) &&
+        (!months.length || months.includes(costMonth(i))) &&
         (!mine || (i.status === 'pending' && i.submittedBy !== me.user.id)),
     )
-  }, [items, search, statuses, project, categoryFilter, payments, mine, missing, me.user.id, today])
+  }, [items, search, statuses, project, categoryFilter, payments, months, mine, missing, me.user.id, today])
 
   const projectOptions = useMemo(() => me.projects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })), [me.projects])
 
@@ -418,6 +429,7 @@ function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen
     <Stack>
       <Group gap="sm" align="flex-end" wrap="wrap">
         <TextInput w={260} leftSection={<IconSearch size={16} />} placeholder={t('invoices.search')} value={search} onChange={(e) => setSearch(e.currentTarget.value)} aria-label={t('invoices.search')} />
+        <MultiSelect w={220} placeholder={t('invoices.month')} aria-label={t('invoices.month')} data={monthOptions} value={months} onChange={setMonths} clearable searchable />
         <MultiSelect w={340} placeholder={t('invoices.statusLabel')} data={DISPLAY_STATUSES.map((s) => ({ value: s, label: t(`invoices.status.${s}`) }))} value={statuses} onChange={setStatuses} clearable />
         <Select
           w={240}
