@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { type FinancePlanResponse, type InvoiceListResponse, type InvoiceSyncResult } from '#shared'
+import { type FinanceFixedCostDto, type FinancePlanItemDto, type FinancePlanResponse, type InvoiceListResponse, type InvoiceSyncResult } from '#shared'
 import { INVOICES_SETTING_KEY, MANAGEMENT_SETTING_KEY } from '../../auth/access.ts'
 import { SEED_PROJECT_ID } from '../../db/seed-sql.ts'
 import { createUser, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
@@ -107,5 +107,63 @@ describe('plan finansowy', () => {
     const nov = await plan(kamil, '2026-11')
     expect(nov.staff.rows).toBeNull()
     expect(nov.staff.total).toBe(1_684_800)
+  })
+
+  it('pozycje planowane: dodawanie z powtarzaniem, edycja z wersją, usuwanie; kategoria tylko dla kosztów', async () => {
+    const add = await req(h, 'POST', '/api/finance/plan-items', ania.headers, { month: '2026-12', repeatUntil: '2027-02', kind: 'revenue', name: 'Komora WB — etap 2', amount: 5_000_000, costCategoryId: crypto.randomUUID() })
+    expect(add.status).toBe(200)
+    expect(await add.json()).toEqual({ created: 3 })
+    expect((await req(h, 'POST', '/api/finance/plan-items', ania.headers, { month: '2026-12', kind: 'cost', name: 'X', amount: 100, projectId: crypto.randomUUID() })).status).toBe(422)
+    expect((await req(h, 'POST', '/api/finance/plan-items', ania.headers, { month: '2026-12', repeatUntil: '2026-11', kind: 'cost', name: 'X', amount: 100 })).status).toBe(422)
+    expect((await req(h, 'POST', '/api/finance/plan-items', ania.headers, { month: '2026-12', kind: 'cost', name: 'Sprężarki', amount: 1_200_000, projectId: SEED_PROJECT_ID })).status).toBe(200)
+
+    const dec = await plan(ania, '2026-12')
+    expect(dec.planned).toMatchObject({ revenue: 5_000_000, costs: 1_200_000 })
+    const rev = dec.planned.items.find((i) => i.kind === 'revenue')!
+    expect(rev.costCategoryId).toBeNull()
+    expect(dec.planned.items.find((i) => i.kind === 'cost')).toMatchObject({ projectId: SEED_PROJECT_ID, name: 'Sprężarki' })
+    // Następny rok — powtórzona pozycja (plan liczy rok wybranego miesiąca).
+    expect((await plan(ania, '2027-02')).planned.revenue).toBe(5_000_000)
+
+    const patched = await req(h, 'PATCH', `/api/finance/plan-items/${rev.id}`, ania.headers, { amount: 6_000_000, version: rev.version })
+    expect(patched.status).toBe(200)
+    expect(((await patched.json()) as FinancePlanItemDto).amount).toBe(6_000_000)
+    expect((await req(h, 'PATCH', `/api/finance/plan-items/${rev.id}`, ania.headers, { amount: 1, version: rev.version })).status).toBe(409)
+    expect((await req(h, 'DELETE', `/api/finance/plan-items/${rev.id}`, ania.headers)).status).toBe(200)
+    expect((await req(h, 'DELETE', `/api/finance/plan-items/${rev.id}`, ania.headers)).status).toBe(404)
+    expect((await plan(ania, '2026-12')).planned.revenue).toBe(0)
+    expect((await plan(ania, '2027-01')).planned.revenue).toBe(5_000_000)
+  })
+
+  it('koszty stałe niepracownicze: okres od–do, bezterminowo; wchodzą do wyniku planowanego, nie do wykonania', async () => {
+    const rent = (await (await req(h, 'POST', '/api/finance/fixed-costs', ania.headers, { name: 'Czynsz biuro', amount: 400_000, startMonth: '2026-11' })).json()) as FinanceFixedCostDto
+    expect(rent).toMatchObject({ name: 'Czynsz biuro', endMonth: null })
+    const lease = await req(h, 'POST', '/api/finance/fixed-costs', ania.headers, { name: 'Leasing Jeep', amount: 250_000, startMonth: '2026-06', endMonth: '2026-11' })
+    expect(lease.status).toBe(200)
+    expect((await req(h, 'POST', '/api/finance/fixed-costs', ania.headers, { name: 'X', amount: 1, startMonth: '2026-06', endMonth: '2026-05' })).status).toBe(422)
+
+    const nov = await plan(ania, '2026-11')
+    expect(nov.fixed.total).toBe(650_000)
+    expect(nov.fixed.active.map((f) => f.name)).toEqual(['Czynsz biuro', 'Leasing Jeep'])
+    const novSum = nov.year.find((m) => m.month === '2026-11')!
+    expect(novSum.fixedCosts).toBe(650_000)
+    expect(novSum.plannedResult).toBe(novSum.plannedRevenue - novSum.plannedCosts - 650_000 - novSum.staffCosts)
+    expect(nov.result).toBe(nov.revenue.net - nov.costs.net - nov.staff.total)
+
+    const dec = await plan(ania, '2026-12')
+    expect(dec.fixed.total).toBe(400_000)
+    expect(dec.fixed.all).toHaveLength(2)
+
+    expect((await req(h, 'PATCH', `/api/finance/fixed-costs/${rent.id}`, ania.headers, { endMonth: '2026-10', version: rent.version })).status).toBe(422)
+    const ended = await req(h, 'PATCH', `/api/finance/fixed-costs/${rent.id}`, ania.headers, { endMonth: '2026-11', version: rent.version })
+    expect(ended.status).toBe(200)
+    expect((await plan(ania, '2026-12')).fixed.total).toBe(0)
+    expect((await req(h, 'DELETE', `/api/finance/fixed-costs/${rent.id}`, ania.headers)).status).toBe(200)
+    expect((await plan(ania, '2026-11')).fixed.total).toBe(250_000)
+  })
+
+  it('zapis tylko z prawem edycji Faktur', async () => {
+    expect((await req(h, 'POST', '/api/finance/fixed-costs', outsider.headers, { name: 'X', amount: 1, startMonth: '2026-11' })).status).toBe(403)
+    expect((await req(h, 'POST', '/api/finance/plan-items', outsider.headers, { month: '2026-11', kind: 'cost', name: 'X', amount: 1 })).status).toBe(403)
   })
 })

@@ -1,5 +1,12 @@
 # Changelog
 
+## Plan finansowy: pozycje planowane i koszty stałe (08.11.2026)
+
+- **Plan — przychody i koszty**: kwoty planowane wpisywane ręcznie na miesiąc, niezależnie od inFakt (nazwa, kwota netto, opcjonalnie projekt, dla kosztów kategoria, notatka). Przy dodawaniu można powtórzyć pozycję co miesiąc do wybranego miesiąca (maks. 36). Pod planem wykonanie z inFakt i % realizacji.
+- **Koszty stałe (niepracownicze)**: czynsz, leasing, abonamenty — kwota miesięczna w okresie od–do (bez końca = bezterminowo), liczona automatycznie w każdym miesiącu okresu.
+- Pasek roku i karty: obok wykonania plan — przychody planowane, koszty planowane, koszty stałe i **wynik planowany** (= przychody planowane − koszty planowane − koszty stałe − koszty pracownicze). Koszty stałe nie wchodzą do wyniku wykonania (te koszty przychodzą fakturami z inFakt).
+- Zapis z uprawnieniami Faktur (dodawanie / edycja / usuwanie), wpisy w audit logu; usuwanie miękkie. Nowe tabele `finance_plan_items` i `finance_fixed_costs` (migracja `20261108094613_finance_plan_items_fixed_costs`).
+
 ## Plan finansowy (08.11.2026)
 
 - **Finanse → Plan finansowy** (`/plan-finansowy`, te same uprawnienia co Faktury kosztowe): jeden miesiąc na ekranie — przychody, koszty z faktur, koszty pracownicze i wynik; nad nimi pasek całego roku (kliknięcie miesiąca przełącza widok), strzałki i wybór miesiąca.

@@ -2027,14 +2027,18 @@
     "salesFailed": "błąd inFakt — spróbuj ponownie później.",
     "lastSync": "Faktury sprzedażowe pobrane: {{at}}",
     "neverSynced": "Faktury sprzedażowe nie były jeszcze pobierane — użyj „Synchronizuj z inFakt”.",
-    "hint": "Kwoty netto w PLN. Przychody wg daty wystawienia faktury sprzedażowej; koszty wg daty wystawienia (pliki bez daty — dodania do inFakt), wszystkie statusy; koszty pracownicze z listy Pracowników (wynagrodzenie z umowy + szacowany narzut pracodawcy). Płatności z wyciągów nie są tu liczone (wynagrodzenia i ZUS są już w kosztach pracowniczych).",
+    "hint": "Kwoty netto w PLN. Wykonanie: przychody wg daty wystawienia faktury sprzedażowej, koszty z faktur kosztowych (wszystkie statusy) i koszty pracownicze z listy Pracowników. Plan: pozycje wpisane ręcznie i koszty stałe niepracownicze (niezależne od inFakt) oraz te same koszty pracownicze. Płatności z wyciągów nie są tu liczone.",
     "year": {
       "title": "Rok {{year}}",
       "revenue": "Przychody",
       "invoiceCosts": "Koszty z faktur",
       "staffCosts": "Koszty pracownicze",
-      "result": "Wynik",
-      "total": "Razem"
+      "result": "Wynik (wykonanie)",
+      "total": "Razem",
+      "plannedRevenue": "Przychody — plan",
+      "plannedCosts": "Koszty — plan",
+      "fixedCosts": "Koszty stałe",
+      "plannedResult": "Wynik (plan)"
     },
     "cards": {
       "revenue": "Przychody netto",
@@ -2043,8 +2047,10 @@
       "invoiceCount": "faktur: {{count}}",
       "staffCosts": "Koszty pracownicze",
       "staffCount": "osób: {{count}}",
-      "result": "Wynik miesiąca",
-      "margin": "marża {{pct}}%"
+      "result": "Wynik miesiąca (wykonanie)",
+      "margin": "marża {{pct}}%",
+      "planned": "plan {{amount}}",
+      "plannedCosts": "plan {{amount}} + stałe {{fixed}}"
     },
     "revenue": {
       "title": "Przychody — faktury sprzedażowe",
@@ -2100,6 +2106,52 @@
       "empty": "Brak pracowników z umową obejmującą ten miesiąc.",
       "hiddenRows": "Lista osób i wynagrodzeń jest widoczna tylko z dostępem do modułu Pracownicy.",
       "hint": "Stawka godzinowa × wymiar czasu pracy (dni robocze × 8 h). Narzut pracodawcy (ZUS) to szacunek: 20,48% dla umowy o pracę i zlecenia (bez ucznia / studenta do 26 lat)."
+    },
+    "plan": {
+      "title": "Plan — przychody i koszty",
+      "add": "Nowa pozycja planu",
+      "edit": "Edytuj pozycję planu",
+      "addRevenue": "Planowany przychód",
+      "addCost": "Planowany koszt",
+      "revenue": "Przychód",
+      "cost": "Koszt",
+      "revenues": "Przychody planowane",
+      "costs": "Koszty planowane",
+      "name": "Nazwa",
+      "namePlaceholderRevenue": "np. Komora WB — etap 2",
+      "namePlaceholderCost": "np. sprężarki do komory",
+      "amount": "Kwota netto",
+      "month": "Miesiąc",
+      "repeatUntil": "Powtarzaj co miesiąc do",
+      "noRepeat": "bez powtarzania",
+      "project": "Projekt",
+      "noProject": "bez projektu",
+      "category": "Kategoria",
+      "note": "Notatka",
+      "empty": "Brak pozycji.",
+      "actual": "Wykonanie (inFakt)",
+      "createdMany": "Dodano pozycję w {{count}} miesiącach."
+    },
+    "fixed": {
+      "title": "Koszty stałe (niepracownicze)",
+      "hint": "Czynsz, leasing, abonamenty… — kwota miesięczna w okresie od–do. Wchodzą do wyniku planowanego (w wykonaniu są faktury z inFakt).",
+      "add": "Dodaj koszt stały",
+      "edit": "Edytuj koszt stały",
+      "name": "Nazwa",
+      "namePlaceholder": "np. Czynsz biuro, Leasing Jeep",
+      "amount": "Kwota netto / mies.",
+      "from": "Od miesiąca",
+      "to": "Do miesiąca",
+      "indefinite": "bezterminowo",
+      "period": "Okres",
+      "inactive": "poza okresem",
+      "empty": "Brak kosztów stałych.",
+      "totalMonth": "Razem w tym miesiącu"
+    },
+    "delete": {
+      "title": "Usunąć pozycję?",
+      "body": "„{{name}}” zostanie usunięta z planu.",
+      "confirm": "Usuń"
     }
   }
 }

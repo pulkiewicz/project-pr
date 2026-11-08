@@ -1021,6 +1021,43 @@ export const salesInvoices = pgTable(
   (t) => [uniqueIndex('sales_invoices_infakt_uuid_uq').on(t.infaktUuid), index('sales_invoices_invoice_date_idx').on(t.invoiceDate)],
 )
 
+/** Plan finansowy: pozycja planowana wpisana ręcznie (przychód lub koszt) w danym miesiącu, niezależna od inFakt. */
+export const financePlanItems = pgTable(
+  'finance_plan_items',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    /** yyyy-MM. */
+    month: text('month').notNull(),
+    /** `revenue` | `cost`. */
+    kind: text('kind').notNull(),
+    name: text('name').notNull(),
+    /** Netto, grosze PLN. */
+    amount: bigint('amount', { mode: 'number' }).notNull(),
+    projectId: uuid('project_id').references(() => projects.id),
+    costCategoryId: uuid('cost_category_id').references(() => costCategories.id, { onDelete: 'set null' }),
+    note: text('note'),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [index('finance_plan_items_month_idx').on(t.month)],
+)
+
+/** Plan finansowy: koszt stały niepracowniczy (czynsz, leasing, abonament) — kwota miesięczna w okresie od–do. */
+export const financeFixedCosts = pgTable('finance_fixed_costs', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  name: text('name').notNull(),
+  /** Netto miesięcznie, grosze PLN. */
+  amount: bigint('amount', { mode: 'number' }).notNull(),
+  /** yyyy-MM włącznie; koniec null = bezterminowo. */
+  startMonth: text('start_month').notNull(),
+  endMonth: text('end_month'),
+  projectId: uuid('project_id').references(() => projects.id),
+  costCategoryId: uuid('cost_category_id').references(() => costCategories.id, { onDelete: 'set null' }),
+  note: text('note'),
+  version: integer('version').notNull().default(1),
+  ...auditColumns,
+})
+
 /** Udział projektu w fakturze (%). Suma ≤ 100; reszta = koszty ogólne. */
 export const costInvoiceAllocations = pgTable(
   'cost_invoice_allocations',

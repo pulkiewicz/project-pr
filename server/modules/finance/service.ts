@@ -1,6 +1,9 @@
-import { and, asc, eq, gte, isNull, lte, sql } from 'drizzle-orm'
+import { and, asc, eq, gte, isNull, like, lte, sql } from 'drizzle-orm'
 import {
   INFAKT_SALES_SKIPPED_KINDS,
+  fixedCostActive,
+  type FinanceFixedCostDto,
+  type FinancePlanItemDto,
   invoiceCostDate,
   staffCost,
   type FinanceCostCell,
@@ -13,7 +16,7 @@ import {
   type SalesSyncResult,
 } from '#shared'
 import type { Database } from '../../db/client.ts'
-import { appSettings, costCategories, employees, projects, salesInvoices } from '../../db/schema.ts'
+import { appSettings, costCategories, employees, financeFixedCosts, financePlanItems, projects, salesInvoices } from '../../db/schema.ts'
 import { InfaktError, type InfaktClient, type InfaktSalesInvoice } from '../../integrations/infakt/types.ts'
 import { addDays, workingDaysBetween } from '../../lib/dates.ts'
 import { listInvoices } from '../invoices/service.ts'
@@ -103,6 +106,53 @@ function allocationLabel(i: InvoiceDto, generalLabel: string, unassignedLabel: s
   return parts.join(', ')
 }
 
+/** Pozycje planowane (bez usuniętych); `monthPrefix` — rok (`2026`) lub miesiąc (`2026-10`). */
+export async function listPlanItems(db: Database, monthPrefix: string, id?: string): Promise<FinancePlanItemDto[]> {
+  const rows = await db
+    .select({ i: financePlanItems, projectCode: projects.code, costCategoryName: costCategories.name })
+    .from(financePlanItems)
+    .leftJoin(projects, eq(projects.id, financePlanItems.projectId))
+    .leftJoin(costCategories, eq(costCategories.id, financePlanItems.costCategoryId))
+    .where(and(isNull(financePlanItems.deletedAt), id ? eq(financePlanItems.id, id) : like(financePlanItems.month, `${monthPrefix}%`)))
+    .orderBy(asc(financePlanItems.month), asc(financePlanItems.kind), asc(financePlanItems.createdAt))
+  return rows.map(({ i, projectCode, costCategoryName }) => ({
+    id: i.id,
+    month: i.month,
+    kind: i.kind as FinancePlanItemDto['kind'],
+    name: i.name,
+    amount: i.amount,
+    projectId: i.projectId,
+    projectCode,
+    costCategoryId: i.costCategoryId,
+    costCategoryName,
+    note: i.note,
+    version: i.version,
+  }))
+}
+
+export async function listFixedCosts(db: Database, id?: string): Promise<FinanceFixedCostDto[]> {
+  const rows = await db
+    .select({ f: financeFixedCosts, projectCode: projects.code, costCategoryName: costCategories.name })
+    .from(financeFixedCosts)
+    .leftJoin(projects, eq(projects.id, financeFixedCosts.projectId))
+    .leftJoin(costCategories, eq(costCategories.id, financeFixedCosts.costCategoryId))
+    .where(and(isNull(financeFixedCosts.deletedAt), id ? eq(financeFixedCosts.id, id) : undefined))
+    .orderBy(asc(financeFixedCosts.name))
+  return rows.map(({ f, projectCode, costCategoryName }) => ({
+    id: f.id,
+    name: f.name,
+    amount: f.amount,
+    startMonth: f.startMonth,
+    endMonth: f.endMonth,
+    projectId: f.projectId,
+    projectCode,
+    costCategoryId: f.costCategoryId,
+    costCategoryName,
+    note: f.note,
+    version: f.version,
+  }))
+}
+
 const sumBy = <T>(xs: T[], f: (x: T) => number) => xs.reduce((s, x) => s + f(x), 0)
 
 /**
@@ -122,6 +172,8 @@ export async function financePlan(db: Database, month: string, opts: { staffRows
       .orderBy(asc(salesInvoices.invoiceDate), asc(salesInvoices.number))
   ).filter(isRevenue)
   const costs = (await listInvoices(db)).filter((i) => costMonth(i).startsWith(year))
+  const planItems = await listPlanItems(db, year)
+  const fixed = await listFixedCosts(db)
   const staffInput = await db.select().from(employees).where(isNull(employees.deletedAt)).orderBy(asc(employees.lastName), asc(employees.firstName))
 
   const staffFor = (m: string) => staffInput.map((e) => staffCost(e, m, workingDays)).filter((r): r is FinanceStaffRow => !!r)
@@ -133,7 +185,21 @@ export async function financePlan(db: Database, month: string, opts: { staffRows
     const revenue = sumBy(plnSales(m), (s) => s.netPrice ?? 0)
     const invoiceCosts = sumBy(plnCosts(m), (i) => i.netPrice!)
     const staffCosts = sumBy(countedStaff(staffFor(m)), (r) => r.total)
-    return { month: m, revenue, invoiceCosts, staffCosts, result: revenue - invoiceCosts - staffCosts }
+    const items = planItems.filter((i) => i.month === m)
+    const plannedRevenue = sumBy(items.filter((i) => i.kind === 'revenue'), (i) => i.amount)
+    const plannedCosts = sumBy(items.filter((i) => i.kind === 'cost'), (i) => i.amount)
+    const fixedCosts = sumBy(fixed.filter((f) => fixedCostActive(f, m)), (f) => f.amount)
+    return {
+      month: m,
+      revenue,
+      invoiceCosts,
+      staffCosts,
+      result: revenue - invoiceCosts - staffCosts,
+      plannedRevenue,
+      plannedCosts,
+      fixedCosts,
+      plannedResult: plannedRevenue - plannedCosts - fixedCosts - staffCosts,
+    }
   })
   const cur = summary.find((s) => s.month === month)!
 
@@ -214,6 +280,17 @@ export async function financePlan(db: Database, month: string, opts: { staffRows
       count: counted.length,
     },
     result: cur.result,
+    planned: {
+      items: planItems.filter((i) => i.month === month),
+      revenue: cur.plannedRevenue,
+      costs: cur.plannedCosts,
+      result: cur.plannedResult,
+    },
+    fixed: {
+      total: cur.fixedCosts,
+      active: fixed.filter((f) => fixedCostActive(f, month)),
+      all: fixed,
+    },
     sales: { lastSync: await salesLastSync(db), configured: opts.configured },
   }
 }

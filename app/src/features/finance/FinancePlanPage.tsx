@@ -11,6 +11,7 @@ import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime, todayWarsaw } from '../../lib/format'
 import { useSyncInvoices } from '../invoices/api'
 import { useFinancePlan } from './api'
+import { FixedCostsSection, PlannedSection } from './PlanEditors'
 import { InvoiceDrawer } from '../invoices/InvoiceDrawer'
 import { formatMoney } from '../invoices/status'
 
@@ -26,11 +27,17 @@ const resultColor = (v: number) => (v < 0 ? 'red.7' : v > 0 ? 'teal.7' : undefin
 /** Pasek roku: 4 wiersze × 12 miesięcy; kliknięcie miesiąca przełącza widok. */
 function YearStrip({ plan, onPick }: { plan: FinancePlanResponse; onPick: (m: string) => void }) {
   const { t } = useTranslation()
+  type M = FinancePlanResponse['year'][number]
+  // Wykonanie (inFakt + pracownicy) i plan (ręczne pozycje + koszty stałe + pracownicy).
   const rows = [
-    ['revenue', (s: FinancePlanResponse['year'][number]) => s.revenue],
-    ['invoiceCosts', (s: FinancePlanResponse['year'][number]) => -s.invoiceCosts],
-    ['staffCosts', (s: FinancePlanResponse['year'][number]) => -s.staffCosts],
-    ['result', (s: FinancePlanResponse['year'][number]) => s.result],
+    ['revenue', (s: M) => s.revenue, false],
+    ['invoiceCosts', (s: M) => -s.invoiceCosts, false],
+    ['staffCosts', (s: M) => -s.staffCosts, false],
+    ['result', (s: M) => s.result, true],
+    ['plannedRevenue', (s: M) => s.plannedRevenue, false],
+    ['plannedCosts', (s: M) => -s.plannedCosts, false],
+    ['fixedCosts', (s: M) => -s.fixedCosts, false],
+    ['plannedResult', (s: M) => s.plannedResult, true],
   ] as const
   return (
     <Card withBorder padding="xs">
@@ -50,12 +57,14 @@ function YearStrip({ plan, onPick }: { plan: FinancePlanResponse; onPick: (m: st
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {rows.map(([key, value]) => {
+            {rows.map(([key, value, bold]) => {
               const total = plan.year.reduce((s, m) => s + value(m), 0)
-              const bold = key === 'result'
+              const planned = key.startsWith('planned') || key === 'fixedCosts'
               return (
-                <Table.Tr key={key} fw={bold ? 600 : undefined}>
-                  <Table.Td>{t(`finance.year.${key}`)}</Table.Td>
+                <Table.Tr key={key} fw={bold ? 600 : undefined} style={key === 'plannedRevenue' ? { borderTop: '2px solid var(--mantine-color-default-border)' } : undefined}>
+                  <Table.Td c={planned && !bold ? 'dimmed' : undefined} style={{ whiteSpace: 'nowrap' }}>
+                    {t(`finance.year.${key}`)}
+                  </Table.Td>
                   {plan.year.map((s) => {
                     const v = value(s)
                     return (
@@ -493,16 +502,27 @@ export function FinancePlanPage() {
             {monthLabel(plan.month)}
           </Title>
           <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }}>
-            <SummaryCard label={t('finance.cards.revenue')} value={money(plan.revenue.net)} sub={t('finance.cards.revenueGross', { amount: money(plan.revenue.gross) })} />
-            <SummaryCard label={t('finance.cards.invoiceCosts')} value={money(plan.costs.net)} sub={t('finance.cards.invoiceCount', { count: plan.costs.invoices.length })} />
+            <SummaryCard label={t('finance.cards.revenue')} value={money(plan.revenue.net)} sub={t('finance.cards.planned', { amount: money(plan.planned.revenue) })} />
+            <SummaryCard
+              label={t('finance.cards.invoiceCosts')}
+              value={money(plan.costs.net)}
+              sub={t('finance.cards.plannedCosts', { amount: money(plan.planned.costs), fixed: money(plan.fixed.total) })}
+            />
             <SummaryCard label={t('finance.cards.staffCosts')} value={money(plan.staff.total)} sub={t('finance.cards.staffCount', { count: plan.staff.count })} />
-            <SummaryCard label={t('finance.cards.result')} value={money(plan.result)} color={resultColor(plan.result)} sub={margin != null ? t('finance.cards.margin', { pct: margin.toLocaleString('pl-PL') }) : undefined} />
+            <SummaryCard
+              label={t('finance.cards.result')}
+              value={money(plan.result)}
+              color={resultColor(plan.result)}
+              sub={[margin != null ? t('finance.cards.margin', { pct: margin.toLocaleString('pl-PL') }) : null, t('finance.cards.planned', { amount: money(plan.planned.result) })].filter(Boolean).join(' · ')}
+            />
           </SimpleGrid>
           <Text size="xs" c="dimmed">
             {t('finance.hint')}
           </Text>
+          <PlannedSection plan={plan} />
           <RevenueSection plan={plan} />
           <CostsSection plan={plan} onOpen={setOpen} />
+          <FixedCostsSection plan={plan} />
           <StaffSection plan={plan} />
         </>
       )}

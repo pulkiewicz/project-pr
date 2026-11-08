@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import type { ContractType, PayBasis } from './management.ts'
 
 /**
@@ -101,6 +102,105 @@ export interface FinanceMonthSummary {
   invoiceCosts: number
   staffCosts: number
   result: number
+  /** Kwoty planowane ręcznie (niezależnie od inFakt). */
+  plannedRevenue: number
+  plannedCosts: number
+  /** Koszty stałe niepracownicze (czynsz, leasing, abonamenty…) obowiązujące w miesiącu. */
+  fixedCosts: number
+  /** Wynik planowany = przychody planowane − koszty planowane − koszty stałe − koszty pracownicze. */
+  plannedResult: number
+}
+
+// ---------------- Koszty stałe niepracownicze ----------------
+
+export interface FinanceFixedCostDto {
+  id: string
+  name: string
+  /** Netto miesięcznie, grosze (PLN). */
+  amount: number
+  startMonth: string
+  /** Null = bezterminowo. */
+  endMonth: string | null
+  projectId: string | null
+  projectCode: string | null
+  costCategoryId: string | null
+  costCategoryName: string | null
+  note: string | null
+  version: number
+}
+
+const fixedCostBase = z.object({
+  name: z.string().trim().min(1).max(200),
+  amount: z.number().int().min(1).max(100_000_000_000),
+  startMonth: z.string().regex(financeMonth, 'validation.month'),
+  endMonth: z.string().regex(financeMonth, 'validation.month').nullable().optional(),
+  projectId: z.uuid().nullable().optional(),
+  costCategoryId: z.uuid().nullable().optional(),
+  note: z.string().trim().max(1000).nullable().optional(),
+})
+const fixedRange = (v: { startMonth?: string; endMonth?: string | null }) => !v.startMonth || !v.endMonth || v.endMonth >= v.startMonth
+export const fixedCostInput = fixedCostBase.refine(fixedRange, { message: 'validation.dateRange', path: ['endMonth'] })
+export type FixedCostInput = z.input<typeof fixedCostInput>
+export const fixedCostPatch = fixedCostBase.partial().extend({ version: z.number().int() }).refine(fixedRange, { message: 'validation.dateRange', path: ['endMonth'] })
+export type FixedCostPatch = z.input<typeof fixedCostPatch>
+
+/** Koszt stały obowiązuje w miesiącu `m` (okres włącznie). */
+export const fixedCostActive = (f: { startMonth: string; endMonth: string | null }, m: string) => f.startMonth <= m && (!f.endMonth || f.endMonth >= m)
+
+// ---------------- Pozycje planowane (wpisywane ręcznie) ----------------
+
+export const PLAN_ITEM_KINDS = ['revenue', 'cost'] as const
+export type PlanItemKind = (typeof PLAN_ITEM_KINDS)[number]
+
+export interface FinancePlanItemDto {
+  id: string
+  month: string
+  kind: PlanItemKind
+  name: string
+  /** Netto, grosze (PLN). */
+  amount: number
+  projectId: string | null
+  projectCode: string | null
+  costCategoryId: string | null
+  costCategoryName: string | null
+  note: string | null
+  version: number
+}
+
+const monthStr = z.string().regex(financeMonth, 'validation.month')
+const planAmount = z.number().int().min(1).max(100_000_000_000)
+const planItemBase = z.object({
+  kind: z.enum(PLAN_ITEM_KINDS),
+  name: z.string().trim().min(1).max(200),
+  amount: planAmount,
+  projectId: z.uuid().nullable().optional(),
+  /** Tylko koszty. */
+  costCategoryId: z.uuid().nullable().optional(),
+  note: z.string().trim().max(1000).nullable().optional(),
+})
+/** Nowa pozycja; `repeatUntil` — ta sama pozycja w każdym miesiącu do podanego włącznie (maks. 36 miesięcy). */
+export const planItemInput = planItemBase
+  .extend({ month: monthStr, repeatUntil: monthStr.nullable().optional() })
+  .refine((v) => !v.repeatUntil || v.repeatUntil >= v.month, { message: 'validation.dateRange', path: ['repeatUntil'] })
+export type PlanItemInput = z.input<typeof planItemInput>
+export const planItemPatch = planItemBase.partial().extend({ month: monthStr.optional(), version: z.number().int() })
+export type PlanItemPatch = z.input<typeof planItemPatch>
+export const PLAN_REPEAT_MAX = 36
+
+/** Miesiące od `from` do `to` włącznie (yyyy-MM). */
+export function monthsBetween(from: string, to: string): string[] {
+  const out: string[] = []
+  let [y, m] = from.split('-').map(Number) as [number, number]
+  for (let cur = from; cur <= to && out.length <= PLAN_REPEAT_MAX; ) {
+    out.push(cur)
+    m += 1
+    if (m > 12) {
+      m = 1
+      y += 1
+    }
+    cur = `${y}-${String(m).padStart(2, '0')}`
+  }
+  return out
 }
 
 export interface FinancePlanResponse {
@@ -133,6 +233,19 @@ export interface FinancePlanResponse {
     count: number
   }
   result: number
+  /** Pozycje planowane miesiąca (przychody i koszty wpisane ręcznie). */
+  planned: {
+    items: FinancePlanItemDto[]
+    revenue: number
+    costs: number
+    result: number
+  }
+  /** Koszty stałe niepracownicze: obowiązujące w miesiącu i pełna lista (do edycji). */
+  fixed: {
+    total: number
+    active: FinanceFixedCostDto[]
+    all: FinanceFixedCostDto[]
+  }
   sales: { lastSync: string | null; configured: boolean }
 }
 
