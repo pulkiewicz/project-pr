@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { FinanceFixedCostDto, FinancePlanItemDto, FinancePlanResponse, FixedCostInput, FixedCostPatch, PlanItemInput, PlanItemPatch } from '#shared'
+import type { FinanceFixedCostDto, FinancePlanItemDto, FinancePlanResponse, FixedCostInput, FixedCostPatch, PlanItemInput, PlanItemPatch, PlanYearInput, PlanYearResult } from '#shared'
 import { api } from '../../lib/api'
 
 /** Plan finansowy miesiąca; poprzedni miesiąc zostaje na ekranie, dopóki nie dojdzie nowy (przełączanie strzałkami). */
@@ -36,4 +36,9 @@ export function useUpdateFixedCost() {
 export function useDeleteFixedCost() {
   const invalidate = useInvalidatePlan()
   return useMutation({ mutationFn: (id: string) => api(`/finance/fixed-costs/${id}`, { method: 'DELETE' }), onSettled: invalidate })
+}
+
+export function useSavePlanYear() {
+  const invalidate = useInvalidatePlan()
+  return useMutation({ mutationFn: (v: PlanYearInput) => api<PlanYearResult>('/finance/plan-year', { method: 'PUT', json: v }), onSuccess: invalidate })
 }

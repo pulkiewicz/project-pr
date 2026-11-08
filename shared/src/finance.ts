@@ -187,6 +187,34 @@ export const planItemPatch = planItemBase.partial().extend({ month: monthStr.opt
 export type PlanItemPatch = z.input<typeof planItemPatch>
 export const PLAN_REPEAT_MAX = 36
 
+/**
+ * Plan całego roku (siatka): wiersz = pozycja (rodzaj, nazwa, projekt, kategoria), kwoty per miesiąc.
+ * Zapis zastępuje plan roku: komórki z kwotą tworzą / aktualizują pozycje, puste usuwają.
+ */
+export const planYearInput = z
+  .object({
+    year: z.string().regex(/^\d{4}$/),
+    lines: z
+      .array(
+        planItemBase.omit({ amount: true, note: true }).extend({
+          /** Klucz miesiąc (yyyy-MM w tym roku) → kwota netto w groszach. */
+          amounts: z.record(z.string().regex(financeMonth), planAmount),
+        }),
+      )
+      .max(300),
+  })
+  .refine((v) => v.lines.every((l) => Object.keys(l.amounts).every((m) => m.startsWith(`${v.year}-`))), { message: 'validation.month', path: ['lines'] })
+export type PlanYearInput = z.input<typeof planYearInput>
+export interface PlanYearResult {
+  created: number
+  updated: number
+  deleted: number
+}
+
+/** Klucz wiersza siatki roku: pozycje o tym samym rodzaju, nazwie, projekcie i kategorii to jeden wiersz. */
+export const planLineKey = (i: { kind: string; name: string; projectId?: string | null; costCategoryId?: string | null }) =>
+  [i.kind, i.name.trim(), i.projectId ?? '', i.kind === 'cost' ? (i.costCategoryId ?? '') : ''].join('|')
+
 /** Miesiące od `from` do `to` włącznie (yyyy-MM). */
 export function monthsBetween(from: string, to: string): string[] {
   const out: string[] = []
@@ -236,6 +264,8 @@ export interface FinancePlanResponse {
   /** Pozycje planowane miesiąca (przychody i koszty wpisane ręcznie). */
   planned: {
     items: FinancePlanItemDto[]
+    /** Wszystkie pozycje roku wybranego miesiąca (siatka edycji całego roku). */
+    yearItems: FinancePlanItemDto[]
     revenue: number
     costs: number
     result: number

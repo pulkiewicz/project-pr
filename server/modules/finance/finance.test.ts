@@ -166,4 +166,33 @@ describe('plan finansowy', () => {
     expect((await req(h, 'POST', '/api/finance/fixed-costs', outsider.headers, { name: 'X', amount: 1, startMonth: '2026-11' })).status).toBe(403)
     expect((await req(h, 'POST', '/api/finance/plan-items', outsider.headers, { month: '2026-11', kind: 'cost', name: 'X', amount: 1 })).status).toBe(403)
   })
+
+  it('plan całego roku: jeden zapis tworzy, zmienia i usuwa pozycje; notatka zostaje przy zmianie kwoty', async () => {
+    const put = (lines: unknown[]) => req(h, 'PUT', '/api/finance/plan-year', ania.headers, { year: '2028', lines })
+    const first = await put([
+      { kind: 'revenue', name: 'Serwis WB', amounts: { '2028-01': 100_000, '2028-02': 100_000, '2028-03': 100_000 } },
+      { kind: 'cost', name: 'Materiały', projectId: SEED_PROJECT_ID, amounts: { '2028-01': 40_000 } },
+    ])
+    expect(first.status).toBe(200)
+    expect(await first.json()).toEqual({ created: 4, updated: 0, deleted: 0 })
+
+    // Notatka dodana w widoku miesiąca przetrwa zmianę kwoty w siatce roku.
+    const jan = (await plan(ania, '2028-01')).planned.items.find((i) => i.name === 'Serwis WB')!
+    await req(h, 'PATCH', `/api/finance/plan-items/${jan.id}`, ania.headers, { note: 'umowa ramowa', version: jan.version })
+
+    const second = await put([
+      { kind: 'revenue', name: 'Serwis WB', amounts: { '2028-01': 150_000, '2028-02': 100_000 } },
+      { kind: 'cost', name: 'Materiały', projectId: SEED_PROJECT_ID, amounts: { '2028-01': 40_000, '2028-12': 10_000 } },
+    ])
+    expect(await second.json()).toEqual({ created: 1, updated: 1, deleted: 1 })
+    const year = (await plan(ania, '2028-06')).planned.yearItems
+    expect(year.map((i) => `${i.month} ${i.name} ${i.amount}`).sort()).toEqual(['2028-01 Materiały 40000', '2028-01 Serwis WB 150000', '2028-02 Serwis WB 100000', '2028-12 Materiały 10000'])
+    expect(year.find((i) => i.month === '2028-01' && i.name === 'Serwis WB')?.note).toBe('umowa ramowa')
+    expect((await plan(ania, '2028-01')).year.find((m) => m.month === '2028-01')).toMatchObject({ plannedRevenue: 150_000, plannedCosts: 40_000 })
+
+    expect((await put([{ kind: 'revenue', name: 'X', amounts: { '2027-01': 1 } }])).status).toBe(422)
+    expect((await put([{ kind: 'revenue', name: 'X', amounts: {} }, { kind: 'revenue', name: ' X ', amounts: {} }])).status).toBe(422)
+    expect((await req(h, 'PUT', '/api/finance/plan-year', kamil.headers, { year: '2028', lines: [] })).status).toBe(200)
+    expect((await plan(ania, '2028-01')).planned.yearItems).toHaveLength(0)
+  })
 })

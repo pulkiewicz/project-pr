@@ -1,5 +1,5 @@
-import { Accordion, ActionIcon, Alert, Anchor, Badge, Button, Card, Group, Loader, SimpleGrid, Stack, Table, Text, Title, Tooltip } from '@mantine/core'
-import { MonthPickerInput } from '@mantine/dates'
+import { Accordion, ActionIcon, Alert, Anchor, Badge, Button, Card, Group, Loader, SegmentedControl, SimpleGrid, Stack, Table, Text, Title, Tooltip } from '@mantine/core'
+import { MonthPickerInput, YearPickerInput } from '@mantine/dates'
 import { notifications } from '@mantine/notifications'
 import { IconChevronLeft, IconChevronRight, IconInfoCircle, IconRefresh } from '@tabler/icons-react'
 import dayjs from 'dayjs'
@@ -12,6 +12,7 @@ import { formatDate, formatDateTime, todayWarsaw } from '../../lib/format'
 import { useSyncInvoices } from '../invoices/api'
 import { useFinancePlan } from './api'
 import { FixedCostsSection, PlannedSection } from './PlanEditors'
+import { YearPlanEditor } from './YearPlanEditor'
 import { InvoiceDrawer } from '../invoices/InvoiceDrawer'
 import { formatMoney } from '../invoices/status'
 
@@ -444,6 +445,10 @@ export function FinancePlanPage() {
   const { can } = useAuth()
   const [month, setMonth] = useState(() => todayWarsaw().slice(0, 7))
   const [open, setOpen] = useState<string | null>(null)
+  // Widok miesiąca albo edycja planu całego roku (siatka); przy niezapisanych zmianach w siatce nawigacja jest zablokowana.
+  const [view, setView] = useState<'month' | 'year'>('month')
+  const [dirty, setDirty] = useState(false)
+  const step = view === 'year' ? 12 : 1
   const q = useFinancePlan(month)
   const sync = useSyncInvoices()
   const plan = q.data
@@ -471,20 +476,37 @@ export function FinancePlanPage() {
           )}
         </Stack>
         <Group gap="xs" align="flex-end">
-          <ActionIcon variant="default" size="lg" aria-label={t('finance.prevMonth')} onClick={() => setMonth((m) => shift(m, -1))}>
-            <IconChevronLeft size={18} />
-          </ActionIcon>
-          <MonthPickerInput
-            w={170}
-            aria-label={t('finance.month')}
-            valueFormat="MMMM YYYY"
-            locale="pl"
-            value={dayjs(`${month}-01`).toDate()}
-            onChange={(d) => d && setMonth(dayjs(d).format('YYYY-MM'))}
+          <SegmentedControl
+            value={view}
+            disabled={dirty}
+            onChange={(v) => setView(v as 'month' | 'year')}
+            data={[
+              { value: 'month', label: t('finance.view.month') },
+              { value: 'year', label: t('finance.view.year') },
+            ]}
           />
-          <ActionIcon variant="default" size="lg" aria-label={t('finance.nextMonth')} onClick={() => setMonth((m) => shift(m, 1))}>
-            <IconChevronRight size={18} />
-          </ActionIcon>
+          <Tooltip label={t('finance.yearPlan.saveFirst')} disabled={!dirty}>
+            <Group gap="xs" wrap="nowrap">
+              <ActionIcon variant="default" size="lg" disabled={dirty} aria-label={t(view === 'year' ? 'finance.prevYear' : 'finance.prevMonth')} onClick={() => setMonth((m) => shift(m, -step))}>
+                <IconChevronLeft size={18} />
+              </ActionIcon>
+              {view === 'year' ? (
+                <YearPickerInput w={110} aria-label={t('finance.yearLabel')} disabled={dirty} value={dayjs(`${month}-01`).toDate()} onChange={(d) => d && setMonth(`${dayjs(d).format('YYYY')}-${month.slice(5)}`)} />
+              ) : (
+                <MonthPickerInput
+                  w={170}
+                  aria-label={t('finance.month')}
+                  valueFormat="MMMM YYYY"
+                  locale="pl"
+                  value={dayjs(`${month}-01`).toDate()}
+                  onChange={(d) => d && setMonth(dayjs(d).format('YYYY-MM'))}
+                />
+              )}
+              <ActionIcon variant="default" size="lg" disabled={dirty} aria-label={t(view === 'year' ? 'finance.nextYear' : 'finance.nextMonth')} onClick={() => setMonth((m) => shift(m, step))}>
+                <IconChevronRight size={18} />
+              </ActionIcon>
+            </Group>
+          </Tooltip>
           {can('invoices', 'create') && (
             <Button leftSection={<IconRefresh size={16} />} loading={sync.isPending} disabled={plan && !plan.sales.configured} onClick={runSync}>
               {t('finance.sync')}
@@ -495,9 +517,19 @@ export function FinancePlanPage() {
       {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
       {!plan ? (
         <Loader />
+      ) : view === 'year' ? (
+        <>
+          <YearPlanEditor plan={plan} onDirtyChange={setDirty} />
+          <FixedCostsSection plan={plan} />
+        </>
       ) : (
         <>
           <YearStrip plan={plan} onPick={setMonth} />
+          <Group justify="flex-end" mt={-8}>
+            <Button size="xs" variant="subtle" onClick={() => setView('year')}>
+              {t('finance.yearPlan.open')}
+            </Button>
+          </Group>
           <Title order={3} tt="capitalize">
             {monthLabel(plan.month)}
           </Title>

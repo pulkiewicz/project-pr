@@ -2152,6 +2152,28 @@
       "title": "Usunąć pozycję?",
       "body": "„{{name}}” zostanie usunięta z planu.",
       "confirm": "Usuń"
+    },
+    "prevYear": "Poprzedni rok",
+    "nextYear": "Następny rok",
+    "yearLabel": "Rok",
+    "view": {
+      "month": "Miesiąc",
+      "year": "Rok — edycja planu"
+    },
+    "yearPlan": {
+      "title": "Plan na rok {{year}}",
+      "hint": "Kwoty netto w zł; pusta komórka = brak pozycji w miesiącu. Wiersz to nazwa + projekt + kategoria. Koszty stałe i pracownicze oraz wynik z wykonania — tylko do odczytu.",
+      "open": "Edytuj plan całego roku →",
+      "addLine": "Dodaj wiersz",
+      "fillRight": "Kwota z pierwszego wypełnionego miesiąca do końca roku",
+      "removeLine": "Usuń wiersz",
+      "save": "Zapisz plan roku",
+      "discard": "Odrzuć zmiany",
+      "saved": "Plan zapisany: nowe {{created}}, zmienione {{updated}}, usunięte {{deleted}}.",
+      "unsaved": "Niezapisane zmiany — zapisz plan roku albo odrzuć zmiany.",
+      "saveFirst": "Najpierw zapisz albo odrzuć zmiany w planie roku",
+      "duplicate": "Dwa wiersze mają tę samą nazwę, projekt i kategorię — zmień nazwę jednego z nich.",
+      "unnamed": "Uzupełnij nazwę każdego wiersza."
     }
   }
 }

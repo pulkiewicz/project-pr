@@ -1,5 +1,11 @@
 # Changelog
 
+## Plan finansowy: edycja planu całego roku (08.11.2026)
+
+- Przełącznik **Miesiąc / Rok — edycja planu**. Widok roku to siatka: wiersze = pozycje planu (przychody i koszty; nazwa + projekt + kategoria), kolumny = 12 miesięcy, komórki z kwotą netto w zł do wpisania. Sumy wierszy, grup i miesięcy liczone na bieżąco; pod spodem koszty stałe, koszty pracownicze, wynik planowany i wynik z wykonania (tylko odczyt). Obok siatki lista kosztów stałych.
+- „Dodaj wiersz”, usuwanie wiersza i przycisk „→” (kwota z pierwszego wypełnionego miesiąca do końca roku). Zapis całego roku jednym przyciskiem (`PUT /api/finance/plan-year`): zmienione komórki aktualizują pozycje (notatki zostają), puste usuwają, nowe tworzą; wpis w audit logu. Przy niezapisanych zmianach przełączanie roku i widoku jest zablokowane.
+- Bez migracji — siatka korzysta z pozycji planowanych (`finance_plan_items`), więc widok miesiąca pokazuje to samo.
+
 ## Plan finansowy: pozycje planowane i koszty stałe (08.11.2026)
 
 - **Plan — przychody i koszty**: kwoty planowane wpisywane ręcznie na miesiąc, niezależnie od inFakt (nazwa, kwota netto, opcjonalnie projekt, dla kosztów kategoria, notatka). Przy dodawaniu można powtórzyć pozycję co miesiąc do wybranego miesiąca (maks. 36). Pod planem wykonanie z inFakt i % realizacji.

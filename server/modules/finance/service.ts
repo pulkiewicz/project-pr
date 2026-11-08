@@ -282,6 +282,7 @@ export async function financePlan(db: Database, month: string, opts: { staffRows
     result: cur.result,
     planned: {
       items: planItems.filter((i) => i.month === month),
+      yearItems: planItems,
       revenue: cur.plannedRevenue,
       costs: cur.plannedCosts,
       result: cur.plannedResult,

@@ -1,6 +1,6 @@
 import { z } from '@hono/zod-openapi'
-import { and, eq, isNull, sql } from 'drizzle-orm'
-import { PLAN_REPEAT_MAX, financeMonth, fixedCostInput, fixedCostPatch, monthsBetween, planItemInput, planItemPatch, type Action } from '#shared'
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { PLAN_REPEAT_MAX, financeMonth, fixedCostInput, fixedCostPatch, monthsBetween, planItemInput, planItemPatch, planLineKey, planYearInput, type Action, type PlanYearResult } from '#shared'
 import type { Database } from '../../db/client.ts'
 import { costCategories, financeFixedCosts, financePlanItems, projects } from '../../db/schema.ts'
 import { todayWarsaw } from '../../lib/dates.ts'
@@ -142,4 +142,56 @@ financeRouter.openapi(secureRoute('', { method: 'delete', path: '/finance/fixed-
   if (!row) throw notFound()
   await writeAudit(c, { action: 'finance.fixed_cost_delete', entity: 'finance_fixed_costs', entityId: id, changes: row })
   return c.json({ ok: true }, 200)
+})
+
+/**
+ * Plan całego roku jednym zapisem: komórki siatki porównywane z pozycjami roku po kluczu wiersza i miesiącu.
+ * Zmieniona kwota — aktualizacja (notatka zostaje), nowa komórka — nowa pozycja, brak komórki — usunięcie (miękkie).
+ * Kilka pozycji tego samego wiersza w jednym miesiącu (dodane osobno) — pierwsza dostaje sumę, pozostałe są usuwane.
+ */
+financeRouter.openapi(secureRoute('', { method: 'put', path: '/finance/plan-year', request: { body: json(planYearInput) }, responses: ok }, perm('edit')), async (c) => {
+  const db = c.get('deps').db
+  const { year, lines } = c.req.valid('json')
+  const norm = lines.map((l) => ({ ...l, name: l.name.trim(), projectId: l.projectId ?? null, costCategoryId: l.kind === 'cost' ? (l.costCategoryId ?? null) : null }))
+  if (new Set(norm.map(planLineKey)).size !== norm.length) throw new HttpProblem(422, 'plan_duplicate_line')
+  for (const ref of new Set(norm.map((l) => l.projectId).filter(Boolean))) await checkRefs(db, { projectId: ref })
+  for (const ref of new Set(norm.map((l) => l.costCategoryId).filter(Boolean))) await checkRefs(db, { costCategoryId: ref })
+
+  const userId = c.get('user').id
+  const res: PlanYearResult = { created: 0, updated: 0, deleted: 0 }
+  await db.transaction(async (tx) => {
+    const existing = await listPlanItems(tx, year)
+    const byCell = new Map<string, typeof existing>()
+    for (const i of existing) {
+      const k = `${planLineKey(i)}#${i.month}`
+      byCell.set(k, [...(byCell.get(k) ?? []), i])
+    }
+    const wanted = new Map<string, { line: (typeof norm)[number]; month: string; amount: number }>()
+    for (const line of norm) for (const [month, amount] of Object.entries(line.amounts)) wanted.set(`${planLineKey(line)}#${month}`, { line, month, amount })
+
+    const remove: string[] = []
+    for (const [k, items] of byCell) {
+      const w = wanted.get(k)
+      const [first, ...rest] = items
+      remove.push(...rest.map((i) => i.id))
+      if (!w) remove.push(first!.id)
+      else if (first!.amount !== w.amount || rest.length) {
+        await tx.update(financePlanItems).set({ amount: w.amount, updatedAt: sql`now()`, updatedBy: userId, version: sql`${financePlanItems.version} + 1` }).where(eq(financePlanItems.id, first!.id))
+        res.updated += 1
+      }
+    }
+    if (remove.length) {
+      await tx.update(financePlanItems).set({ deletedAt: sql`now()`, deletedBy: userId }).where(inArray(financePlanItems.id, remove))
+      res.deleted = remove.length
+    }
+    const fresh = [...wanted.entries()].filter(([k]) => !byCell.has(k)).map(([, w]) => w)
+    if (fresh.length) {
+      await tx.insert(financePlanItems).values(
+        fresh.map(({ line, month, amount }) => ({ month, amount, kind: line.kind, name: line.name, projectId: line.projectId, costCategoryId: line.costCategoryId, createdBy: userId, updatedBy: userId })),
+      )
+      res.created = fresh.length
+    }
+    await writeAudit(c, { action: 'finance.plan_year_save', entity: 'finance_plan_items', changes: { year, lines: norm.length, ...res } }, tx)
+  })
+  return c.json(res, 200)
 })
