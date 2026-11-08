@@ -26,6 +26,7 @@ const CrmPage = lazy(() => import('./features/crm/CrmPage').then((m) => ({ defau
 const QuotesPage = lazy(() => import('./features/quotes/QuotesPage').then((m) => ({ default: m.QuotesPage })))
 const KnowledgePage = lazy(() => import('./features/quotes/KnowledgePage').then((m) => ({ default: m.KnowledgePage })))
 const InvoicesPage = lazy(() => import('./features/invoices/InvoicesPage').then((m) => ({ default: m.InvoicesPage })))
+const FinancePlanPage = lazy(() => import('./features/finance/FinancePlanPage').then((m) => ({ default: m.FinancePlanPage })))
 const SettlementsPage = lazy(() => import('./features/invoices/SettlementsPage').then((m) => ({ default: m.SettlementsPage })))
 const ManagementHelpPage = lazy(() => import('./features/help/ManagementHelpPage').then((m) => ({ default: m.ManagementHelpPage })))
 const EmployeesPage = lazy(() => import('./features/management/EmployeesPage').then((m) => ({ default: m.EmployeesPage })))
@@ -101,6 +102,7 @@ export function App() {
         <Route path="/baza-wiedzy/profile/:id" element={<Guard module="quoteKnowledge"><Suspense fallback={<Loader />}><KnowledgePage /></Suspense></Guard>} />
         <Route path="/faktury" element={<Guard module="invoices"><Suspense fallback={<Loader />}><InvoicesPage /></Suspense></Guard>} />
         <Route path="/rozliczenia" element={<Guard module="invoices"><Suspense fallback={<Loader />}><SettlementsPage /></Suspense></Guard>} />
+        <Route path="/plan-finansowy" element={<Guard module="invoices"><Suspense fallback={<Loader />}><FinancePlanPage /></Suspense></Guard>} />
         <Route path="/pracownicy" element={<Guard module="employees"><Suspense fallback={<Loader />}><EmployeesPage /></Suspense></Guard>} />
         <Route path="/pojazdy" element={<Guard module="fleet"><Suspense fallback={<Loader />}><FleetPage /></Suspense></Guard>} />
         <Route path="/czas-pracy" element={<Guard module="timesheets"><Suspense fallback={<Loader />}><TimesheetsPage /></Suspense></Guard>} />

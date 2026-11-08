@@ -1,4 +1,4 @@
-import { InfaktError, type InfaktAttachment, type InfaktClient, type InfaktCost } from './types.ts'
+import { InfaktError, type InfaktAttachment, type InfaktClient, type InfaktCost, type InfaktSalesInvoice } from './types.ts'
 
 const BASE = 'https://api.infakt.pl/api/v3'
 const PAGE = 100
@@ -25,20 +25,21 @@ export class HttpInfaktClient implements InfaktClient {
     return (await res.json()) as T
   }
 
-  private page(addedFrom: string, page: number) {
-    const q = new URLSearchParams({ limit: String(PAGE), offset: String(page * PAGE), order: 'created_at desc', 'q[created_at_gteq]': addedFrom })
-    return this.get<{ entities?: InfaktCost[]; metainfo?: { total_count?: number } }>(`/documents/costs.json?${q}`)
+  /** Strona listy `path` (koszty / faktury) z filtrem `filter` (np. `q[created_at_gteq]`). */
+  private page<T>(path: string, order: string, filter: Record<string, string>, page: number) {
+    const q = new URLSearchParams({ limit: String(PAGE), offset: String(page * PAGE), order, ...filter })
+    return this.get<{ entities?: T[]; metainfo?: { total_count?: number } }>(`${path}?${q}`)
   }
 
   /** Pierwsza strona podaje `total_count`; pozostałe pobierane równolegle (limit czasu funkcji Netlify ~10 s). */
-  async listCosts(addedFrom: string): Promise<InfaktCost[]> {
-    const first = await this.page(addedFrom, 0)
+  private async listAll<T extends { uuid: string }>(path: string, order: string, filter: Record<string, string>): Promise<T[]> {
+    const first = await this.page<T>(path, order, filter, 0)
     const out = [...(first.entities ?? [])]
     const total = first.metainfo?.total_count
     if (total === undefined) {
       // Bez licznika: stronicowanie po kolei, aż do niepełnej strony.
       for (let page = 1, last = out.length; last === PAGE && page < MAX_PAGES; page++) {
-        const batch = (await this.page(addedFrom, page)).entities ?? []
+        const batch = (await this.page<T>(path, order, filter, page)).entities ?? []
         out.push(...batch)
         last = batch.length
       }
@@ -46,11 +47,19 @@ export class HttpInfaktClient implements InfaktClient {
     }
     const pages = Math.min(Math.ceil(total / PAGE), MAX_PAGES)
     for (let start = 1; start < pages; start += PARALLEL) {
-      const chunk = Array.from({ length: Math.min(PARALLEL, pages - start) }, (_, i) => this.page(addedFrom, start + i))
+      const chunk = Array.from({ length: Math.min(PARALLEL, pages - start) }, (_, i) => this.page<T>(path, order, filter, start + i))
       for (const body of await Promise.all(chunk)) out.push(...(body.entities ?? []))
     }
     // Dokument dodany w trakcie pobierania może przesunąć stronicowanie — bez duplikatów.
     return [...new Map(out.map((c) => [c.uuid, c])).values()]
+  }
+
+  listCosts(addedFrom: string): Promise<InfaktCost[]> {
+    return this.listAll<InfaktCost>('/documents/costs.json', 'created_at desc', { 'q[created_at_gteq]': addedFrom })
+  }
+
+  listSalesInvoices(issuedFrom: string): Promise<InfaktSalesInvoice[]> {
+    return this.listAll<InfaktSalesInvoice>('/invoices.json', 'invoice_date desc', { 'q[invoice_date_gteq]': issuedFrom })
   }
 
   async costAttachments(uuid: string): Promise<InfaktAttachment[]> {

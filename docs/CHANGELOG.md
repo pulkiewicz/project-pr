@@ -1,5 +1,13 @@
 # Changelog
 
+## Plan finansowy (08.11.2026)
+
+- **Finanse → Plan finansowy** (`/plan-finansowy`, te same uprawnienia co Faktury kosztowe): jeden miesiąc na ekranie — przychody, koszty z faktur, koszty pracownicze i wynik; nad nimi pasek całego roku (kliknięcie miesiąca przełącza widok), strzałki i wybór miesiąca.
+- **Przychody**: faktury sprzedażowe z inFakt (`/invoices.json`) pobierane razem z kosztami — przyciskiem „Synchronizuj” (Faktury lub Plan finansowy) i w codziennej synchronizacji. Miesiąc wg daty wystawienia, pro formy pominięte. Wymaga uprawnienia klucza API `api:invoices:read` — bez niego koszty pobierają się dalej, a aplikacja pokazuje ostrzeżenie. Nowa tabela `sales_invoices` (migracja `20261108082541_finance_sales_invoices`).
+- **Koszty z faktur**: netto, wszystkie statusy, macierz projekty (+ koszty ogólne, nieprzypisane) × kategorie kosztów; rozwijana lista faktur miesiąca z otwarciem karty faktury.
+- **Koszty stałe pracownicze**: z listy Pracowników — kwota miesięczna (proporcjonalnie przy umowie od / do połowy miesiąca) albo stawka godzinowa × wymiar czasu pracy (dni robocze × 8 h), plus szacowany narzut pracodawcy 20,48% (umowa o pracę, zlecenie bez ucznia / studenta). B2B pominięty (jest w fakturach kosztowych). Lista osób i kwot tylko z dostępem do modułu Pracownicy — pozostali widzą same sumy.
+- Sumy tylko w PLN; dokumenty w walutach obcych i faktury bez kwoty netto są policzone osobno. Płatności z wyciągów nie wchodzą do planu (wynagrodzenia i ZUS są w kosztach pracowniczych).
+
 ## Faktury: powiadomienia e-mail o akceptacji (02.11.2026)
 
 - **Administracja → Ustawienia → Faktury kosztowe**: przełącznik „Powiadomienia e-mail o akceptacji” (domyślnie wyłączony).

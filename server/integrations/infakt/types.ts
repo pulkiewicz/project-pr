@@ -16,6 +16,25 @@ export interface InfaktCost {
   statuses?: { symbol: string; name: string; group: string }[]
 }
 
+/** Faktura sprzedażowa z inFakt API v3 (`/invoices.json`); kwoty w groszach. */
+export interface InfaktSalesInvoice {
+  uuid: string
+  kind: string | null
+  number: string | null
+  status: string | null
+  invoice_date: string | null
+  sale_date: string | null
+  payment_date: string | null
+  currency: string | null
+  net_price: number | null
+  gross_price: number | null
+  tax_price: number | null
+  paid_price: number | null
+  client_company_name: string | null
+  client_first_name: string | null
+  client_last_name: string | null
+}
+
 export interface InfaktAttachment {
   file_name: string
   file_url: string
@@ -29,6 +48,8 @@ export interface InfaktClient {
    * Filtr po dacie dodania, nie wystawienia — pliki (`document_scan`) zwykle nie mają daty wystawienia.
    */
   listCosts(addedFrom: string): Promise<InfaktCost[]>
+  /** Faktury sprzedażowe wystawione od `issuedFrom` (yyyy-MM-dd); wymaga uprawnienia klucza `api:invoices:read`. */
+  listSalesInvoices(issuedFrom: string): Promise<InfaktSalesInvoice[]>
   costAttachments(uuid: string): Promise<InfaktAttachment[]>
   /** Treść pliku z `file_url` (do podglądu w aplikacji). */
   downloadAttachment(url: string): Promise<{ body: ArrayBuffer; type: string }>

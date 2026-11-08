@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { SalesSyncResult } from './finance.ts'
 import { paymentState, type InvoicePaymentDto, type InvoicePaymentState } from './bank.ts'
 
 /**
@@ -246,6 +247,10 @@ export interface InvoiceSyncResult {
   updated: number
   skipped: number
   syncedAt: string
+  /** Faktury sprzedażowe (Plan finansowy) — pobierane razem z kosztami; null, gdy się nie udało (`salesError`). */
+  sales?: SalesSyncResult | null
+  /** Kod błędu pobierania faktur sprzedażowych (np. `infakt_unauthorized` — klucz bez `api:invoices:read`). */
+  salesError?: string | null
 }
 
 export interface InvoiceListResponse {

@@ -997,6 +997,30 @@ export const costInvoices = pgTable(
   (t) => [uniqueIndex('cost_invoices_infakt_uuid_uq').on(t.infaktUuid), index('cost_invoices_status_idx').on(t.status), index('cost_invoices_issue_date_idx').on(t.issueDate), index('cost_invoices_infakt_created_idx').on(t.infaktCreatedAt)],
 )
 
+/** Faktura sprzedażowa z inFakt (przychody w Planie finansowym) — kopia tylko do odczytu, nadpisywana przy synchronizacji. */
+export const salesInvoices = pgTable(
+  'sales_invoices',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    infaktUuid: text('infakt_uuid').notNull(),
+    kind: text('kind').notNull(),
+    number: text('number'),
+    clientName: text('client_name'),
+    invoiceDate: date('invoice_date', { mode: 'string' }),
+    saleDate: date('sale_date', { mode: 'string' }),
+    paymentDate: date('payment_date', { mode: 'string' }),
+    currency: text('currency').notNull().default('PLN'),
+    netPrice: bigint('net_price', { mode: 'number' }),
+    grossPrice: bigint('gross_price', { mode: 'number' }),
+    taxPrice: bigint('tax_price', { mode: 'number' }),
+    paidPrice: bigint('paid_price', { mode: 'number' }),
+    status: text('status'),
+    syncedAt: ts('synced_at').notNull().defaultNow(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('sales_invoices_infakt_uuid_uq').on(t.infaktUuid), index('sales_invoices_invoice_date_idx').on(t.invoiceDate)],
+)
+
 /** Udział projektu w fakturze (%). Suma ≤ 100; reszta = koszty ogólne. */
 export const costInvoiceAllocations = pgTable(
   'cost_invoice_allocations',

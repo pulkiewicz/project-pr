@@ -47,6 +47,8 @@ export const FINANCE_NAV: NavItem[] = [
   { module: 'invoices', path: '/faktury', stage: '—', ready: true },
   // Rozliczenia faktur z wyciągami — te same uprawnienia co Faktury.
   { module: 'invoices', navKey: 'settlements', path: '/rozliczenia', stage: '—', ready: true },
+  // Plan finansowy miesiąca: przychody, koszty z faktur, koszty pracownicze — te same uprawnienia co Faktury.
+  { module: 'invoices', navKey: 'financePlan', path: '/plan-finansowy', stage: '—', ready: true },
 ]
 
 /** Moduły firmy: zarząd (dostęp dla osób wskazanych w Ustawieniach). */

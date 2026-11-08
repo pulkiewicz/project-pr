@@ -32,6 +32,7 @@ import { INVOICES_SETTING_KEY, invoiceSettings } from '../../auth/access.ts'
 import type { AppEnv } from '../../context.ts'
 import { appSettings, bankTransactions, costCategories, costInvoiceAllocations, costInvoiceEvents, costInvoices, projects, users } from '../../db/schema.ts'
 import { InfaktError } from '../../integrations/infakt/types.ts'
+import { syncSalesSafe } from '../finance/service.ts'
 import { HttpProblem, conflict, forbidden, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
 import { writeAudit } from '../audit/service.ts'
@@ -118,7 +119,10 @@ invoicesRouter.openapi(route({ method: 'post', path: '/invoices/sync', responses
   const deps = c.get('deps')
   if (!deps.infakt) throw new HttpProblem(503, 'infakt_not_configured')
   try {
-    const result = await syncInvoices(deps.db, deps.infakt, await invoiceSettings(deps.db), c.get('user').id, now(c))
+    const settings = await invoiceSettings(deps.db)
+    const result = await syncInvoices(deps.db, deps.infakt, settings, c.get('user').id, now(c))
+    // Faktury sprzedażowe do Planu finansowego — błąd nie przerywa synchronizacji kosztów.
+    Object.assign(result, await syncSalesSafe(deps.db, deps.infakt, settings.syncFrom, c.get('user').id, now(c)))
     await writeAudit(c, { action: 'invoices.sync', entity: 'cost_invoices', changes: result })
     return c.json(result, 200)
   } catch (e) {
