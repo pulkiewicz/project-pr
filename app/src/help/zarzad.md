@@ -10,7 +10,7 @@ Na końcu jest **miesięczny plan pracy** i odpowiedzi na częste pytania.
 | Zarząd | **Pracownicy** | kartoteka pracowników: umowy, badania, BHP, uprawnienia |
 | Zarząd | **Pojazdy** | ewidencja pojazdów: ubezpieczenia, przeglądy, UDT |
 | Zarząd | **Czas pracy** | godziny pracowników, zestawienia miesięczne, Excel |
-| Finanse | **Faktury kosztowe** | faktury z inFakt, przypisanie do projektów, wyciągi bankowe, rozliczenia |
+| Finanse | **Koszty** | faktury z inFakt, przypisanie do projektów, wyciągi bankowe, rozliczenia |
 
 Dostęp do każdego modułu nadaje Administrator w **Administracja → Ustawienia** (osobne listy: „Zarząd — pojazdy
 i pracownicy”, „Zarząd — czas pracy”, „Faktury kosztowe”). Jeśli czegoś nie widać w menu, trzeba poprosić
