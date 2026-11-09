@@ -38,11 +38,11 @@ export const authenticate: MiddlewareHandler<AppEnv> = async (c, next) => {
     managementSettings(deps.db),
     timesheetSettings(deps.db),
   ])
-  const rolePermissions = restrictTimesheetPermissions(
-    restrictManagementPermissions(restrictInvoicePermissions(allRolePermissions, user.id, invoices), user.id, management),
-    user.id,
-    timesheets,
-  )
+  // Listy dostępu (Koszty, Zarząd, Czas pracy) zawężają pracowników Envcheck; Księgowość ma dostęp wyłącznie z tabeli uprawnień roli.
+  const rolePermissions =
+    user.role === 'Accounting'
+      ? allRolePermissions
+      : restrictTimesheetPermissions(restrictManagementPermissions(restrictInvoicePermissions(allRolePermissions, user.id, invoices), user.id, management), user.id, timesheets)
   const required = requiredRoles.includes(user.role)
   let verified = false
   const cookie = getCookie(c, MFA_COOKIE)

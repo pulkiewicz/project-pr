@@ -95,7 +95,7 @@ export const DEFAULT_LEVELS: Record<ModuleKey, Row> = {
   quotesPricing: row('P', '-', '-', '-', '-'),
   quoteKnowledge: row('P', 'E', '-', '-', '-'),
   // Faktury: rola tylko otwiera możliwość — o dostępie decyduje lista osób w Ustawieniach (Admin).
-  // Księgowość: odczyt i eksport (także po dodaniu do listy osób z dostępem).
+  // Księgowość: odczyt i eksport — z tej tabeli, bez list osób w Ustawieniach (te dotyczą pracowników Envcheck).
   invoices: row('P', 'P', '-', '-', '-', 'O'),
   // Zarząd: jak Faktury — o dostępie decyduje lista osób w Ustawieniach (Admin).
   fleet: row('P', 'P', '-', '-', '-'),

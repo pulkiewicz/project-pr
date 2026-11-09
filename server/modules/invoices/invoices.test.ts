@@ -1,3 +1,4 @@
+import { and } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { shareAmount, type CostCategoryDto, type InvoiceBulkResult, type InvoiceDetailDto, type InvoiceListResponse, type InvoiceSettings, type InvoiceSyncResult, type MeResponse } from '#shared'
 import { INVOICES_SETTING_KEY } from '../../auth/access.ts'
@@ -353,11 +354,9 @@ describe('uwagi z 02.11.2026: zbiorcze wysyłanie, licznik akceptacji, podgląd,
     expect((await req(h, 'GET', '/api/invoices/export.xlsx?from=2026-02-01&to=2026-01-01', ania.headers)).status).toBeGreaterThanOrEqual(400)
   })
 
-  it('rola Księgowość: odczyt i eksport (po dodaniu do listy), bez edycji i akceptacji', async () => {
+  it('rola Księgowość: dostęp z tabeli uprawnień (bez list w Ustawieniach) — odczyt i eksport, bez edycji i akceptacji', async () => {
     const accountant = await createUser(h, 'Accounting')
-    expect((await req(h, 'GET', '/api/invoices', accountant.headers)).status).toBe(403)
-    const settings = (await (await req(h, 'GET', '/api/admin/settings/invoices', admin.headers)).json()) as { settings: { userIds: string[]; syncFrom: string } }
-    expect((await req(h, 'PUT', '/api/admin/settings/invoices', admin.headers, { ...settings.settings, userIds: [...settings.settings.userIds, accountant.id] })).status).toBe(200)
+    // Bez wpisu na listach dostępu (Koszty, Zarząd, Czas pracy) — o dostępie decyduje sama rola.
     expect((await req(h, 'GET', '/api/invoices', accountant.headers)).status).toBe(200)
     expect((await req(h, 'GET', '/api/invoices/export.xlsx', accountant.headers)).status).toBe(200)
     expect(await count(accountant)).toBe(0)
@@ -367,8 +366,15 @@ describe('uwagi z 02.11.2026: zbiorcze wysyłanie, licznik akceptacji, podgląd,
     // Księgowość nie ma prawa akceptacji — nie ma jej na liście akceptujących.
     expect(((await (await req(h, 'GET', '/api/invoices/approvers', ania.headers)).json()) as { id: string }[]).map((a) => a.id)).not.toContain(accountant.id)
     const me = (await (await req(h, 'GET', '/api/me', accountant.headers)).json()) as MeResponse
-    expect(me.permissions).toEqual(expect.arrayContaining(['invoices:view', 'invoices:export']))
+    expect(me.permissions).toEqual(expect.arrayContaining(['invoices:view', 'invoices:export', 'employees:view', 'employees:export', 'timesheets:view', 'timesheets:export']))
     expect(me.permissions).not.toContain('crm:view')
+    expect(me.permissions).not.toContain('invoices:edit')
+    // Zmiana w tabeli uprawnień od razu działa dla Księgowości (np. Pojazdy).
+    expect(me.permissions).not.toContain('fleet:view')
+    await h.db.insert(schema.permissions).values({ role: 'Accounting', module: 'fleet', action: 'view', allowed: true }).onConflictDoUpdate({ target: [schema.permissions.role, schema.permissions.module, schema.permissions.action], set: { allowed: true } })
+    const me2 = (await (await req(h, 'GET', '/api/me', accountant.headers)).json()) as MeResponse
+    expect(me2.permissions).toContain('fleet:view')
+    await h.db.delete(schema.permissions).where(and(eq(schema.permissions.role, 'Accounting'), eq(schema.permissions.module, 'fleet')))
   })
 })
 

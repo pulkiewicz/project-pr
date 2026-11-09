@@ -1,5 +1,9 @@
 # Changelog
 
+## Uprawnienia: Księgowość według tabeli uprawnień (09.11.2026)
+
+- **Rola Księgowość widzi moduły zgodnie z tabelą Uprawnienia** — listy osób w Ustawieniach (Koszty, Zarząd, Czas pracy) nie dotyczą już tej roli; zawężają tylko pracowników Envcheck. Wcześniej osoba z rolą Księgowość bez wpisu na każdej z list nie widziała zakładek mimo uprawnień z roli. Domyślnie: Koszty (z Rozliczeniami, Planem finansowym i „Do akceptacji”), Pracownicy i Czas pracy — podgląd i eksport.
+
 ## Rozliczenia: dopasowanie płatności do faktur po kwocie (09.11.2026)
 
 - **Sama kwota, różnica dat do 7 dni — łączenie automatyczne**: płatność z wyciągu (przelew, karta) o kwocie równej niezapłaconej części brutto faktury i dacie różniącej się najwyżej o 7 dni łączy się przy imporcie wyciągu, „Dopasuj automatycznie” i synchronizacji z inFakt — tylko gdy jednoznacznie (jedna taka faktura dla płatności i jedna płatność dla faktury). Wcześniej sama kwota dawała wyłącznie propozycję.
