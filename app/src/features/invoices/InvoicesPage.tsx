@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Group, Loader, Modal, MultiSelect, SegmentedControl, Select, Stack, Switch, Table, Tabs, Text, TextInput, Title } from '@mantine/core'
+import { Alert, Badge, Button, Group, Loader, Modal, SegmentedControl, Select, Stack, Switch, Table, Tabs, Text, TextInput, Title } from '@mantine/core'
 import { DateInput } from '@mantine/dates'
 import { notifications } from '@mantine/notifications'
 import { IconDownload, IconRefresh, IconSearch, IconSend } from '@tabler/icons-react'
@@ -264,6 +264,9 @@ function BulkBar({ ids, options, categories, onDone }: { ids: string[]; options:
 
 const NO_CATEGORY = '__none'
 
+/** Filtr kolumny „lista wyboru” (kilka wartości): pusty = bez filtra. */
+const anyOf = (value: string, filter: unknown) => !Array.isArray(filter) || !filter.length || filter.includes(value)
+
 function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen: (id: string) => void; mine: boolean; setMine: (v: boolean) => void }) {
   const { t } = useTranslation()
   const { can } = useAuth()
@@ -271,15 +274,10 @@ function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen
   const me = useMe()
   const [selection, setSelection] = useState<MRT_RowSelectionState>({})
   const [search, setSearch] = useState('')
-  const [statuses, setStatuses] = useState<string[]>(['new', 'assigned', 'pending', 'rejected'])
-  const [project, setProject] = useState<string | null>(null)
-  const [categoryFilter, setCategoryFilter] = useState<string[]>([])
   const categoriesQ = useCostCategories()
   const categories = useMemo(() => categoriesQ.data ?? [], [categoriesQ.data])
   const [missing, setMissing] = useState(false)
-  const [payments, setPayments] = useState<string[]>([])
   // Miesiące kosztu (wystawienie, a dla plików bez daty — dodanie do inFakt); kilka naraz, np. kwartał.
-  const [months, setMonths] = useState<string[]>([])
   const monthOptions = useMemo(
     () =>
       [...new Set(items.map(costMonth).filter(Boolean))]
@@ -289,33 +287,36 @@ function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen
     [items],
   )
 
-  const today = todayWarsaw()
+  // Wyszukiwarka i przełączniki (pasek narzędzi tabeli); pozostałe filtry — w kolumnach tabeli (ikona filtra).
   const filtered = useMemo(() => {
     const s = norm(search.trim())
     return items.filter(
       (i) =>
         (!s || [i.number, i.sellerName, i.description, i.category, i.costCategoryName, ...i.allocations.map((a) => a.description)].some((x) => norm(x).includes(s))) &&
         (!missing || i.netPrice == null || !i.number || !i.sellerName) &&
-        (!statuses.length || statuses.includes(displayStatus(i))) &&
-        (!project ||
-          (project === 'general' ? i.general || (i.allocatedShare > 0 && i.allocatedShare < 100) : project === 'unassigned' ? !i.allocations.length && !i.general : i.allocations.some((a) => a.projectId === project))) &&
-        (!categoryFilter.length || categoryFilter.includes(i.costCategoryId ?? NO_CATEGORY)) &&
-        (!payments.length || payments.includes(invoiceDueState(i, today))) &&
-        (!months.length || months.includes(costMonth(i))) &&
         (!mine || (i.status === 'pending' && i.submittedBy !== me.user.id)),
     )
-  }, [items, search, statuses, project, categoryFilter, payments, months, mine, missing, me.user.id, today])
+  }, [items, search, mine, missing, me.user.id])
 
   const projectOptions = useMemo(() => me.projects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })), [me.projects])
 
-  const columns = useMemo<MRT_ColumnDef<InvoiceDto>[]>(
-    () => [
+  const columns = useMemo<MRT_ColumnDef<InvoiceDto>[]>(() => {
+    const statusOptions = DISPLAY_STATUSES.map((s) => ({ value: s, label: t(`invoices.status.${s}`) }))
+    const projectFilterOptions = [{ value: 'unassigned', label: t('invoices.unassigned') }, { value: 'general', label: t('invoices.general') }, ...projectOptions]
+    const categoryOptions = [{ value: NO_CATEGORY, label: t('invoices.categoryNone') }, ...categories.map((k) => ({ value: k.id, label: k.name }))]
+    const paymentOptions = (['overdue', 'due', 'paid'] as const).map((v) => ({ value: v, label: t(`invoices.pay.${v}`) }))
+    const labelOf = (opts: { value: string; label: string }[]) => (v: unknown) => opts.find((o) => o.value === v)?.label ?? String(v)
+    return [
       {
-        // Pliki bez daty wystawienia — data dodania do inFakt (szara).
+        // Pliki bez daty wystawienia — data dodania do inFakt (szara). Filtr: miesiące kosztu.
         id: 'date',
         accessorFn: (r) => r.issueDate ?? r.infaktCreatedAt?.slice(0, 10) ?? '',
         header: t('invoices.date'),
         size: 100,
+        filterVariant: 'multi-select',
+        mantineFilterMultiSelectProps: { data: monthOptions, placeholder: t('invoices.month'), searchable: true },
+        filterFn: (row, _id, value) => anyOf(costMonth(row.original), value),
+        filterTooltipValueFn: labelOf(monthOptions),
         Cell: ({ row }) =>
           row.original.issueDate ? (
             formatDate(row.original.issueDate)
@@ -354,9 +355,20 @@ function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen
       },
       {
         id: 'projects',
+        accessorFn: (r) => r.allocations.map((a) => a.projectId).join(','),
         header: t('invoices.projects'),
         size: 210,
         enableSorting: false,
+        filterVariant: 'select',
+        mantineFilterSelectProps: { data: projectFilterOptions, placeholder: t('invoices.project'), searchable: true },
+        filterFn: ({ original: i }, _id, project) =>
+          !project ||
+          (project === 'general'
+            ? i.general || (i.allocatedShare > 0 && i.allocatedShare < 100)
+            : project === 'unassigned'
+              ? !i.allocations.length && !i.general
+              : i.allocations.some((a) => a.projectId === project)),
+        filterTooltipValueFn: labelOf(projectFilterOptions),
         Cell: ({ row }) => <ProjectCell inv={row.original} options={projectOptions} />,
       },
       {
@@ -364,6 +376,10 @@ function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen
         accessorFn: (r) => r.costCategoryName ?? '',
         header: t('invoices.category'),
         size: 170,
+        filterVariant: 'multi-select',
+        mantineFilterMultiSelectProps: { data: categoryOptions, placeholder: t('invoices.category'), searchable: true },
+        filterFn: (row, _id, value) => anyOf(row.original.costCategoryId ?? NO_CATEGORY, value),
+        filterTooltipValueFn: labelOf(categoryOptions),
         Cell: ({ row }) => <CategoryCell inv={row.original} categories={categories} />,
       },
       {
@@ -374,7 +390,17 @@ function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen
         enableSorting: false,
         Cell: ({ row }) => <DescriptionCell inv={row.original} />,
       },
-      { id: 'status', accessorFn: displayStatus, header: t('invoices.statusLabel'), size: 170, Cell: ({ row }) => <InvoiceStatusBadge inv={row.original} /> },
+      {
+        id: 'status',
+        accessorFn: displayStatus,
+        header: t('invoices.statusLabel'),
+        size: 170,
+        filterVariant: 'multi-select',
+        mantineFilterMultiSelectProps: { data: statusOptions, placeholder: t('invoices.statusLabel') },
+        filterFn: (row, _id, value) => anyOf(displayStatus(row.original), value),
+        filterTooltipValueFn: labelOf(statusOptions),
+        Cell: ({ row }) => <InvoiceStatusBadge inv={row.original} />,
+      },
       {
         // Kropka zamiast odznaki — mniej miejsca; opis w podpowiedzi.
         id: 'payment',
@@ -382,14 +408,14 @@ function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen
         header: t('invoices.pay.label'),
         size: 80,
         mantineTableBodyCellProps: { align: 'center' },
+        filterVariant: 'multi-select',
+        mantineFilterMultiSelectProps: { data: paymentOptions, placeholder: t('invoices.pay.label') },
+        filterFn: (row, _id, value) => anyOf(invoiceDueState(row.original, todayWarsaw()), value),
+        filterTooltipValueFn: labelOf(paymentOptions),
         Cell: ({ row }) => <PaymentDot inv={row.original} />,
       },
-    ],
-    [t, projectOptions, categories],
-  )
-
-  // Zaznaczone i nadal widoczne po filtrach.
-  const selectedIds = filtered.filter((i) => selection[i.id]).map((i) => i.id)
+    ]
+  }, [t, projectOptions, categories, monthOptions])
 
   const table = useMantineReactTable({
     columns,
@@ -398,11 +424,18 @@ function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen
     layoutMode: 'grid',
     enableColumnActions: false,
     enableGlobalFilter: false,
+    // Filtr kolumny otwiera się w okienku po kliknięciu ikony w nagłówku (bez wiersza filtrów pod nagłówkiem).
+    columnFilterDisplayMode: 'popover',
     // Brutto i opis kosztu domyślnie ukryte (miejsce); opis edytuje się w karcie faktury, kolumny do włączenia w menu kolumn.
-    initialState: { density: 'xs', columnVisibility: { grossPrice: false, description: false } },
+    // Domyślnie faktury w toku (bez zaakceptowanych i rozliczonych) — filtr kolumny Status.
+    initialState: {
+      density: 'xs',
+      columnVisibility: { grossPrice: false, description: false },
+      columnFilters: [{ id: 'status', value: ['new', 'assigned', 'pending', 'rejected'] }],
+    },
     enablePagination: false,
     enableStickyHeader: true,
-    mantineTableContainerProps: { style: { maxHeight: 'calc(100vh - 330px)' } },
+    mantineTableContainerProps: { style: { maxHeight: 'calc(100vh - 270px)' } },
     mantineTableBodyRowProps: ({ row }) => ({ onClick: () => onOpen(row.original.id), style: { cursor: 'pointer' } }),
     getRowId: (r) => r.id,
     // Zaznaczać można faktury, których przypisanie da się zmienić (do przypisania / odrzucone).
@@ -413,60 +446,29 @@ function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen
     mantineSelectCheckboxProps: { onClick: (e) => e.stopPropagation() },
     // Pasek zbiorczy w pasku narzędzi tabeli (stała wysokość — zaznaczenie nie przesuwa wierszy).
     positionToolbarAlertBanner: 'none',
-    renderTopToolbarCustomActions: () =>
-      selectedIds.length > 0 ? (
-        <BulkBar ids={selectedIds} options={projectOptions} categories={categories} onDone={() => setSelection({})} />
-      ) : (
-        canEdit && (
-          <Text size="xs" c="dimmed" mt={6}>
-            {t('invoices.bulk.hint')}
-          </Text>
-        )
-      ),
+    renderTopToolbarCustomActions: ({ table }) => {
+      // Zaznaczone i nadal widoczne po filtrach.
+      const selectedIds = table.getFilteredRowModel().rows.filter((r) => selection[r.id]).map((r) => r.id)
+      return (
+        <Group gap="sm" wrap="wrap">
+          <TextInput w={240} size="xs" leftSection={<IconSearch size={14} />} placeholder={t('invoices.search')} value={search} onChange={(e) => setSearch(e.currentTarget.value)} aria-label={t('invoices.search')} />
+          <Switch size="xs" label={t('invoices.onlyMine')} checked={mine} onChange={(e) => setMine(e.currentTarget.checked)} />
+          <Switch size="xs" label={t('invoices.onlyMissing')} checked={missing} onChange={(e) => setMissing(e.currentTarget.checked)} />
+          {selectedIds.length > 0 ? (
+            <BulkBar ids={selectedIds} options={projectOptions} categories={categories} onDone={() => setSelection({})} />
+          ) : (
+            canEdit && (
+              <Text size="xs" c="dimmed">
+                {t('invoices.bulk.hint')}
+              </Text>
+            )
+          )}
+        </Group>
+      )
+    },
   })
 
-  return (
-    <Stack>
-      <Group gap="sm" align="flex-end" wrap="wrap">
-        <TextInput w={260} leftSection={<IconSearch size={16} />} placeholder={t('invoices.search')} value={search} onChange={(e) => setSearch(e.currentTarget.value)} aria-label={t('invoices.search')} />
-        <MultiSelect w={220} placeholder={t('invoices.month')} aria-label={t('invoices.month')} data={monthOptions} value={months} onChange={setMonths} clearable searchable />
-        <MultiSelect w={340} placeholder={t('invoices.statusLabel')} data={DISPLAY_STATUSES.map((s) => ({ value: s, label: t(`invoices.status.${s}`) }))} value={statuses} onChange={setStatuses} clearable />
-        <Select
-          w={240}
-          placeholder={t('invoices.project')}
-          clearable
-          searchable
-          data={[
-            { value: 'unassigned', label: t('invoices.unassigned') },
-            { value: 'general', label: t('invoices.general') },
-            ...me.projects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })),
-          ]}
-          value={project}
-          onChange={setProject}
-        />
-        <MultiSelect
-          w={240}
-          placeholder={t('invoices.category')}
-          clearable
-          searchable
-          data={[{ value: NO_CATEGORY, label: t('invoices.categoryNone') }, ...categories.map((k) => ({ value: k.id, label: k.name }))]}
-          value={categoryFilter}
-          onChange={setCategoryFilter}
-        />
-        <MultiSelect
-          w={220}
-          placeholder={t('invoices.pay.label')}
-          clearable
-          data={(['overdue', 'due', 'paid'] as const).map((v) => ({ value: v, label: t(`invoices.pay.${v}`) }))}
-          value={payments}
-          onChange={setPayments}
-        />
-        <Switch label={t('invoices.onlyMine')} checked={mine} onChange={(e) => setMine(e.currentTarget.checked)} />
-        <Switch label={t('invoices.onlyMissing')} checked={missing} onChange={(e) => setMissing(e.currentTarget.checked)} />
-      </Group>
-      <MantineReactTable table={table} />
-    </Stack>
-  )
+  return <MantineReactTable table={table} />
 }
 
 type CostRowKind = 'project' | 'staff' | 'general' | 'unassigned'
