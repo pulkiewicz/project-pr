@@ -1869,7 +1869,11 @@
     "report": {
       "from": "Od",
       "to": "Do",
-      "coverage": "Okres wyciągów",
+      "coverage": "Cały okres wyciągów",
+      "month": "Miesiąc",
+      "prevMonth": "Poprzedni miesiąc",
+      "nextMonth": "Następny miesiąc",
+      "currentMonth": "Bieżący miesiąc",
       "coverageInfo": "Wyciągi: {{from}} – {{to}}",
       "export": "Eksport XLSX",
       "noStatements": "Nie zaimportowano jeszcze wyciągów — raport wydatków bez faktury będzie pusty.",

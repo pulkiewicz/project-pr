@@ -187,7 +187,9 @@ płatności pobierany przy każdej synchronizacji) **albo** gdy ma połączone p
 
 ### 4.6. Rozliczenia (menu Finanse)
 
-Raport za wybrany okres (domyślnie — okres wczytanych wyciągów). Nad zakładkami — **ciągłość wyciągów**: zielono, gdy
+Raport za wybrany **miesiąc** — domyślnie bieżący; strzałkami lub z kalendarza wybierzesz inny, a przyciskiem
+**Cały okres wyciągów** zobaczysz wszystko naraz. Lista odświeża się po każdym wgraniu wyciągu, usunięciu wyciągu,
+synchronizacji z inFakt i rozliczeniu operacji. Nad zakładkami — **ciągłość wyciągów**: zielono, gdy
 wyciągi następują po sobie bez przerw i saldo początkowe każdego równa się końcowemu poprzedniego. Ostrzeżenie oznacza
 brakujący wyciąg albo nakładające się okresy.
 

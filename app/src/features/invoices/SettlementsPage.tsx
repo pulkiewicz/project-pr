@@ -1,70 +1,142 @@
-import { Alert, Badge, Button, Group, List, Loader, Stack, Switch, Table, Tabs, Text, Title, Tooltip } from '@mantine/core'
-import { DateInput } from '@mantine/dates'
-import { notifications } from '@mantine/notifications'
-import { IconAlertTriangle, IconCircleCheck, IconDownload } from '@tabler/icons-react'
-import { format } from 'date-fns'
-import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { useAuth } from '../../auth/AuthProvider'
-import { downloadFile } from '../../lib/api'
-import { errorMessage } from '../../lib/errors'
-import { formatDate } from '../../lib/format'
-import { KindBadge } from './BankTab'
-import { bankReportPath, useBankReport } from './bankApi'
-import { InvoiceDrawer } from './InvoiceDrawer'
-import { formatMoney } from './status'
+import {
+  ActionIcon,
+  Alert,
+  Badge,
+  Button,
+  Group,
+  List,
+  Loader,
+  Stack,
+  Switch,
+  Table,
+  Tabs,
+  Text,
+  Title,
+  Tooltip,
+} from "@mantine/core";
+import { MonthPickerInput } from "@mantine/dates";
+import { notifications } from "@mantine/notifications";
+import {
+  IconAlertTriangle,
+  IconChevronLeft,
+  IconChevronRight,
+  IconCircleCheck,
+  IconDownload,
+} from "@tabler/icons-react";
+import { addMonths, endOfMonth, format, parseISO } from "date-fns";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useAuth } from "../../auth/AuthProvider";
+import { downloadFile } from "../../lib/api";
+import { errorMessage } from "../../lib/errors";
+import { formatDate, todayWarsaw } from "../../lib/format";
+import { KindBadge } from "./BankTab";
+import { bankReportPath, useBankReport } from "./bankApi";
+import { InvoiceDrawer } from "./InvoiceDrawer";
+import { formatMoney } from "./status";
 
-const toDate = (d: string | null) => (d ? new Date(`${d}T00:00:00`) : null)
-const fromDate = (d: Date | string | null) => (d ? format(typeof d === 'string' ? new Date(d) : d, 'yyyy-MM-dd') : null)
-const sum = (xs: (number | null)[]) => xs.reduce<number>((s, x) => s + (x ?? 0), 0)
+const monthDate = (m: string) => parseISO(`${m}-01`);
+const shiftMonth = (m: string, n: number) =>
+  format(addMonths(monthDate(m), n), "yyyy-MM");
+/** Okres raportu: miesiąc (od 1. do ostatniego dnia) albo null = cały okres zaimportowanych wyciągów. */
+const monthRange = (m: string | null) =>
+  m
+    ? { from: `${m}-01`, to: format(endOfMonth(monthDate(m)), "yyyy-MM-dd") }
+    : { from: null, to: null };
+const sum = (xs: (number | null)[]) =>
+  xs.reduce<number>((s, x) => s + (x ?? 0), 0);
 
 /**
  * Rozliczenia (pozycja menu Finanse): faktury bez płatności w wyciągach i płatności z wyciągów bez faktury,
- * nad nimi ciągłość wyciągów. Okres domyślnie = okres zaimportowanych wyciągów.
+ * nad nimi ciągłość wyciągów. Filtr miesiąca (domyślnie bieżący) albo cały okres zaimportowanych wyciągów.
  */
 export function SettlementsPage() {
-  const { t } = useTranslation()
-  const { can } = useAuth()
-  const [range, setRange] = useState<{ from: string | null; to: string | null }>({ from: null, to: null })
-  const [open, setOpen] = useState<string | null>(null)
-  const [showPaidInInfakt, setShowPaidInInfakt] = useState(false)
-  const q = useBankReport(range)
-  const r = q.data
-  const paidInInfakt = r?.unpaid.filter((i) => i.paidInInfakt).length ?? 0
-  const unpaid = useMemo(() => (r?.unpaid ?? []).filter((i) => showPaidInInfakt || !i.paidInInfakt), [r, showPaidInInfakt])
+  const { t } = useTranslation();
+  const { can } = useAuth();
+  const currentMonth = todayWarsaw().slice(0, 7);
+  // Miesiąc 'YYYY-MM'; null = cały okres wyciągów.
+  const [month, setMonth] = useState<string | null>(currentMonth);
+  const range = monthRange(month);
+  const [open, setOpen] = useState<string | null>(null);
+  const [showPaidInInfakt, setShowPaidInInfakt] = useState(false);
+  const q = useBankReport(range);
+  const r = q.data;
+  const paidInInfakt = r?.unpaid.filter((i) => i.paidInInfakt).length ?? 0;
+  const unpaid = useMemo(
+    () => (r?.unpaid ?? []).filter((i) => showPaidInInfakt || !i.paidInInfakt),
+    [r, showPaidInInfakt],
+  );
 
   return (
     <Stack>
-      <Title order={2}>{t('bank.report.title')}</Title>
+      <Title order={2}>{t("bank.report.title")}</Title>
       <Group align="flex-end" gap="sm">
-        <DateInput
-          size="xs"
-          w={140}
-          label={t('bank.report.from')}
-          valueFormat="DD.MM.YYYY"
-          value={toDate(range.from ?? r?.from ?? null)}
-          onChange={(v) => setRange((x) => ({ ...x, from: fromDate(v) }))}
-        />
-        <DateInput size="xs" w={140} label={t('bank.report.to')} valueFormat="DD.MM.YYYY" value={toDate(range.to ?? r?.to ?? null)} onChange={(v) => setRange((x) => ({ ...x, to: fromDate(v) }))} />
-        {(range.from || range.to) && (
-          <Button size="xs" variant="subtle" onClick={() => setRange({ from: null, to: null })}>
-            {t('bank.report.coverage')}
+        <Group gap={4}>
+          <ActionIcon
+            variant="default"
+            size="lg"
+            aria-label={t("bank.report.prevMonth")}
+            onClick={() => setMonth((m) => shiftMonth(m ?? currentMonth, -1))}
+          >
+            <IconChevronLeft size={18} />
+          </ActionIcon>
+          <MonthPickerInput
+            w={170}
+            aria-label={t("bank.report.month")}
+            placeholder={t("bank.report.coverage")}
+            valueFormat="MMMM YYYY"
+            locale="pl"
+            value={month ? monthDate(month) : null}
+            onChange={(d) =>
+              d &&
+              setMonth(
+                format(typeof d === "string" ? parseISO(d) : d, "yyyy-MM"),
+              )
+            }
+          />
+          <ActionIcon
+            variant="default"
+            size="lg"
+            aria-label={t("bank.report.nextMonth")}
+            onClick={() => setMonth((m) => shiftMonth(m ?? currentMonth, 1))}
+          >
+            <IconChevronRight size={18} />
+          </ActionIcon>
+        </Group>
+        <Button
+          variant={month ? "default" : "light"}
+          onClick={() => setMonth(null)}
+        >
+          {t("bank.report.coverage")}
+        </Button>
+        {month !== currentMonth && (
+          <Button variant="subtle" onClick={() => setMonth(currentMonth)}>
+            {t("bank.report.currentMonth")}
           </Button>
         )}
         {r?.coverage && (
           <Text size="xs" c="dimmed">
-            {t('bank.report.coverageInfo', { from: formatDate(r.coverage.from), to: formatDate(r.coverage.to) })}
+            {t("bank.report.coverageInfo", {
+              from: formatDate(r.coverage.from),
+              to: formatDate(r.coverage.to),
+            })}
           </Text>
         )}
-        {can('invoices', 'export') && r && (
+        {can("invoices", "export") && r && (
           <Button
             ml="auto"
-            size="xs"
             variant="light"
             leftSection={<IconDownload size={16} />}
-            onClick={() => downloadFile(bankReportPath(range, true), `rozliczenia-${r.from}_${r.to}.xlsx`).catch((e) => notifications.show({ color: 'red', message: errorMessage(e) }))}
+            onClick={() =>
+              downloadFile(
+                bankReportPath(range, true),
+                `rozliczenia-${r.from}_${r.to}.xlsx`,
+              ).catch((e) =>
+                notifications.show({ color: "red", message: errorMessage(e) }),
+              )
+            }
           >
-            {t('bank.report.export')}
+            {t("bank.report.export")}
           </Button>
         )}
       </Group>
@@ -74,9 +146,13 @@ export function SettlementsPage() {
       ) : (
         <>
           {!r.coverage ? (
-            <Alert color="yellow">{t('bank.report.noStatements')}</Alert>
+            <Alert color="yellow">{t("bank.report.noStatements")}</Alert>
           ) : r.continuity.length ? (
-            <Alert color="orange" icon={<IconAlertTriangle size={18} />} title={t('bank.report.continuityTitle')}>
+            <Alert
+              color="orange"
+              icon={<IconAlertTriangle size={18} />}
+              title={t("bank.report.continuityTitle")}
+            >
               <List size="sm">
                 {r.continuity.map((c, i) => (
                   <List.Item key={i}>
@@ -94,58 +170,90 @@ export function SettlementsPage() {
             </Alert>
           ) : (
             <Alert color="green" icon={<IconCircleCheck size={18} />}>
-              {t('bank.report.continuityOk')}
+              {t("bank.report.continuityOk")}
             </Alert>
           )}
 
           <Tabs defaultValue="unpaid" keepMounted={false} mt="sm">
             <Tabs.List>
               <Tabs.Tab value="unpaid">
-                {t('bank.report.tabUnpaid')} ({unpaid.length})
+                {t("bank.report.tabUnpaid")} ({unpaid.length})
               </Tabs.Tab>
               <Tabs.Tab value="missing">
-                {t('bank.report.tabMissing')} ({r.missing.length})
+                {t("bank.report.tabMissing")} ({r.missing.length})
               </Tabs.Tab>
             </Tabs.List>
             <Tabs.Panel value="unpaid" pt="sm">
               <Stack>
                 <Group justify="space-between">
-                  <Title order={4}>{t('bank.report.unpaidTitle', { count: unpaid.length })}</Title>
-                  <Text fw={600}>{formatMoney(sum(unpaid.filter((x) => x.currency === 'PLN').map((x) => x.openAmount)))}</Text>
+                  <Title order={4}>
+                    {t("bank.report.unpaidTitle", { count: unpaid.length })}
+                  </Title>
+                  <Text fw={600}>
+                    {formatMoney(
+                      sum(
+                        unpaid
+                          .filter((x) => x.currency === "PLN")
+                          .map((x) => x.openAmount),
+                      ),
+                    )}
+                  </Text>
                 </Group>
                 {paidInInfakt > 0 && (
-                  <Switch size="sm" label={t('bank.report.showPaidInInfakt', { count: paidInInfakt })} checked={showPaidInInfakt} onChange={(e) => setShowPaidInInfakt(e.currentTarget.checked)} />
+                  <Switch
+                    size="sm"
+                    label={t("bank.report.showPaidInInfakt", {
+                      count: paidInInfakt,
+                    })}
+                    checked={showPaidInInfakt}
+                    onChange={(e) =>
+                      setShowPaidInInfakt(e.currentTarget.checked)
+                    }
+                  />
                 )}
                 <Text size="sm" c="dimmed">
-                  {t('bank.report.unpaidHint')}
+                  {t("bank.report.unpaidHint")}
                 </Text>
                 {unpaid.length > 0 && (
                   <Table.ScrollContainer minWidth={800}>
                     <Table striped highlightOnHover withTableBorder fz="sm">
                       <Table.Thead>
                         <Table.Tr>
-                          <Table.Th>{t('invoices.number')}</Table.Th>
-                          <Table.Th>{t('invoices.seller')}</Table.Th>
-                          <Table.Th w={100}>{t('invoices.date')}</Table.Th>
-                          <Table.Th w={100}>{t('invoices.dueDate')}</Table.Th>
+                          <Table.Th>{t("invoices.number")}</Table.Th>
+                          <Table.Th>{t("invoices.seller")}</Table.Th>
+                          <Table.Th w={100}>{t("invoices.date")}</Table.Th>
+                          <Table.Th w={100}>{t("invoices.dueDate")}</Table.Th>
                           <Table.Th w={120} ta="right">
-                            {t('invoices.gross')}
+                            {t("invoices.gross")}
                           </Table.Th>
                           <Table.Th w={120} ta="right">
-                            {t('bank.unpaid')}
+                            {t("bank.unpaid")}
                           </Table.Th>
                         </Table.Tr>
                       </Table.Thead>
                       <Table.Tbody>
                         {unpaid.map((i) => (
-                          <Table.Tr key={i.id} style={{ cursor: 'pointer' }} onClick={() => setOpen(i.id)}>
-                            <Table.Td>{i.number ?? '—'}</Table.Td>
+                          <Table.Tr
+                            key={i.id}
+                            style={{ cursor: "pointer" }}
+                            onClick={() => setOpen(i.id)}
+                          >
+                            <Table.Td>{i.number ?? "—"}</Table.Td>
                             <Table.Td>
-                              {i.sellerName ?? '—'}
+                              {i.sellerName ?? "—"}
                               {i.paidInInfakt && (
-                                <Tooltip label={t('bank.report.paidInInfaktHint')} multiline w={300}>
-                                  <Badge ml={6} size="xs" color="green" variant="light">
-                                    {t('bank.report.paidInInfakt')}
+                                <Tooltip
+                                  label={t("bank.report.paidInInfaktHint")}
+                                  multiline
+                                  w={300}
+                                >
+                                  <Badge
+                                    ml={6}
+                                    size="xs"
+                                    color="green"
+                                    variant="light"
+                                  >
+                                    {t("bank.report.paidInInfakt")}
                                   </Badge>
                                 </Tooltip>
                               )}
@@ -154,15 +262,29 @@ export function SettlementsPage() {
                             <Table.Td>
                               {formatDate(i.dueDate)}
                               {i.overdueDays != null && (
-                                <Badge ml={4} size="xs" color="red" variant="light">
-                                  {t('bank.report.overdue', { count: i.overdueDays })}
+                                <Badge
+                                  ml={4}
+                                  size="xs"
+                                  color="red"
+                                  variant="light"
+                                >
+                                  {t("bank.report.overdue", {
+                                    count: i.overdueDays,
+                                  })}
                                 </Badge>
                               )}
                             </Table.Td>
-                            <Table.Td ta="right" style={{ whiteSpace: 'nowrap' }}>
+                            <Table.Td
+                              ta="right"
+                              style={{ whiteSpace: "nowrap" }}
+                            >
                               {formatMoney(i.grossPrice, i.currency)}
                             </Table.Td>
-                            <Table.Td ta="right" fw={600} style={{ whiteSpace: 'nowrap' }}>
+                            <Table.Td
+                              ta="right"
+                              fw={600}
+                              style={{ whiteSpace: "nowrap" }}
+                            >
                               {formatMoney(i.openAmount, i.currency)}
                             </Table.Td>
                           </Table.Tr>
@@ -176,24 +298,30 @@ export function SettlementsPage() {
             <Tabs.Panel value="missing" pt="sm">
               <Stack>
                 <Group justify="space-between">
-                  <Title order={4}>{t('bank.report.missingTitle', { count: r.missing.length })}</Title>
-                  <Text fw={600}>{formatMoney(sum(r.missing.map((x) => x.amount)))}</Text>
+                  <Title order={4}>
+                    {t("bank.report.missingTitle", { count: r.missing.length })}
+                  </Title>
+                  <Text fw={600}>
+                    {formatMoney(sum(r.missing.map((x) => x.amount)))}
+                  </Text>
                 </Group>
                 <Text size="sm" c="dimmed">
-                  {t('bank.report.missingHint')}
+                  {t("bank.report.missingHint")}
                 </Text>
                 {r.missing.length > 0 && (
                   <Table.ScrollContainer minWidth={800}>
                     <Table striped withTableBorder fz="sm">
                       <Table.Thead>
                         <Table.Tr>
-                          <Table.Th w={100}>{t('bank.date')}</Table.Th>
-                          <Table.Th w={80}>{t('bank.report.statement')}</Table.Th>
-                          <Table.Th w={120}>{t('bank.kindLabel')}</Table.Th>
-                          <Table.Th>{t('bank.description')}</Table.Th>
-                          <Table.Th>{t('bank.report.reference')}</Table.Th>
+                          <Table.Th w={100}>{t("bank.date")}</Table.Th>
+                          <Table.Th w={80}>
+                            {t("bank.report.statement")}
+                          </Table.Th>
+                          <Table.Th w={120}>{t("bank.kindLabel")}</Table.Th>
+                          <Table.Th>{t("bank.description")}</Table.Th>
+                          <Table.Th>{t("bank.report.reference")}</Table.Th>
                           <Table.Th w={130} ta="right">
-                            {t('bank.amount')}
+                            {t("bank.amount")}
                           </Table.Th>
                         </Table.Tr>
                       </Table.Thead>
@@ -206,7 +334,7 @@ export function SettlementsPage() {
                               <KindBadge kind={x.kind} />
                             </Table.Td>
                             <Table.Td>
-                              <Text size="sm">{x.counterparty ?? '—'}</Text>
+                              <Text size="sm">{x.counterparty ?? "—"}</Text>
                               {x.cardHolder && (
                                 <Text size="xs" c="dimmed">
                                   {x.cardHolder}
@@ -214,14 +342,17 @@ export function SettlementsPage() {
                               )}
                             </Table.Td>
                             <Table.Td>
-                              <Text size="sm">{x.reference ?? ''}</Text>
-                              {x.costStatus === 'invoice' && (
+                              <Text size="sm">{x.reference ?? ""}</Text>
+                              {x.costStatus === "invoice" && (
                                 <Badge size="xs" variant="light" color="yellow">
-                                  {t('bank.report.toLink')}
+                                  {t("bank.report.toLink")}
                                 </Badge>
                               )}
                             </Table.Td>
-                            <Table.Td ta="right" style={{ whiteSpace: 'nowrap' }}>
+                            <Table.Td
+                              ta="right"
+                              style={{ whiteSpace: "nowrap" }}
+                            >
                               {formatMoney(x.amount, x.currency)}
                             </Table.Td>
                           </Table.Tr>
@@ -237,5 +368,5 @@ export function SettlementsPage() {
       )}
       <InvoiceDrawer id={open} onClose={() => setOpen(null)} />
     </Stack>
-  )
+  );
 }

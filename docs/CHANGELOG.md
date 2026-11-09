@@ -1,5 +1,10 @@
 # Changelog
 
+## Rozliczenia: filtr miesiąca, odświeżanie po wgraniu wyciągu (09.11.2026)
+
+- **Filtr miesiąca** zamiast pól „Od / Do”: strzałki poprzedni / następny miesiąc i kalendarz miesięcy; **domyślnie bieżący miesiąc**. „Cały okres wyciągów” — raport za okres zaimportowanych wyciągów (dotychczasowy domyślny widok), „Bieżący miesiąc” wraca do dzisiejszego. Eksport XLSX za wybrany okres.
+- **Lista zawsze aktualna**: raport pobierany od nowa przy każdym wejściu na stronę, a także po wgraniu / usunięciu wyciągu, rozliczeniu operacji i połączeniu z fakturą; wgranie wyciągu odświeża też faktury (stan zapłaty).
+
 ## inFakt: aktualizacja o 8:00 i 14:00 razem z Rozliczeniami (09.11.2026)
 
 - **Automatyczna synchronizacja z inFakt dwa razy dziennie — 8:00 i 14:00 czasu warszawskiego** (funkcja `infakt-sync`, harmonogram `0 6,7,12,13 * * *` UTC; wykonuje się tylko w godzinie 8 i 14 w Warszawie, więc działa tak samo w czasie letnim i zimowym). Wcześniej raz dziennie o 05:00 UTC.
