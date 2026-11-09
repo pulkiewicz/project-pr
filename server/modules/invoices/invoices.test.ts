@@ -107,12 +107,33 @@ describe('przypisanie i akceptacja', () => {
     expect((await put({ allocations: [], version: inv.version - 1 })).status).toBe(409)
   })
 
-  it('wysyłający nie może sam zaakceptować; akceptuje inna osoba z listy', async () => {
+  it('lista akceptujących: osoby z listy z prawem akceptacji, bez mnie', async () => {
+    const res = await req(h, 'GET', '/api/invoices/approvers', ania.headers)
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { id: string }[]).map((a) => a.id).sort()).toEqual([admin.id, kamil.id].sort())
+    expect((await req(h, 'GET', '/api/invoices/approvers', outsider.headers)).status).toBe(403)
+  })
+
+  it('wysłanie wymaga wskazania akceptującego z listy (nie siebie)', async () => {
     const inv = await byNumber('FV/2/10/2026')
-    const sub = await req(h, 'POST', `/api/invoices/${inv.id}/submit`, ania.headers, { version: inv.version })
+    const submit = (body: object) => req(h, 'POST', `/api/invoices/${inv.id}/submit`, ania.headers, { version: inv.version, ...body })
+    expect((await submit({})).status).toBe(422)
+    const self = await submit({ approverId: ania.id })
+    expect(self.status).toBe(403)
+    expect(((await self.json()) as { code: string }).code).toBe('invoice_self_approval')
+    const notOnList = await submit({ approverId: outsider.id })
+    expect(notOnList.status).toBe(422)
+    expect(((await notOnList.json()) as { code: string }).code).toBe('invoice_approver_invalid')
+    expect((await byNumber('FV/2/10/2026')).status).toBe('new')
+  })
+
+  it('wysyłający nie może sam zaakceptować; akceptuje wskazana osoba', async () => {
+    const inv = await byNumber('FV/2/10/2026')
+    const sub = await req(h, 'POST', `/api/invoices/${inv.id}/submit`, ania.headers, { version: inv.version, approverId: kamil.id })
     expect(sub.status).toBe(200)
     const pending = (await sub.json()) as InvoiceDetailDto
-    expect(pending).toMatchObject({ status: 'pending', submittedBy: ania.id })
+    expect(pending).toMatchObject({ status: 'pending', submittedBy: ania.id, approverId: kamil.id, approverName: 'EnvcheckInternal 3' })
+    expect(pending.events[0]).toMatchObject({ kind: 'submitted', meta: { approverId: kamil.id, approverName: 'EnvcheckInternal 3' } })
     // W trakcie akceptacji przypisania nie można zmieniać.
     expect((await req(h, 'PUT', `/api/invoices/${inv.id}/allocation`, kamil.headers, { allocations: [], version: pending.version })).status).toBe(409)
     const self = await req(h, 'POST', `/api/invoices/${inv.id}/approve`, ania.headers, { version: pending.version })
@@ -125,14 +146,18 @@ describe('przypisanie i akceptacja', () => {
 
   it('odrzucenie wymaga komentarza; odrzucona wraca do poprawy i ponownej wysyłki', async () => {
     const inv = await byNumber('FV/1/10/2026')
-    const sub = (await (await req(h, 'POST', `/api/invoices/${inv.id}/submit`, kamil.headers, { version: inv.version })).json()) as InvoiceDetailDto
+    const sub = (await (await req(h, 'POST', `/api/invoices/${inv.id}/submit`, kamil.headers, { version: inv.version, approverId: admin.id })).json()) as InvoiceDetailDto
+    // Decyzję podejmuje wskazana osoba — inny akceptujący (nie Admin) nie może.
+    const other = await req(h, 'POST', `/api/invoices/${inv.id}/reject`, ania.headers, { version: sub.version, comment: 'nie' })
+    expect(other.status).toBe(403)
+    expect(((await other.json()) as { code: string }).code).toBe('invoice_not_approver')
     expect((await req(h, 'POST', `/api/invoices/${inv.id}/reject`, admin.headers, { version: sub.version, comment: '' })).status).toBe(422)
     const rej = (await (await req(h, 'POST', `/api/invoices/${inv.id}/reject`, admin.headers, { version: sub.version, comment: 'to koszt OF038' })).json()) as InvoiceDetailDto
     expect(rej.status).toBe('rejected')
     expect(rej.events[0]).toMatchObject({ kind: 'rejected', comment: 'to koszt OF038' })
     const fixed = await req(h, 'PUT', `/api/invoices/${inv.id}/allocation`, kamil.headers, { allocations: [{ projectId: project2, share: 100 }], version: rej.version })
     expect(fixed.status).toBe(200)
-    const again = await req(h, 'POST', `/api/invoices/${inv.id}/submit`, kamil.headers, { version: ((await fixed.json()) as InvoiceDetailDto).version })
+    const again = await req(h, 'POST', `/api/invoices/${inv.id}/submit`, kamil.headers, { version: ((await fixed.json()) as InvoiceDetailDto).version, approverId: admin.id })
     expect(((await again.json()) as InvoiceDetailDto).status).toBe('pending')
   })
 
@@ -150,13 +175,13 @@ describe('przypisanie i akceptacja', () => {
   it('cofnięcie akceptacji / wycofanie z akceptacji → „do przypisania”', async () => {
     const pending = await byNumber('FV/1/10/2026')
     const res = await req(h, 'POST', `/api/invoices/${pending.id}/reopen`, kamil.headers, { version: pending.version, comment: 'jednak podział' })
-    expect(((await res.json()) as InvoiceDetailDto).status).toBe('new')
+    expect((await res.json()) as InvoiceDetailDto).toMatchObject({ status: 'new', approverId: null })
   })
 
   it('plik bez odczytanych kwot: nie można wysłać, dopóki nie uzupełni się netto; dane ręczne wygrywają z synchronizacją', async () => {
     const scan = (await list(ania)).items.find((i) => i.infaktUuid.endsWith('000000000003'))!
     expect(scan).toMatchObject({ number: null, netPrice: null })
-    const noAmount = await req(h, 'POST', `/api/invoices/${scan.id}/submit`, ania.headers, { version: scan.version })
+    const noAmount = await req(h, 'POST', `/api/invoices/${scan.id}/submit`, ania.headers, { version: scan.version, approverId: kamil.id })
     expect(noAmount.status).toBe(422)
     expect(((await noAmount.json()) as { code: string }).code).toBe('invoice_amount_missing')
 
@@ -168,7 +193,7 @@ describe('przypisanie i akceptacja', () => {
     expect(d.events[0]).toMatchObject({ kind: 'edited' })
 
     // inFakt odczytał potem inne kwoty — wartość ręczna zostaje, a zmiana nie cofa statusu.
-    const sub = (await (await req(h, 'POST', `/api/invoices/${scan.id}/submit`, ania.headers, { version: d.version })).json()) as InvoiceDetailDto
+    const sub = (await (await req(h, 'POST', `/api/invoices/${scan.id}/submit`, ania.headers, { version: d.version, approverId: kamil.id })).json()) as InvoiceDetailDto
     expect(sub.status).toBe('pending')
     h.infakt.costs[2]!.net_price = 99900
     await req(h, 'POST', '/api/invoices/sync', ania.headers)
@@ -186,7 +211,7 @@ describe('przypisanie i akceptacja', () => {
 
   it('zbiorcza zmiana przypisania: tylko faktury do przypisania / odrzucone, opis zachowany lub nowy, null = ogólne', async () => {
     const toSubmit = (await list(ania)).items.find((i) => i.status === 'new' && i.netPrice != null)!
-    await req(h, 'POST', `/api/invoices/${toSubmit.id}/submit`, ania.headers, { version: toSubmit.version })
+    await req(h, 'POST', `/api/invoices/${toSubmit.id}/submit`, ania.headers, { version: toSubmit.version, approverId: kamil.id })
     const items = (await list(ania)).items
     const pending = items.find((i) => i.id === toSubmit.id && i.status === 'pending')!
     const editable = items.filter((i) => i.status === 'new' || i.status === 'rejected')
@@ -279,7 +304,7 @@ describe('kategorie kosztów', () => {
 describe('uwagi z 02.11.2026: zbiorcze wysyłanie, licznik akceptacji, podgląd, eksport za okres, księgowość', () => {
   const count = async (u: TestUser) => ((await (await req(h, 'GET', '/api/invoices/awaiting-approval', u.headers)).json()) as { count: number }).count
 
-  it('zbiorcze wysłanie do akceptacji: tylko przypisane z kwotą; licznik „do mojej akceptacji” bez własnych', async () => {
+  it('zbiorcze wysłanie do akceptacji: tylko przypisane z kwotą, do wskazanej osoby; licznik — tylko czekające na mnie', async () => {
     const editable = (await list(ania)).items.filter((i) => i.status === 'new' || i.status === 'rejected')
     const target = editable.find((i) => i.netPrice != null)!
     const unassigned = editable.find((i) => i.id !== target.id)!
@@ -287,17 +312,21 @@ describe('uwagi z 02.11.2026: zbiorcze wysyłanie, licznik akceptacji, podgląd,
     await req(h, 'POST', '/api/invoices/bulk-allocation', kamil.headers, { ids: [unassigned.id], projectId: project2 })
     await req(h, 'PUT', `/api/invoices/${unassigned.id}/allocation`, kamil.headers, { allocations: [], general: false, version: (await byId(unassigned.id)).version })
     const before = await count(ania)
-    const res = await req(h, 'POST', '/api/invoices/bulk-submit', kamil.headers, { ids: [target.id, unassigned.id] })
+    expect((await req(h, 'POST', '/api/invoices/bulk-submit', kamil.headers, { ids: [target.id] })).status).toBe(422)
+    const res = await req(h, 'POST', '/api/invoices/bulk-submit', kamil.headers, { ids: [target.id, unassigned.id], approverId: ania.id })
     expect(res.status).toBe(200)
     expect((await res.json()) as InvoiceBulkResult).toEqual({ updated: 1, skipped: 1 })
     const d = await byId(target.id)
-    expect(d).toMatchObject({ status: 'pending', submittedBy: kamil.id })
-    expect(d.events[0]).toMatchObject({ kind: 'submitted', meta: { bulk: true } })
+    expect(d).toMatchObject({ status: 'pending', submittedBy: kamil.id, approverId: ania.id })
+    expect(d.events[0]).toMatchObject({ kind: 'submitted', meta: { bulk: true, approverId: ania.id } })
     expect((await byId(unassigned.id)).status).not.toBe('pending')
     expect(await count(ania)).toBe(before + 1)
-    // Wysłane przez siebie nie liczą się do własnej akceptacji.
-    expect(await count(kamil)).toBe((await list(ania)).items.filter((i) => i.status === 'pending' && i.submittedBy !== kamil.id).length)
-    expect((await req(h, 'POST', '/api/invoices/bulk-submit', outsider.headers, { ids: [target.id] })).status).toBe(403)
+    // Licznik: wskazane mnie (a bez wskazania — wysłane przez kogoś innego).
+    const awaits = (u: TestUser) => (i: { status: string; approverId: string | null; submittedBy: string | null }) =>
+      i.status === 'pending' && (i.approverId ? i.approverId === u.id : i.submittedBy !== u.id)
+    const items = (await list(ania)).items
+    for (const u of [admin, ania, kamil]) expect(await count(u)).toBe(items.filter(awaits(u)).length)
+    expect((await req(h, 'POST', '/api/invoices/bulk-submit', outsider.headers, { ids: [target.id], approverId: ania.id })).status).toBe(403)
   })
 
   it('podgląd pliku inline (PDF przez serwer)', async () => {
@@ -334,7 +363,9 @@ describe('uwagi z 02.11.2026: zbiorcze wysyłanie, licznik akceptacji, podgląd,
     expect(await count(accountant)).toBe(0)
     const inv = (await list(ania)).items[0]!
     expect((await req(h, 'PATCH', `/api/invoices/${inv.id}/category`, accountant.headers, { costCategoryId: null })).status).toBe(403)
-    expect((await req(h, 'POST', '/api/invoices/bulk-submit', accountant.headers, { ids: [inv.id] })).status).toBe(403)
+    expect((await req(h, 'POST', '/api/invoices/bulk-submit', accountant.headers, { ids: [inv.id], approverId: ania.id })).status).toBe(403)
+    // Księgowość nie ma prawa akceptacji — nie ma jej na liście akceptujących.
+    expect(((await (await req(h, 'GET', '/api/invoices/approvers', ania.headers)).json()) as { id: string }[]).map((a) => a.id)).not.toContain(accountant.id)
     const me = (await (await req(h, 'GET', '/api/me', accountant.headers)).json()) as MeResponse
     expect(me.permissions).toEqual(expect.arrayContaining(['invoices:view', 'invoices:export']))
     expect(me.permissions).not.toContain('crm:view')
@@ -367,59 +398,65 @@ describe('powiadomienia e-mail o akceptacji', () => {
     expect(s.mailConfigured).toBe(true)
     h.mailer.sent = []
     const inv = await ready()
-    expect((await req(h, 'POST', `/api/invoices/${inv.id}/submit`, ania.headers, { version: inv.version })).status).toBe(200)
+    expect((await req(h, 'POST', `/api/invoices/${inv.id}/submit`, ania.headers, { version: inv.version, approverId: kamil.id })).status).toBe(200)
     expect(h.mailer.sent).toHaveLength(0)
   })
 
-  it('po włączeniu: jeden e-mail do akceptujących z listy, bez wysyłającego i bez osób bez prawa akceptacji', async () => {
+  it('po włączeniu: e-mail tylko do wskazanego akceptującego', async () => {
     await reopenAll()
     await setNotify(true)
     h.mailer.sent = []
     const inv = await ready()
-    expect((await req(h, 'POST', `/api/invoices/${inv.id}/submit`, ania.headers, { version: inv.version })).status).toBe(200)
+    expect((await req(h, 'POST', `/api/invoices/${inv.id}/submit`, ania.headers, { version: inv.version, approverId: kamil.id })).status).toBe(200)
     expect(h.mailer.sent).toHaveLength(1)
     const mail = h.mailer.sent[0]!
-    // Admin i Kamil akceptują; Ania wysłała; Księgowość (na liście) nie ma `invoices:approve`; outsider spoza listy.
-    expect(mail.to.sort()).toEqual([admin.email, kamil.email].sort())
+    // Tylko Kamil (wskazany) — nie Admin, choć też akceptuje.
+    expect(mail.to).toEqual([kamil.email])
     expect(mail.subject).toBe('Do akceptacji: 1 faktura kosztowa')
     expect(mail.text).toContain(inv.number!)
-    expect(mail.text).toContain('http://localhost/faktury?akceptacja')
+    expect(mail.text).toContain('http://localhost/akceptacja')
   })
 
-  it('zbiorcze wysłanie = jeden zbiorczy e-mail; nieaktywny akceptujący pominięty; błąd poczty nie blokuje wysłania', async () => {
+  it('zbiorcze wysłanie = jeden zbiorczy e-mail do wskazanego; nieaktywnego nie można wskazać; błąd poczty nie blokuje wysłania', async () => {
     await reopenAll()
     const a = await ready()
     const b = (await list(ania)).items.find((i) => i.id !== a.id && (i.status === 'new' || i.status === 'rejected') && i.netPrice != null)!
     await req(h, 'POST', '/api/invoices/bulk-allocation', kamil.headers, { ids: [b.id], projectId: project2 })
     await h.db.update(schema.users).set({ isActive: false }).where(eq(schema.users.id, admin.id))
     h.mailer.sent = []
-    const res = await req(h, 'POST', '/api/invoices/bulk-submit', kamil.headers, { ids: [a.id, b.id] })
+    const inactive = await req(h, 'POST', '/api/invoices/bulk-submit', kamil.headers, { ids: [a.id, b.id], approverId: admin.id })
     await h.db.update(schema.users).set({ isActive: true }).where(eq(schema.users.id, admin.id))
+    expect(inactive.status).toBe(422)
+    const res = await req(h, 'POST', '/api/invoices/bulk-submit', kamil.headers, { ids: [a.id, b.id], approverId: ania.id })
     expect((await res.json()) as InvoiceBulkResult).toEqual({ updated: 2, skipped: 0 })
     expect(h.mailer.sent).toHaveLength(1)
     expect(h.mailer.sent[0]).toMatchObject({ to: [ania.email], subject: 'Do akceptacji: 2 faktury kosztowe' })
-    expect(h.mailer.sent[0]!.text).toContain('EnvcheckInternal 3 wysłał(a) do akceptacji 2 faktury kosztowe')
+    expect(h.mailer.sent[0]!.text).toContain('EnvcheckInternal 3 wysłał(a) Ci do akceptacji 2 faktury kosztowe')
 
     h.mailer.fail = true
     const c = await ready()
-    const sub = await req(h, 'POST', `/api/invoices/${c.id}/submit`, ania.headers, { version: c.version })
+    const sub = await req(h, 'POST', `/api/invoices/${c.id}/submit`, ania.headers, { version: c.version, approverId: kamil.id })
     h.mailer.fail = false
     expect(sub.status).toBe(200)
     expect((await byId(c.id)).status).toBe('pending')
   })
 
-  it('poranne przypomnienie: każdy akceptujący dostaje listę czekających na niego (bez własnych); wyłączone — nic', async () => {
+  it('poranne przypomnienie: każdy akceptujący dostaje listę czekających na niego (wskazanych jemu); wyłączone — nic', async () => {
     const { sendApprovalDigest } = await import('./notify.ts')
-    // Czekają: dwie wysłane przez Kamila i jedna przez Anię — każdy akceptujący ma coś do akceptacji.
+    // Czekają: dwie wysłane przez Kamila do Ani i jedna przez Anię do Kamila; jedną zamieniamy na wysłaną sprzed wyboru akceptującego.
+    const legacy = (await list(ania)).items.find((i) => i.status === 'pending' && i.submittedBy === kamil.id)!
+    await h.db.update(schema.costInvoices).set({ approverId: null }).where(eq(schema.costInvoices.id, legacy.id))
     const pending = (await list(ania)).items.filter((i) => i.status === 'pending')
     expect(new Set(pending.map((i) => i.submittedBy))).toEqual(new Set([kamil.id, ania.id]))
     h.mailer.sent = []
-    expect(await sendApprovalDigest(h.db, h.mailer, 'https://hub.envcheck.test/')).toEqual({ sent: 3 })
     const forUser = (u: TestUser) => h.mailer.sent.find((m) => m.to.length === 1 && m.to[0] === u.email)
+    const waiting = (u: TestUser) => pending.filter((i) => (i.approverId ? i.approverId === u.id : i.submittedBy !== u.id)).length
+    // Admin: tylko faktura bez wskazania; Ania: wskazane jej + bez wskazania; Kamil: wskazana jemu.
+    expect(waiting(admin)).toBe(1)
+    expect(await sendApprovalDigest(h.db, h.mailer, 'https://hub.envcheck.test/')).toEqual({ sent: 3 })
     for (const u of [admin, ania, kamil]) {
-      const n = pending.filter((i) => i.submittedBy !== u.id).length
-      expect(forUser(u)?.subject).toMatch(new RegExp(`^Przypomnienie: ${n} `))
-      expect(forUser(u)?.text).toContain('https://hub.envcheck.test/faktury?akceptacja')
+      expect(forUser(u)?.subject).toMatch(new RegExp(`^Przypomnienie: ${waiting(u)} `))
+      expect(forUser(u)?.text).toContain('https://hub.envcheck.test/akceptacja')
     }
     await setNotify(false)
     h.mailer.sent = []

@@ -21,6 +21,7 @@ import {
   type InvoiceBulkResult,
   invoiceRejectInput,
   invoiceSettingsInput,
+  invoiceSubmitInput,
   invoiceTransitionInput,
   type Action,
   type InvoiceDetailDto,
@@ -37,7 +38,7 @@ import { HttpProblem, conflict, forbidden, notFound } from '../../lib/problem.ts
 import { newRouter, secureRoute } from '../../routing.ts'
 import { writeAudit } from '../audit/service.ts'
 import { invoicePayments } from '../bank/reconcile.ts'
-import { notifySubmitted } from './notify.ts'
+import { awaitsDecisionOf, eligibleApprovers, notifySubmitted } from './notify.ts'
 import { effective, getInvoice, lastSync, listEvents, listInvoices, syncInvoices } from './service.ts'
 
 export const invoicesRouter = newRouter()
@@ -54,6 +55,14 @@ async function notifyApprovers(c: Context<AppEnv>, invoiceIds: string[]) {
   const deps = c.get('deps')
   const user = c.get('user')
   await notifySubmitted(deps.db, deps.mailer, { invoiceIds, submitter: { id: user.id, name: user.name }, baseUrl: deps.config.appUrl ?? new URL(c.req.url).origin })
+}
+
+/** Wskazany akceptujący: osoba z listy akceptujących, inna niż wysyłająca (zasada czterech oczu). Zwraca jego dane. */
+async function checkApprover(c: Context<AppEnv>, approverId: string) {
+  if (approverId === c.get('user').id) throw forbidden('invoice_self_approval')
+  const found = (await eligibleApprovers(c.get('deps').db)).find((a) => a.id === approverId)
+  if (!found) throw new HttpProblem(422, 'invoice_approver_invalid')
+  return found
 }
 
 async function detail(c: Context<AppEnv>, id: string): Promise<InvoiceDetailDto> {
@@ -73,8 +82,10 @@ async function transition(
   version: number,
   from: readonly InvoiceStatus[],
   to: InvoiceStatus,
-  event: { kind: 'submitted' | 'approved' | 'rejected' | 'reopened'; comment?: string | null },
+  event: { kind: 'submitted' | 'approved' | 'rejected' | 'reopened'; comment?: string | null; meta?: Record<string, unknown> },
   check?: (cur: typeof costInvoices.$inferSelect) => void,
+  /** Przy wysłaniu do akceptacji: wskazany akceptujący. */
+  approverId: string | null = null,
 ) {
   const deps = c.get('deps')
   const user = c.get('user')
@@ -88,9 +99,9 @@ async function transition(
       .update(costInvoices)
       .set({
         status: to,
-        ...(to === 'pending' ? { submittedBy: user.id, submittedAt: sql`now()`, decidedBy: null, decidedAt: null } : {}),
+        ...(to === 'pending' ? { submittedBy: user.id, submittedAt: sql`now()`, approverId, decidedBy: null, decidedAt: null } : {}),
         ...(decision ? { decidedBy: user.id, decidedAt: sql`now()` } : {}),
-        ...(to === 'new' ? { decidedBy: null, decidedAt: null } : {}),
+        ...(to === 'new' ? { approverId: null, decidedBy: null, decidedAt: null } : {}),
         version: sql`${costInvoices.version} + 1`,
         updatedAt: sql`now()`,
         updatedBy: user.id,
@@ -98,7 +109,7 @@ async function transition(
       .where(and(eq(costInvoices.id, id), eq(costInvoices.version, version)))
       .returning({ id: costInvoices.id })
     if (r) {
-      await tx.insert(costInvoiceEvents).values({ invoiceId: id, kind: event.kind, comment: event.comment ?? null, userId: user.id })
+      await tx.insert(costInvoiceEvents).values({ invoiceId: id, kind: event.kind, comment: event.comment ?? null, userId: user.id, meta: event.meta ?? null })
       await writeAudit(c, { action: `invoices.${event.kind}`, entity: 'cost_invoices', entityId: id, changes: { status: { old: cur.status, new: to }, comment: event.comment ?? undefined } }, tx)
     }
     return r
@@ -203,7 +214,10 @@ invoicesRouter.openapi(
   },
 )
 
-/** Licznik do menu: faktury czekające na moją akceptację (wysłane przez kogoś innego). Bez uprawnienia `approve` — 0. */
+/**
+ * Licznik do menu: faktury czekające na moją decyzję — wskazane mnie, a wysłane bez wskazania akceptującego
+ * (sprzed wyboru akceptującego) — wysłane przez kogoś innego. Bez uprawnienia `approve` — 0.
+ */
 invoicesRouter.openapi(route({ method: 'get', path: '/invoices/awaiting-approval', responses: ok }, 'view'), async (c) => {
   if (!c.get('permissions').has('invoices:approve')) return c.json({ count: 0 }, 200)
   const me = c.get('user').id
@@ -211,8 +225,20 @@ invoicesRouter.openapi(route({ method: 'get', path: '/invoices/awaiting-approval
     .get('deps')
     .db.select({ n: count() })
     .from(costInvoices)
-    .where(and(eq(costInvoices.status, 'pending'), sql`${costInvoices.submittedBy} IS DISTINCT FROM ${me}`))
+    .where(
+      and(
+        eq(costInvoices.status, 'pending'),
+        sql`(${costInvoices.approverId} = ${me} OR (${costInvoices.approverId} IS NULL AND ${costInvoices.submittedBy} IS DISTINCT FROM ${me}))`,
+      ),
+    )
   return c.json({ count: r?.n ?? 0 }, 200)
+})
+
+/** Osoby do wyboru przy wysłaniu do akceptacji (bez mnie — zasada czterech oczu). */
+invoicesRouter.openapi(route({ method: 'get', path: '/invoices/approvers', responses: ok }, 'edit'), async (c) => {
+  const me = c.get('user').id
+  const list: InvoiceUserOption[] = (await eligibleApprovers(c.get('deps').db)).filter((a) => a.id !== me).map((a) => ({ id: a.id, name: a.name }))
+  return c.json(list, 200)
 })
 
 invoicesRouter.openapi(route({ method: 'get', path: '/invoices/{id}', request: { params: idParam }, responses: ok }, 'view'), async (c) =>
@@ -548,14 +574,24 @@ invoicesRouter.openapi(
 // ---------------- Akceptacja ----------------
 
 invoicesRouter.openapi(
-  route({ method: 'post', path: '/invoices/{id}/submit', request: { params: idParam, body: body(invoiceTransitionInput) }, responses: ok }, 'edit'),
+  route({ method: 'post', path: '/invoices/{id}/submit', request: { params: idParam, body: body(invoiceSubmitInput) }, responses: ok }, 'edit'),
   async (c) => {
-    const { comment, version } = c.req.valid('json')
+    const { comment, version, approverId } = c.req.valid('json')
     const id = c.req.valid('param').id
+    const approver = await checkApprover(c, approverId)
     // Bez kwoty netto podział % nie daje kosztów projektów — trzeba ją uzupełnić (plik bez odczytanych kwot).
-    const res = await transition(c, id, version, INVOICE_EDITABLE, 'pending', { kind: 'submitted', comment }, (cur) => {
-      if (effective(cur).netPrice == null) throw new HttpProblem(422, 'invoice_amount_missing')
-    })
+    const res = await transition(
+      c,
+      id,
+      version,
+      INVOICE_EDITABLE,
+      'pending',
+      { kind: 'submitted', comment, meta: { approverId, approverName: approver.name } },
+      (cur) => {
+        if (effective(cur).netPrice == null) throw new HttpProblem(422, 'invoice_amount_missing')
+      },
+      approverId,
+    )
     await notifyApprovers(c, [id])
     return res
   },
@@ -568,8 +604,9 @@ invoicesRouter.openapi(
 invoicesRouter.openapi(
   route({ method: 'post', path: '/invoices/bulk-submit', request: { body: body(invoiceBulkSubmitInput) }, responses: ok }, 'edit'),
   async (c) => {
-    const { ids, comment } = c.req.valid('json')
+    const { ids, comment, approverId } = c.req.valid('json')
     const user = c.get('user')
+    const approver = await checkApprover(c, approverId)
     const unique = [...new Set(ids)]
     const result = await c.get('deps').db.transaction(async (tx) => {
       const rows = await tx.select().from(costInvoices).where(inArray(costInvoices.id, unique))
@@ -580,9 +617,11 @@ invoicesRouter.openapi(
       if (target.length) {
         await tx
           .update(costInvoices)
-          .set({ status: 'pending', submittedBy: user.id, submittedAt: sql`now()`, decidedBy: null, decidedAt: null, version: sql`${costInvoices.version} + 1`, updatedAt: sql`now()`, updatedBy: user.id })
+          .set({ status: 'pending', submittedBy: user.id, submittedAt: sql`now()`, approverId, decidedBy: null, decidedAt: null, version: sql`${costInvoices.version} + 1`, updatedAt: sql`now()`, updatedBy: user.id })
           .where(and(inArray(costInvoices.id, target), inArray(costInvoices.status, [...INVOICE_EDITABLE])))
-        await tx.insert(costInvoiceEvents).values(target.map((invoiceId) => ({ invoiceId, kind: 'submitted' as const, comment: comment || null, userId: user.id, meta: { bulk: true } })))
+        await tx
+          .insert(costInvoiceEvents)
+          .values(target.map((invoiceId) => ({ invoiceId, kind: 'submitted' as const, comment: comment || null, userId: user.id, meta: { bulk: true, approverId, approverName: approver.name } })))
       }
       const res: InvoiceBulkResult = { updated: target.length, skipped: unique.length - target.length }
       await writeAudit(c, { action: 'invoices.bulk_submit', entity: 'cost_invoices', changes: { ids: target, ...res } }, tx)
@@ -594,9 +633,14 @@ invoicesRouter.openapi(
   },
 )
 
-/** Zasada czterech oczu: akceptuje / odrzuca inna osoba z dostępem niż ta, która wysłała do akceptacji. */
+/**
+ * Decyzję podejmuje wskazany akceptujący (Admin — także za niego); faktury wysłane bez wskazania — każdy uprawniony.
+ * Zawsze inna osoba niż wysyłająca (zasada czterech oczu).
+ */
 const notSubmitter = (c: Context<AppEnv>) => (cur: typeof costInvoices.$inferSelect) => {
-  if (cur.submittedBy === c.get('user').id) throw forbidden('invoice_self_approval')
+  const user = c.get('user')
+  if (cur.submittedBy === user.id) throw forbidden('invoice_self_approval')
+  if (user.role !== 'Admin' && !awaitsDecisionOf(cur, user.id)) throw forbidden('invoice_not_approver')
 }
 
 invoicesRouter.openapi(

@@ -298,7 +298,14 @@ export function AppLayout() {
             <>
               {section(t('nav.finance'))}
               {finance.map((n) =>
-                item(n.navKey ?? n.module, n.path, t(`nav.${n.navKey ?? n.module}`), n.navKey === 'settlements' ? IconReportMoney : n.navKey === 'financePlan' ? IconChartBar : (ICONS[n.module] ?? IconFileText), false, n.path === '/faktury' ? { alert: awaiting } : {}),
+                item(
+                  n.navKey ?? n.module,
+                  n.path,
+                  t(`nav.${n.navKey ?? n.module}`),
+                  n.navKey === 'settlements' ? IconReportMoney : n.navKey === 'financePlan' ? IconChartBar : n.navKey === 'approvals' ? IconClipboardCheck : (ICONS[n.module] ?? IconFileText),
+                  false,
+                  n.navKey === 'approvals' ? { alert: awaiting } : {},
+                ),
               )}
             </>
           )}

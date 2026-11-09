@@ -5,30 +5,37 @@ import type { Mailer } from '../../integrations/mail/types.ts'
 import { invoiceSettings } from '../../auth/access.ts'
 import { effective } from './service.ts'
 
-/** Link w mailu: lista faktur z filtrem „do mojej akceptacji”. */
-export const approvalLink = (baseUrl: string) => `${baseUrl.replace(/\/+$/, '')}/faktury?akceptacja`
+/** Link w mailu: strona „Do akceptacji”. */
+export const approvalLink = (baseUrl: string) => `${baseUrl.replace(/\/+$/, '')}/akceptacja`
 
-interface Recipient {
+export interface Approver {
   id: string
+  name: string
   email: string
 }
 
-/**
- * Akceptujący: aktywne osoby z listy `invoices.access`, których rola ma `invoices:approve`.
- * Bez listy włączonych powiadomień — nikt.
- */
-export async function approvers(db: Database): Promise<Recipient[]> {
+/** Akceptujący do wyboru przy wysłaniu: aktywne osoby z listy `invoices.access`, których rola ma `invoices:approve`. */
+export async function eligibleApprovers(db: Database): Promise<Approver[]> {
   const settings = await invoiceSettings(db)
-  if (!settings.notifyApprovers || !settings.userIds.length) return []
+  if (!settings.userIds.length) return []
   return db
-    .select({ id: users.id, email: users.email })
+    .select({ id: users.id, name: users.name, email: users.email })
     .from(users)
     .innerJoin(permissions, and(eq(permissions.role, users.role), eq(permissions.module, 'invoices'), eq(permissions.action, 'approve'), eq(permissions.allowed, true)))
     .where(and(inArray(users.id, settings.userIds), eq(users.isActive, true), isNull(users.deletedAt)))
-    .orderBy(asc(users.email))
+    .orderBy(asc(users.name))
+}
+
+/** Adresaci e-maili: akceptujący, gdy powiadomienia są włączone w Ustawieniach; inaczej nikt. */
+export async function approvers(db: Database): Promise<Approver[]> {
+  const settings = await invoiceSettings(db)
+  return settings.notifyApprovers ? eligibleApprovers(db) : []
 }
 
 type InvoiceRow = typeof costInvoices.$inferSelect
+
+/** Czy faktura czeka na decyzję tej osoby: wskazany akceptujący albo (bez wskazania) każdy oprócz wysyłającego. */
+export const awaitsDecisionOf = (row: Pick<InvoiceRow, 'approverId' | 'submittedBy'>, userId: string) => (row.approverId ? row.approverId === userId : row.submittedBy !== userId)
 
 const money = (cents: number | null, currency: string) =>
   cents == null ? '—' : `${(cents / 100).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`
@@ -49,20 +56,23 @@ function message(rows: InvoiceRow[], intro: string, baseUrl: string) {
   return [intro, '', ...shown.map(line), ...(more > 0 ? [`… i ${more} więcej`] : []), '', `Akceptacja: ${link}`, '', '— Envcheck Hub (wiadomość automatyczna)'].join('\n')
 }
 
-/** Zbiorcze powiadomienie po wysłaniu do akceptacji (jedno na wysłanie). Błąd poczty nie przerywa operacji. */
+/** Zbiorcze powiadomienie po wysłaniu do akceptacji — do wskazanego akceptującego (jedno na wysłanie). Błąd poczty nie przerywa operacji. */
 export async function notifySubmitted(db: Database, mailer: Mailer | null | undefined, opts: { invoiceIds: string[]; submitter: { id: string; name: string }; baseUrl: string }) {
   if (!mailer || !opts.invoiceIds.length) return
   try {
-    const to = (await approvers(db)).filter((r) => r.id !== opts.submitter.id).map((r) => r.email)
-    if (!to.length) return
+    const recipients = (await approvers(db)).filter((r) => r.id !== opts.submitter.id)
+    if (!recipients.length) return
     const rows = await db.select().from(costInvoices).where(and(inArray(costInvoices.id, opts.invoiceIds), eq(costInvoices.status, 'pending'))).orderBy(asc(costInvoices.number))
-    if (!rows.length) return
-    const n = rows.length
-    await mailer.send({
-      to,
-      subject: `Do akceptacji: ${n} ${plural(n)}`,
-      text: message(rows, `${opts.submitter.name} wysłał(a) do akceptacji ${n} ${plural(n)}:`, opts.baseUrl),
-    })
+    for (const r of recipients) {
+      const mine = rows.filter((i) => awaitsDecisionOf(i, r.id))
+      if (!mine.length) continue
+      const n = mine.length
+      await mailer.send({
+        to: [r.email],
+        subject: `Do akceptacji: ${n} ${plural(n)}`,
+        text: message(mine, `${opts.submitter.name} wysłał(a) Ci do akceptacji ${n} ${plural(n)}:`, opts.baseUrl),
+      })
+    }
   } catch (e) {
     console.error('[pmo] invoices: powiadomienie o akceptacji nie wysłane', e)
   }
@@ -70,7 +80,7 @@ export async function notifySubmitted(db: Database, mailer: Mailer | null | unde
 
 /**
  * Poranne przypomnienie: każdy akceptujący dostaje listę faktur czekających na jego decyzję
- * (bez wysłanych przez siebie — zasada czterech oczu). Bez czekających — brak maila.
+ * (wskazanych jemu; bez wskazania — wszystkie poza wysłanymi przez siebie). Bez czekających — brak maila.
  */
 export async function sendApprovalDigest(db: Database, mailer: Mailer, baseUrl: string) {
   const recipients = await approvers(db)
@@ -78,7 +88,7 @@ export async function sendApprovalDigest(db: Database, mailer: Mailer, baseUrl: 
   const pending = await db.select().from(costInvoices).where(eq(costInvoices.status, 'pending')).orderBy(asc(costInvoices.submittedAt))
   let sent = 0
   for (const r of recipients) {
-    const rows = pending.filter((i) => i.submittedBy !== r.id)
+    const rows = pending.filter((i) => awaitsDecisionOf(i, r.id))
     if (!rows.length) continue
     const n = rows.length
     try {

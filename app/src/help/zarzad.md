@@ -109,13 +109,16 @@ w każdym statusie faktury. Słownik kategorii prowadzi Administrator w Ustawien
 **Wiele faktur naraz:** zaznacz je na liście (pole wyboru przy wierszu) i w pasku nad tabelą wybierz projekt albo
 kategorię.
 
-**Filtry:** status, projekt („Do przypisania (bez decyzji)”, „Ogólne”, konkretny projekt), kategoria, **zapłata**,
-„Do mojej akceptacji”, „Brak danych”, wyszukiwanie po numerze / sprzedawcy / opisie.
+**Filtry:** ikona lejka w nagłówku kolumny — data (miesiące), projekt („Do przypisania (bez decyzji)”, „Ogólne”,
+konkretny projekt), kategoria, status, **zapłata**; nad tabelą „Brak danych” i wyszukiwanie po numerze / sprzedawcy / opisie.
 
 ### 4.3. Akceptacja (zasada czterech oczu)
 
-1. Po przypisaniu kliknij **Wyślij do akceptacji**.
-2. **Inna osoba** z dostępem do modułu akceptuje (**Akceptuj**) albo odrzuca z komentarzem (**Odrzuć**).
+1. Po przypisaniu kliknij **Wyślij do akceptacji** i **wybierz osobę**, która ma zaakceptować (z listy osób z prawem
+   akceptacji; nie siebie). Kilka faktur naraz: zaznacz je na liście → **Wyślij do akceptacji** w pasku nad tabelą.
+2. Wskazana osoba widzi fakturę w **Finanse → Do akceptacji** (licznik przy menu) i akceptuje (**Akceptuj**) albo
+   odrzuca z komentarzem (**Odrzuć**). Administrator widzi tam wszystkie faktury w akceptacji z informacją,
+   na czyją akceptację czekają, i może zdecydować za wskazaną osobę.
 3. Odrzucona faktura wraca do poprawy; po poprawce wysyłasz ją ponownie.
 
 Wysłaną fakturę można **wycofać z akceptacji**, a zaakceptowaną — **przywrócić do przypisania**. Jeśli w inFakt

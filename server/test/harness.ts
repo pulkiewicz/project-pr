@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
 import { NetlifyDB } from '@netlify/database-dev'
 import { drizzle } from 'drizzle-orm/netlify-db'
 import { eq } from 'drizzle-orm'
@@ -19,7 +20,8 @@ import { SEED_PROJECT_ID } from '../db/seed-sql.ts'
 import { encryptField, parseKeyring } from '../lib/field-crypto.ts'
 import { newTotpSecret } from '../auth/totp.ts'
 
-export const MIGRATIONS_DIR = new URL('../../netlify/database/migrations', import.meta.url).pathname
+// fileURLToPath (nie `.pathname`) — poprawna ścieżka także na Windows (litera dysku, spacje w katalogu).
+export const MIGRATIONS_DIR = fileURLToPath(new URL('../../netlify/database/migrations', import.meta.url))
 
 /** Token testowy: `test:<sub>:<email>` — fałszywy weryfikator Identity. */
 export const fakeIdentity: IdentityVerifier = {

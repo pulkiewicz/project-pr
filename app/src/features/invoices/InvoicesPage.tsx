@@ -7,7 +7,7 @@ import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mj
 import dayjs from 'dayjs'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { INVOICE_EDITABLE, invoiceDueState, type CostCategoryDto, type InvoiceDto } from '#shared'
 import { useAuth, useMe } from '../../auth/AuthProvider'
 import { downloadFile } from '../../lib/api'
@@ -16,8 +16,8 @@ import { formatDate, formatDateTime, todayWarsaw } from '../../lib/format'
 import { fromDate, toDate } from '../management/common'
 import { BankTab } from './BankTab'
 import { useBankCosts } from './bankApi'
-import { useAwaitingApproval, useBulkAllocation, useBulkCategory, useBulkSubmit, useCostCategories, useInvoices, useSaveAllocation, useSetInvoiceCategory, useSyncInvoices } from './api'
-import { InvoiceDrawer } from './InvoiceDrawer'
+import { useBulkAllocation, useBulkCategory, useBulkSubmit, useCostCategories, useInvoices, useSaveAllocation, useSetInvoiceCategory, useSyncInvoices } from './api'
+import { CommentModal, InvoiceDrawer } from './InvoiceDrawer'
 import { DISPLAY_STATUSES, InvoiceStatusBadge, PaymentDot, displayStatus, formatMoney } from './status'
 
 const norm = (s: string | null | undefined) => (s ?? '').toLocaleLowerCase('pl')
@@ -164,6 +164,7 @@ function BulkBar({ ids, options, categories, onDone }: { ids: string[]; options:
   const bulk = useBulkAllocation()
   const bulkCategory = useBulkCategory()
   const bulkSubmit = useBulkSubmit()
+  const [submitting, setSubmitting] = useState(false)
   const [category, setCategory] = useState<string | null>(null)
   const [project, setProject] = useState<string | null>(null)
   const [description, setDescription] = useState('')
@@ -239,22 +240,29 @@ function BulkBar({ ids, options, categories, onDone }: { ids: string[]; options:
         variant="light"
         color="yellow"
         leftSection={<IconSend size={14} />}
+        onClick={() => setSubmitting(true)}
+      >
+        {t('invoices.bulk.submit')}
+      </Button>
+      <CommentModal
+        action={submitting ? 'submit' : null}
+        title={`${t('invoices.bulk.submit')} — ${t('invoices.bulk.selected', { count: ids.length })}`}
         loading={bulkSubmit.isPending}
-        onClick={() =>
+        onClose={() => setSubmitting(false)}
+        onConfirm={(comment, approverId) =>
           bulkSubmit.mutate(
-            { ids },
+            { ids, approverId: approverId!, comment: comment || null },
             {
               onSuccess: (r) => {
                 notifications.show({ color: r.skipped ? 'yellow' : 'green', message: t('invoices.bulk.submitDone', { updated: r.updated, skipped: r.skipped }) })
+                setSubmitting(false)
                 onDone()
               },
               onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
             },
           )
         }
-      >
-        {t('invoices.bulk.submit')}
-      </Button>
+      />
       <Button size="xs" variant="subtle" onClick={onDone}>
         {t('invoices.bulk.clear')}
       </Button>
@@ -267,7 +275,7 @@ const NO_CATEGORY = '__none'
 /** Filtr kolumny „lista wyboru” (kilka wartości): pusty = bez filtra. */
 const anyOf = (value: string, filter: unknown) => !Array.isArray(filter) || !filter.length || filter.includes(value)
 
-function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen: (id: string) => void; mine: boolean; setMine: (v: boolean) => void }) {
+function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) => void }) {
   const { t } = useTranslation()
   const { can } = useAuth()
   const canEdit = can('invoices', 'edit')
@@ -293,10 +301,9 @@ function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen
     return items.filter(
       (i) =>
         (!s || [i.number, i.sellerName, i.description, i.category, i.costCategoryName, ...i.allocations.map((a) => a.description)].some((x) => norm(x).includes(s))) &&
-        (!missing || i.netPrice == null || !i.number || !i.sellerName) &&
-        (!mine || (i.status === 'pending' && i.submittedBy !== me.user.id)),
+        (!missing || i.netPrice == null || !i.number || !i.sellerName),
     )
-  }, [items, search, mine, missing, me.user.id])
+  }, [items, search, missing])
 
   const projectOptions = useMemo(() => me.projects.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` })), [me.projects])
 
@@ -452,7 +459,6 @@ function ListTab({ items, onOpen, mine, setMine }: { items: InvoiceDto[]; onOpen
       return (
         <Group gap="sm" wrap="wrap">
           <TextInput w={240} size="xs" leftSection={<IconSearch size={14} />} placeholder={t('invoices.search')} value={search} onChange={(e) => setSearch(e.currentTarget.value)} aria-label={t('invoices.search')} />
-          <Switch size="xs" label={t('invoices.onlyMine')} checked={mine} onChange={(e) => setMine(e.currentTarget.checked)} />
           <Switch size="xs" label={t('invoices.onlyMissing')} checked={missing} onChange={(e) => setMissing(e.currentTarget.checked)} />
           {selectedIds.length > 0 ? (
             <BulkBar ids={selectedIds} options={projectOptions} categories={categories} onDone={() => setSelection({})} />
@@ -718,12 +724,9 @@ export function InvoicesPage() {
   const { can } = useAuth()
   const q = useInvoices()
   const sync = useSyncInvoices()
-  const awaiting = useAwaitingApproval(can('invoices', 'approve'))
   const [exporting, setExporting] = useState(false)
   const [params, setParams] = useSearchParams()
   const [tab, setTab] = useState<string | null>('list')
-  // „Do mojej akceptacji” — także z banera i z linku w menu (?akceptacja).
-  const [mine, setMine] = useState(params.has('akceptacja'))
   const [open, setOpenState] = useState<string | null>(params.get('faktura'))
   const setOpen = (v: string | null) => {
     setOpenState(v)
@@ -731,6 +734,8 @@ export function InvoicesPage() {
   }
 
   const data = q.data
+  // Stare linki z e-maili (?akceptacja) — strona „Do akceptacji”.
+  if (params.has('akceptacja')) return <Navigate to="/akceptacja" replace />
   return (
     <Stack>
       <Group justify="space-between" align="flex-end">
@@ -770,24 +775,6 @@ export function InvoicesPage() {
         </Group>
       </Group>
       {data && !data.configured && <Alert color="yellow">{t('invoices.notConfigured')}</Alert>}
-      {!!awaiting.data?.count && !mine && (
-        <Alert color="yellow" variant="light" py="xs">
-          <Group justify="space-between">
-            <Text size="sm">{t('invoices.awaiting', { count: awaiting.data.count })}</Text>
-            <Button
-              size="xs"
-              variant="light"
-              color="yellow"
-              onClick={() => {
-                setTab('list')
-                setMine(true)
-              }}
-            >
-              {t('invoices.awaitingShow')}
-            </Button>
-          </Group>
-        </Alert>
-      )}
       {q.error && <Alert color="red">{errorMessage(q.error)}</Alert>}
       {q.isLoading || !data ? (
         <Loader />
@@ -799,7 +786,7 @@ export function InvoicesPage() {
             <Tabs.Tab value="bank">{t('invoices.tabs.bank')}</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="list" pt="sm">
-            <ListTab items={data.items} onOpen={setOpen} mine={mine} setMine={setMine} />
+            <ListTab items={data.items} onOpen={setOpen} />
           </Tabs.Panel>
           <Tabs.Panel value="projects" pt="sm">
             <ProjectsTab items={data.items} />

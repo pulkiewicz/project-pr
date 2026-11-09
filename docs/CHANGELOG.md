@@ -1,5 +1,13 @@
 # Changelog
 
+## Faktury: akceptacja przez wskazaną osobę, strona „Do akceptacji” (09.11.2026)
+
+- **Wysłanie do akceptacji wymaga wskazania akceptującego** (karta faktury i zbiorczo z listy): wybór z osób z listy dostępu do Kosztów, których rola ma `invoices:approve`, bez siebie (`GET /api/invoices/approvers`). Nowa kolumna `cost_invoices.approver_id` (migracja `20261109113928_invoice_approver`); wycofanie / przywrócenie do przypisania ją czyści. Nazwa akceptującego w zdarzeniu „wysłano” w historii.
+- **Decyzję podejmuje wskazana osoba** (`invoice_not_approver` dla innych); Admin może zdecydować za nią. Zasada czterech oczu bez zmian. Faktury wysłane wcześniej (bez wskazania) — jak dotąd każdy uprawniony.
+- **Finanse → Do akceptacji** (`/akceptacja`): czekające na mnie (licznik przy menu, przeniesiony z „Koszty”) i wysłane przeze mnie; Admin — wszystkie faktury w akceptacji z kolumną „Akceptujący”. Na liście Koszty usunięto baner i przełącznik „Do mojej akceptacji”; stare linki `/faktury?akceptacja` prowadzą do nowej strony.
+- E-maile (gdy włączone): przy wysłaniu tylko do wskazanej osoby, poranne przypomnienie — faktury wskazane odbiorcy; link do `/akceptacja`.
+- Testy: harness ścieżki migracji przez `fileURLToPath` (testy działają także na Windows).
+
 ## Plan finansowy: edycja planu całego roku (08.11.2026)
 
 - Przełącznik **Miesiąc / Rok — edycja planu**. Widok roku to siatka: wiersze = pozycje planu (przychody i koszty; nazwa + projekt + kategoria), kolumny = 12 miesięcy, komórki z kwotą netto w zł do wpisania. Sumy wierszy, grup i miesięcy liczone na bieżąco; pod spodem koszty stałe, koszty pracownicze, wynik planowany i wynik z wykonania (tylko odczyt). Obok siatki lista kosztów stałych.

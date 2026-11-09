@@ -26,6 +26,10 @@ export const useInvoiceAttachments = (id: string | null, enabled: boolean) =>
 export const useAwaitingApproval = (enabled: boolean) =>
   useQuery({ queryKey: ['invoices', 'awaiting'], queryFn: () => api<{ count: number }>('/invoices/awaiting-approval'), enabled, refetchInterval: 120_000, staleTime: 60_000 })
 
+/** Osoby do wyboru przy wysłaniu do akceptacji (bez mnie). */
+export const useApprovers = (enabled = true) =>
+  useQuery({ queryKey: ['invoices', 'approvers'], queryFn: () => api<InvoiceUserOption[]>('/invoices/approvers'), enabled, staleTime: 300_000 })
+
 /** Plik faktury do podglądu (pobierany przez serwer z inFakt). */
 export const fetchAttachment = (id: string, index: number) => api<Blob>(`/invoices/${id}/attachments/${index}/file`)
 
@@ -91,8 +95,11 @@ export function useInvoiceTransition() {
   const invalidate = useInvalidate()
   const setDetail = useSetDetail()
   return useMutation({
-    mutationFn: (v: { id: string; action: InvoiceAction; version: number; comment?: string | null }) =>
-      api<InvoiceDetailDto>(`/invoices/${v.id}/${v.action}`, { method: 'POST', json: { version: v.version, comment: v.comment || null } }),
+    mutationFn: (v: { id: string; action: InvoiceAction; version: number; comment?: string | null; approverId?: string }) =>
+      api<InvoiceDetailDto>(`/invoices/${v.id}/${v.action}`, {
+        method: 'POST',
+        json: { version: v.version, comment: v.comment || null, ...(v.action === 'submit' ? { approverId: v.approverId } : {}) },
+      }),
     onSuccess: setDetail,
     onSettled: invalidate,
   })

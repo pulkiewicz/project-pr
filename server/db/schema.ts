@@ -986,6 +986,8 @@ export const costInvoices = pgTable(
     costCategoryId: uuid('cost_category_id').references(() => costCategories.id, { onDelete: 'set null' }),
     submittedBy: uuid('submitted_by').references(() => users.id),
     submittedAt: ts('submitted_at'),
+    /** Osoba wskazana przy wysłaniu do akceptacji (null — wysłane przed wyborem akceptującego: akceptuje każdy uprawniony). */
+    approverId: uuid('approver_id').references(() => users.id),
     decidedBy: uuid('decided_by').references(() => users.id),
     decidedAt: ts('decided_at'),
     syncedAt: ts('synced_at').notNull().defaultNow(),
@@ -994,7 +996,7 @@ export const costInvoices = pgTable(
     updatedAt: ts('updated_at').notNull().defaultNow(),
     updatedBy: uuid('updated_by'),
   },
-  (t) => [uniqueIndex('cost_invoices_infakt_uuid_uq').on(t.infaktUuid), index('cost_invoices_status_idx').on(t.status), index('cost_invoices_issue_date_idx').on(t.issueDate), index('cost_invoices_infakt_created_idx').on(t.infaktCreatedAt)],
+  (t) => [uniqueIndex('cost_invoices_infakt_uuid_uq').on(t.infaktUuid), index('cost_invoices_status_idx').on(t.status), index('cost_invoices_issue_date_idx').on(t.issueDate), index('cost_invoices_infakt_created_idx').on(t.infaktCreatedAt), index('cost_invoices_approver_idx').on(t.approverId, t.status)],
 )
 
 /** Faktura sprzedażowa z inFakt (przychody w Planie finansowym) — kopia tylko do odczytu, nadpisywana przy synchronizacji. */

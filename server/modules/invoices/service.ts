@@ -127,14 +127,16 @@ export async function lastSync(db: Database) {
 
 const submitter = alias(users, 'submitter')
 const decider = alias(users, 'decider')
+const approver = alias(users, 'approver')
 
 export async function listInvoices(db: Database, where?: SQL): Promise<InvoiceDto[]> {
   const rows = await db
-    .select({ inv: costInvoices, submittedByName: submitter.name, decidedByName: decider.name, costCategoryName: costCategories.name })
+    .select({ inv: costInvoices, submittedByName: submitter.name, decidedByName: decider.name, approverName: approver.name, costCategoryName: costCategories.name })
     .from(costInvoices)
     .leftJoin(costCategories, eq(costCategories.id, costInvoices.costCategoryId))
     .leftJoin(submitter, eq(submitter.id, costInvoices.submittedBy))
     .leftJoin(decider, eq(decider.id, costInvoices.decidedBy))
+    .leftJoin(approver, eq(approver.id, costInvoices.approverId))
     .where(where)
     // Pliki bez daty wystawienia — według daty dodania do inFakt.
     .orderBy(sql`coalesce(${costInvoices.manual}->>'issueDate', ${costInvoices.issueDate}::text, (${costInvoices.infaktCreatedAt} AT TIME ZONE 'Europe/Warsaw')::date::text) DESC NULLS LAST`, desc(costInvoices.createdAt))
@@ -158,7 +160,7 @@ export async function listInvoices(db: Database, where?: SQL): Promise<InvoiceDt
   const byInvoice = new Map<string, typeof allocs>()
   for (const a of allocs) byInvoice.set(a.invoiceId, [...(byInvoice.get(a.invoiceId) ?? []), a])
 
-  return rows.map(({ inv: raw, submittedByName, decidedByName, costCategoryName }) => {
+  return rows.map(({ inv: raw, submittedByName, decidedByName, approverName, costCategoryName }) => {
     const inv = effective(raw)
     const list = byInvoice.get(inv.id) ?? []
     return {
@@ -196,6 +198,8 @@ export async function listInvoices(db: Database, where?: SQL): Promise<InvoiceDt
       submittedBy: inv.submittedBy,
       submittedByName,
       submittedAt: inv.submittedAt,
+      approverId: inv.approverId,
+      approverName,
       decidedByName,
       decidedAt: inv.decidedAt,
       paidAmount: paid.get(inv.id) ?? 0,

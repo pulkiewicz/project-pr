@@ -131,7 +131,12 @@ export const invoiceCategoryInput = z.object({ costCategoryId: z.uuid().nullable
 export const invoiceBulkCategoryInput = z.object({ ids: z.array(z.uuid()).min(1).max(500), costCategoryId: z.uuid().nullable() })
 
 /** Zbiorcze wysłanie do akceptacji: tylko przypisane (projekt lub koszty ogólne), z kwotą netto, w statusie do przypisania / odrzucona. */
-export const invoiceBulkSubmitInput = z.object({ ids: z.array(z.uuid()).min(1).max(500), comment: z.string().trim().max(2000).nullable().optional() })
+export const invoiceBulkSubmitInput = z.object({
+  ids: z.array(z.uuid()).min(1).max(500),
+  /** Osoba, która ma zaakceptować faktury (z listy `GET /invoices/approvers`). */
+  approverId: z.uuid(),
+  comment: z.string().trim().max(2000).nullable().optional(),
+})
 export type InvoiceBulkSubmitInput = z.input<typeof invoiceBulkSubmitInput>
 
 /** Eksport XLSX za okres (data wystawienia, a dla plików bez niej — data dodania do inFakt); obie granice włącznie. */
@@ -169,6 +174,9 @@ export const invoiceTransitionInput = z.object({
   comment: z.string().trim().max(2000).nullable().optional(),
   version: z.number().int(),
 })
+/** Wysłanie do akceptacji: wskazana osoba akceptująca (z listy `GET /invoices/approvers`). */
+export const invoiceSubmitInput = invoiceTransitionInput.extend({ approverId: z.uuid() })
+export type InvoiceSubmitInput = z.input<typeof invoiceSubmitInput>
 export const invoiceRejectInput = invoiceTransitionInput.extend({ comment: z.string().trim().min(1).max(2000) })
 
 /** Kwota udziału w groszach (zaokrąglenie do grosza). */
@@ -220,6 +228,9 @@ export interface InvoiceDto {
   submittedBy: string | null
   submittedByName: string | null
   submittedAt: string | null
+  /** Wskazany akceptujący (null — wysłana przed wyborem akceptującego: akceptuje każdy uprawniony). */
+  approverId: string | null
+  approverName: string | null
   decidedByName: string | null
   decidedAt: string | null
   /** Suma płatności z wyciągów połączonych z fakturą (grosze). */

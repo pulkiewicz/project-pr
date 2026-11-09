@@ -8,6 +8,7 @@ import { useAuth, useMe } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime } from '../../lib/format'
 import { fetchAttachment, useCostCategories, useInvoice, useInvoiceAttachments, useInvoiceTransition, useSaveAllocation, useSetInvoiceCategory, type InvoiceAction } from './api'
+import { ApproverSelect } from './ApproverSelect'
 import { InvoiceDetails } from './InvoiceDetails'
 import { InvoiceStatusBadge, PaymentBadge, formatMoney } from './status'
 
@@ -22,22 +23,53 @@ const rowKey = (r: Row) => [r.projectId, num(r.share), r.description.trim()]
 const num = (v: number | string) => (typeof v === 'number' ? v : Number(v.replace(',', '.')) || 0)
 const round2 = (v: number) => Math.round(v * 100) / 100
 
-/** Komentarz do decyzji: przy odrzuceniu obowiązkowy. */
-function CommentModal({ action, onClose, onConfirm, loading }: { action: InvoiceAction | null; onClose: () => void; onConfirm: (comment: string) => void; loading: boolean }) {
+/** Komentarz do decyzji: przy odrzuceniu obowiązkowy; przy wysłaniu do akceptacji — wybór akceptującego. */
+export function CommentModal({
+  action,
+  onClose,
+  onConfirm,
+  loading,
+  title,
+}: {
+  action: InvoiceAction | null
+  onClose: () => void
+  onConfirm: (comment: string, approverId?: string) => void
+  loading: boolean
+  title?: string
+}) {
   const { t } = useTranslation()
   const [comment, setComment] = useState('')
-  useEffect(() => setComment(''), [action])
+  const [approverId, setApproverId] = useState<string | null>(null)
+  useEffect(() => {
+    setComment('')
+    setApproverId(null)
+  }, [action])
   const required = action === 'reject'
-  const label = action === 'reject' ? t('invoices.reject') : action === 'approve' ? t('invoices.approve') : action === 'submit' ? t('invoices.submit') : t('invoices.reopen')
+  const submit = action === 'submit'
+  const label = action === 'reject' ? t('invoices.reject') : action === 'approve' ? t('invoices.approve') : submit ? t('invoices.submit') : t('invoices.reopen')
   return (
-    <Modal opened={!!action} onClose={onClose} title={label}>
+    <Modal opened={!!action} onClose={onClose} title={title ?? label}>
       <Stack>
-        <Textarea autosize minRows={3} label={required ? t('invoices.rejectReason') : t('invoices.comment')} required={required} value={comment} onChange={(e) => setComment(e.currentTarget.value)} data-autofocus />
+        {submit && <ApproverSelect value={approverId} onChange={setApproverId} />}
+        <Textarea
+          autosize
+          minRows={3}
+          label={required ? t('invoices.rejectReason') : t('invoices.comment')}
+          required={required}
+          value={comment}
+          onChange={(e) => setComment(e.currentTarget.value)}
+          data-autofocus
+        />
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
             {t('app.cancel')}
           </Button>
-          <Button color={action === 'reject' ? 'red' : undefined} loading={loading} disabled={required && !comment.trim()} onClick={() => onConfirm(comment.trim())}>
+          <Button
+            color={action === 'reject' ? 'red' : undefined}
+            loading={loading}
+            disabled={(required && !comment.trim()) || (submit && !approverId)}
+            onClick={() => onConfirm(comment.trim(), approverId ?? undefined)}
+          >
             {label}
           </Button>
         </Group>
@@ -144,8 +176,8 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
       { onSuccess: () => notifications.show({ color: 'green', message: t('app.saved') }), onError },
     )
 
-  const runAction = (comment: string) =>
-    d && move.mutate({ id: d.id, action: action!, version: d.version, comment }, { onSuccess: () => setAction(null), onError })
+  const runAction = (comment: string, approverId?: string) =>
+    d && move.mutate({ id: d.id, action: action!, version: d.version, comment, approverId }, { onSuccess: () => setAction(null), onError })
 
   const splitEven = () => {
     const n = rows.length
@@ -155,6 +187,8 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
   }
 
   const ownSubmission = d?.status === 'pending' && d.submittedBy === me.user.id
+  // Decyduje wskazany akceptujący (Admin — także za niego); bez wskazania — każdy uprawniony.
+  const myDecision = !!d && (me.user.role === 'Admin' || (d.approverId ? d.approverId === me.user.id : true))
 
   return (
     <Drawer opened={!!id} onClose={onClose} position="right" size="xl" title={d ? [d.number ?? d.description ?? t('invoices.fileNoData'), d.sellerName].filter(Boolean).join(' · ') : ''}>
@@ -340,6 +374,11 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
           )}
 
           {d.status === 'pending' && (
+            <Text size="sm" fw={500}>
+              {t('invoices.waitingFor', { name: d.approverName ?? t('invoices.approverAny') })}
+            </Text>
+          )}
+          {d.status === 'pending' && (
             <Group justify="flex-end">
               {ownSubmission ? (
                 <>
@@ -353,7 +392,8 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
                   )}
                 </>
               ) : (
-                can('invoices', 'approve') && (
+                can('invoices', 'approve') &&
+                myDecision && (
                   <>
                     <Button color="red" variant="light" leftSection={<IconX size={16} />} onClick={() => setAction('reject')}>
                       {t('invoices.reject')}
