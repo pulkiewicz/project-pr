@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { SalesSyncResult } from './finance.ts'
-import { paymentState, type InvoicePaymentDto, type InvoicePaymentState } from './bank.ts'
+import { paymentState, type BankMatchResult, type InvoicePaymentDto, type InvoicePaymentState } from './bank.ts'
 
 /**
  * Faktury kosztowe z inFakt przypisywane do projektów (proporcjonalnie, %).
@@ -266,6 +266,8 @@ export interface InvoiceSyncResult {
   sales?: SalesSyncResult | null
   /** Kod błędu pobierania faktur sprzedażowych (np. `infakt_unauthorized` — klucz bez `api:invoices:read`). */
   salesError?: string | null
+  /** Rozliczenia: dopasowanie operacji z wyciągów do faktur po synchronizacji; null, gdy się nie udało. */
+  match?: BankMatchResult | null
 }
 
 export interface InvoiceListResponse {

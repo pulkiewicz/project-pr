@@ -1,21 +1,26 @@
-import type { Config } from '@netlify/functions'
-import { invoiceSettings } from '../../server/auth/access.ts'
-import { syncSalesSafe } from '../../server/modules/finance/service.ts'
-import { syncInvoices } from '../../server/modules/invoices/service.ts'
-import { runtimeDeps } from '../../server/runtime.ts'
+import type { Config } from "@netlify/functions";
+import {
+  isSyncHour,
+  syncFromInfakt,
+} from "../../server/modules/invoices/sync.ts";
+import { runtimeDeps } from "../../server/runtime.ts";
 
-/** Codzienna synchronizacja kosztów i faktur sprzedażowych z inFakt (oprócz przycisku „Synchronizuj” w module Faktury). */
+/**
+ * Automatyczna aktualizacja z inFakt o 8:00 i 14:00 (oprócz przycisku „Synchronizuj”): faktury kosztowe,
+ * sprzedażowe i Rozliczenia (dopasowanie operacji z wyciągów do faktur).
+ */
 export default async () => {
-  const deps = runtimeDeps()
+  const now = new Date();
+  // Harmonogram Netlify jest w UTC — uruchamiamy co godzinę z zakresu czasu letniego i zimowego, wykonujemy tylko o 8:00 i 14:00 w Warszawie.
+  if (!isSyncHour(now)) return;
+  const deps = runtimeDeps();
   if (!deps.infakt) {
-    console.log('[pmo] infakt sync: INFAKT_API_KEY nie ustawiony — pomijam')
-    return
+    console.log("[pmo] infakt sync: INFAKT_API_KEY nie ustawiony — pomijam");
+    return;
   }
-  const settings = await invoiceSettings(deps.db)
-  const result = await syncInvoices(deps.db, deps.infakt, settings, null, new Date())
-  const sales = await syncSalesSafe(deps.db, deps.infakt, settings.syncFrom, null, new Date())
-  console.log(`[pmo] infakt sync: ${JSON.stringify({ ...result, ...sales })}`)
-}
+  const result = await syncFromInfakt(deps.db, deps.infakt, null, now);
+  console.log(`[pmo] infakt sync: ${JSON.stringify(result)}`);
+};
 
-// 05:00 UTC = 6:00/7:00 w Warszawie.
-export const config: Config = { schedule: '0 5 * * *' }
+// 6/7 UTC = 8:00 w Warszawie (lato/zima), 12/13 UTC = 14:00.
+export const config: Config = { schedule: "0 6,7,12,13 * * *" };

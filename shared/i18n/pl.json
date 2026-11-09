@@ -1521,6 +1521,7 @@
     "title": "Faktury kosztowe (pliki z inFakt)",
     "sync": "Synchronizuj z inFakt",
     "synced": "Pobrano z inFakt: {{fetched}}, nowe: {{created}}, zmienione: {{updated}}",
+    "syncedMatch": "Rozliczenia: połączono z fakturami {{linked}}, do zatwierdzenia {{suggested}}, z reguł kontrahentów {{ruled}}.",
     "lastSync": "Ostatnia synchronizacja: {{at}}{{by}}",
     "neverSynced": "Jeszcze nie synchronizowano",
     "notConfigured": "Brak klucza API inFakt (zmienna INFAKT_API_KEY) — synchronizacja niedostępna.",

@@ -84,7 +84,7 @@ w menu **Finanse** (patrz 4.6).
 
 ### 4.1. Faktury — skąd się biorą
 
-Faktury trafiają do aplikacji z **inFakt** (jako pliki / skany). Synchronizacja działa sama codziennie rano,
+Faktury trafiają do aplikacji z **inFakt** (jako pliki / skany). Synchronizacja działa sama codziennie o **8:00 i 14:00**,
 a od razu — przyciskiem **Synchronizuj z inFakt**. Ponowna synchronizacja nie tworzy duplikatów.
 
 **Uzupełnianie danych.** inFakt nie zawsze odczyta z pliku numer, sprzedawcę, daty czy kwoty. Przełącznik
@@ -171,8 +171,9 @@ Wyciąg wczytany przez pomyłkę można usunąć (kosz przy wyciągu).
 4. **Nie jest kosztem** (np. przelew między własnymi rachunkami) → „Nie jest kosztem”.
 5. **Faktury jeszcze nie ma w inFakt** → zostaw „Do ustalenia”; trafi na listę braków w Rozliczeniach.
 
-Połączenie można cofnąć krzyżykiem przy zielonej odznace. Po dodaniu nowych faktur do inFakt kliknij
-**Synchronizuj z inFakt**, a potem na wyciągu **Dopasuj automatycznie**.
+Połączenie można cofnąć krzyżykiem przy zielonej odznace. Każda synchronizacja z inFakt (o 8:00, 14:00
+albo przyciskiem **Synchronizuj z inFakt**) sama dopasowuje nowe faktury do operacji z wyciągów i stosuje reguły
+kontrahentów — Rozliczenia aktualizują się bez klikania **Dopasuj automatycznie**.
 
 **Reguły kontrahentów — żeby nie robić tego samego co miesiąc.** Gdy operacja jest ustawiona jako „Koszt bez faktury”
 z kategorią, projektem i VAT, kliknij ikonę **zakładki** na końcu wiersza. Od teraz każda operacja tego kontrahenta

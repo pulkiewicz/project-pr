@@ -94,7 +94,7 @@ export async function suggestionsFor(db: Database, txIds: string[]): Promise<Map
   return out
 }
 
-async function insertLinks(tx: Tx, matches: Pick<Match, 'txId' | 'invoiceId' | 'amount'>[], source: 'auto' | 'manual', userId: string) {
+async function insertLinks(tx: Tx, matches: Pick<Match, 'txId' | 'invoiceId' | 'amount'>[], source: 'auto' | 'manual', userId: string | null) {
   if (!matches.length) return
   await tx
     .insert(bankTxInvoiceLinks)
@@ -110,8 +110,9 @@ async function insertLinks(tx: Tx, matches: Pick<Match, 'txId' | 'invoiceId' | '
 /**
  * Dopasowanie automatyczne (po imporcie i na żądanie): łączy pewne pary (numer + kwota), potem stosuje reguły
  * kontrahentów do pozostałych operacji „do ustalenia”. `statementId` zawęża łączenie i reguły do jednego wyciągu.
+ * `userId` null = synchronizacja automatyczna (harmonogram).
  */
-export async function runMatching(db: Database, userId: string, statementId?: string): Promise<BankMatchResult> {
+export async function runMatching(db: Database, userId: string | null, statementId?: string): Promise<BankMatchResult> {
   return db.transaction(async (tx) => {
     const scope = statementId ? eq(bankTransactions.statementId, statementId) : undefined
     const all = await loadOpenTxs(tx)
@@ -207,7 +208,7 @@ export async function listRules(db: Database): Promise<BankRuleDto[]> {
  * Reguły → operacje „do ustalenia” (przelewy i karty bez powiązań) z kluczem kontrahenta: koszt bez faktury
  * z kategorią, projektem / kosztami ogólnymi i stawką VAT z reguły. Zwraca liczbę oznaczonych operacji.
  */
-export async function applyRules(db: Tx, userId: string, where?: SQL, onlyRuleId?: string): Promise<number> {
+export async function applyRules(db: Tx, userId: string | null, where?: SQL, onlyRuleId?: string): Promise<number> {
   const rules = await db.select().from(bankCounterpartyRules).where(onlyRuleId ? eq(bankCounterpartyRules.id, onlyRuleId) : undefined)
   if (!rules.length) return 0
   const byKey = new Map(rules.map((r) => [r.key, r]))

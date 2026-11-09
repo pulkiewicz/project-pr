@@ -1,5 +1,10 @@
 # Changelog
 
+## inFakt: aktualizacja o 8:00 i 14:00 razem z Rozliczeniami (09.11.2026)
+
+- **Automatyczna synchronizacja z inFakt dwa razy dziennie — 8:00 i 14:00 czasu warszawskiego** (funkcja `infakt-sync`, harmonogram `0 6,7,12,13 * * *` UTC; wykonuje się tylko w godzinie 8 i 14 w Warszawie, więc działa tak samo w czasie letnim i zimowym). Wcześniej raz dziennie o 05:00 UTC.
+- **Synchronizacja aktualizuje też Rozliczenia**: po pobraniu kosztów i faktur sprzedażowych uruchamia dopasowanie operacji z wyciągów do faktur (numer + kwota) i reguły kontrahentów — jak „Dopasuj automatycznie”. Dotyczy przycisku „Synchronizuj z inFakt” i harmonogramu (`syncFromInfakt` w `server/modules/invoices/sync.ts`). Wynik w `InvoiceSyncResult.match` i w komunikacie po synchronizacji; błąd dopasowania nie przerywa synchronizacji.
+
 ## Faktury: akceptacja przez wskazaną osobę, strona „Do akceptacji” (09.11.2026)
 
 - **Wysłanie do akceptacji wymaga wskazania akceptującego** (karta faktury i zbiorczo z listy): wybór z osób z listy dostępu do Kosztów, których rola ma `invoices:approve`, bez siebie (`GET /api/invoices/approvers`). Nowa kolumna `cost_invoices.approver_id` (migracja `20261109113928_invoice_approver`); wycofanie / przywrócenie do przypisania ją czyści. Nazwa akceptującego w zdarzeniu „wysłano” w historii.
