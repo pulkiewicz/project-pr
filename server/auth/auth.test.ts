@@ -151,7 +151,8 @@ describe('2FA TOTP', () => {
     const res = await req(h, 'POST', '/api/mfa/verify', u.bareHeaders, { code: await totpNow(u.totpSecret, h.clock.now), remember: false })
     const cookie = res.headers.getSetCookie().find((c) => c.startsWith(`${MFA_COOKIE}=`))!
     expect(cookie).not.toMatch(/Max-Age/)
-    const remembered = await req(h, 'POST', '/api/mfa/verify', u.bareHeaders, { code: await totpNow(u.totpSecret, new Date(h.clock.now.getTime() + 31_000)) })
+    // Kod z bieżącego kroku: serwer sprawdza go według zegara testu (±30 s) — kod „+31 s” bywał już poza tolerancją.
+    const remembered = await req(h, 'POST', '/api/mfa/verify', u.bareHeaders, { code: await totpNow(u.totpSecret, h.clock.now) })
     expect(remembered.headers.getSetCookie().find((c) => c.startsWith(`${MFA_COOKIE}=`))).toMatch(/Max-Age=/)
 
     // Odświeżenie po 6 min zachowuje tryb sesyjny
