@@ -1901,7 +1901,20 @@
       "paidInInfaktHint": "inFakt ma tę fakturę jako opłaconą, ale w wyciągach nie ma połączonej płatności — np. zapłacona z innego rachunku albo płatność czeka na połączenie.",
       "unpaidTitle": "Faktury niezapłacone: {{count}}",
       "unpaidHint": "Faktury z okresu bez połączonych płatności z wyciągów (lub zapłacone częściowo); najpierw najdłużej po terminie. Faktury, które inFakt ma jako opłacone (np. z innego rachunku), są domyślnie ukryte. Kliknij wiersz, aby otworzyć kartę faktury.",
-      "overdue": "{{count}} dni po terminie"
+      "overdue": "{{count}} dni po terminie",
+      "filter": {
+        "all": "Wszystkie",
+        "unmatched": "Bez dopasowania",
+        "suggested": "Z propozycją faktury",
+        "toLink": "Faktura do podpięcia",
+        "noPayment": "Bez żadnej płatności",
+        "partial": "Zapłacone częściowo"
+      },
+      "noInvoice": "Nie będzie faktury — oznacz jako koszt bez faktury",
+      "noInvoiceTitle": "Płatność bez faktury",
+      "noInvoiceBody": "Potwierdzasz, że do płatności {{counterparty}} na {{amount}} z {{date}} nie będzie faktury? Płatność zniknie z listy i zostanie rozliczona jako „Koszt bez faktury” (liczy się w kosztach per projekt). Kategorię, projekt i VAT możesz uzupełnić w zakładce Wyciągi bankowe.",
+      "noInvoiceConfirm": "Tak, nie będzie faktury",
+      "noInvoiceDone": "Płatność oznaczona jako koszt bez faktury"
     }
   },
   "workflow": {
