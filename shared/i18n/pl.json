@@ -1599,7 +1599,16 @@
       "all": "Wszystkie",
       "submitted": "Wysłano",
       "empty": "Brak faktur w akceptacji.",
-      "emptyMine": "Nic nie czeka na Twoją akceptację."
+      "emptyMine": "Nic nie czeka na Twoją akceptację.",
+      "dateTo": "Data faktury do",
+      "selectAll": "Zaznacz wszystkie",
+      "approveSelected": "Akceptuj zaznaczone ({{count}})",
+      "approveTitle_one": "Akceptuj {{count}} fakturę",
+      "approveTitle_few": "Akceptuj {{count}} faktury",
+      "approveTitle_many": "Akceptuj {{count}} faktur",
+      "approveTitle_other": "Akceptuj {{count}} faktury",
+      "approveSum": "Razem netto: {{sum}}",
+      "approveDone": "Zaakceptowano: {{updated}}; pominięto: {{skipped}}"
     },
     "decidedBy": "Decyzja: {{name}}, {{at}}",
     "history": "Historia",

@@ -1,11 +1,15 @@
-import { Alert, Badge, Group, Loader, SegmentedControl, Stack, Table, Text, Title } from '@mantine/core'
-import { useMemo, useState } from 'react'
+import { Alert, Badge, Button, Checkbox, Group, Loader, Modal, SegmentedControl, Stack, Table, Text, Textarea, Title } from '@mantine/core'
+import { DateInput } from '@mantine/dates'
+import { notifications } from '@mantine/notifications'
+import { IconCheck } from '@tabler/icons-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { invoiceCostDate, type InvoiceDto } from '#shared'
 import { useAuth, useMe } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime } from '../../lib/format'
-import { useInvoices } from './api'
+import { fromDate, toDate } from '../management/common'
+import { useBulkApprove, useInvoices } from './api'
 import { InvoiceDrawer } from './InvoiceDrawer'
 import { PaymentDot, formatMoney } from './status'
 
@@ -14,9 +18,17 @@ type View = 'mine' | 'sent' | 'all'
 /** Czy faktura czeka na decyzję tej osoby: wskazany akceptujący albo (bez wskazania) każdy oprócz wysyłającego. */
 const awaitsDecisionOf = (i: InvoiceDto, userId: string) => (i.approverId ? i.approverId === userId : i.submittedBy !== userId)
 
+/** Suma netto zaznaczonych — osobno dla każdej waluty. */
+const sumByCurrency = (items: InvoiceDto[]) => {
+  const m = new Map<string, number>()
+  for (const i of items) m.set(i.currency, (m.get(i.currency) ?? 0) + (i.netPrice ?? 0))
+  return [...m].map(([cur, cents]) => formatMoney(cents, cur)).join(' + ')
+}
+
 /**
  * Do akceptacji (pozycja menu Finanse): faktury wysłane do akceptacji.
  * Każdy widzi czekające na niego i wysłane przez siebie; Admin — wszystkie, z informacją, na czyją akceptację czekają.
+ * Czekające na mnie (i u Admina — wszystkie) można zaznaczyć i zaakceptować zbiorczo.
  */
 export function ApprovalsPage() {
   const { t } = useTranslation()
@@ -25,24 +37,61 @@ export function ApprovalsPage() {
   const isAdmin = me.user.role === 'Admin'
   const canApprove = can('invoices', 'approve')
   const [view, setView] = useState<View>(isAdmin ? 'all' : canApprove ? 'mine' : 'sent')
+  const [dateTo, setDateTo] = useState<string | null>(null)
   const [open, setOpen] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirming, setConfirming] = useState(false)
+  const [comment, setComment] = useState('')
   const q = useInvoices()
+  const bulkApprove = useBulkApprove()
 
   const pending = useMemo(
-    () => (q.data?.items ?? []).filter((i) => i.status === 'pending').sort((a, b) => (a.submittedAt ?? '').localeCompare(b.submittedAt ?? '')),
+    () => (q.data?.items ?? []).filter((i) => i.status === 'pending').sort((a, b) => (invoiceCostDate(a) ?? '').localeCompare(invoiceCostDate(b) ?? '')),
     [q.data],
   )
+  const inRange = (i: InvoiceDto) => !dateTo || (invoiceCostDate(i) ?? '') <= dateTo
   const byView: Record<View, InvoiceDto[]> = {
     mine: canApprove ? pending.filter((i) => awaitsDecisionOf(i, me.user.id)) : [],
     sent: pending.filter((i) => i.submittedBy === me.user.id),
     all: isAdmin ? pending : [],
   }
-  const rows = byView[view]
+  const rows = byView[view].filter(inRange)
   const views = [
     ...(canApprove ? [{ value: 'mine', label: `${t('invoices.approvals.mine')} (${byView.mine.length})` }] : []),
     { value: 'sent', label: `${t('invoices.approvals.sent')} (${byView.sent.length})` },
     ...(isAdmin ? [{ value: 'all', label: `${t('invoices.approvals.all')} (${byView.all.length})` }] : []),
   ]
+
+  // Zaznaczać można faktury, które mogę zaakceptować: nie wysłane przez siebie, czekające na mnie (Admin — każda).
+  const selectable = (i: InvoiceDto) => canApprove && view !== 'sent' && i.submittedBy !== me.user.id && (isAdmin || awaitsDecisionOf(i, me.user.id))
+  const selectableRows = rows.filter(selectable)
+  const chosen = selectableRows.filter((i) => selected.has(i.id))
+  const showSelect = selectableRows.length > 0
+  // Zaznaczenie obejmuje tylko widoczne wiersze — zmiana widoku lub daty je czyści.
+  useEffect(() => setSelected(new Set()), [view, dateTo])
+
+  const toggle = (id: string) =>
+    setSelected((s) => {
+      const n = new Set(s)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  const allChosen = selectableRows.length > 0 && chosen.length === selectableRows.length
+
+  const approve = () =>
+    bulkApprove.mutate(
+      { ids: chosen.map((i) => i.id), comment: comment.trim() || null },
+      {
+        onSuccess: (r) => {
+          notifications.show({ color: r.skipped ? 'yellow' : 'green', message: t('invoices.approvals.approveDone', { updated: r.updated, skipped: r.skipped }) })
+          setConfirming(false)
+          setComment('')
+          setSelected(new Set())
+        },
+        onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+      },
+    )
 
   return (
     <Stack>
@@ -52,8 +101,14 @@ export function ApprovalsPage() {
         <Loader />
       ) : (
         <>
-          <Group>
+          <Group align="flex-end" gap="sm">
             <SegmentedControl data={views} value={view} onChange={(v) => setView(v as View)} />
+            <DateInput w={180} label={t('invoices.approvals.dateTo')} valueFormat="DD.MM.YYYY" clearable value={toDate(dateTo)} onChange={(d) => setDateTo(fromDate(d))} />
+            {showSelect && (
+              <Button color="green" leftSection={<IconCheck size={16} />} disabled={!chosen.length} onClick={() => setConfirming(true)} ml="auto">
+                {t('invoices.approvals.approveSelected', { count: chosen.length })}
+              </Button>
+            )}
           </Group>
           {rows.length === 0 ? (
             <Text c="dimmed">{view === 'mine' ? t('invoices.approvals.emptyMine') : t('invoices.approvals.empty')}</Text>
@@ -62,6 +117,16 @@ export function ApprovalsPage() {
               <Table highlightOnHover verticalSpacing="xs">
                 <Table.Thead>
                   <Table.Tr>
+                    {showSelect && (
+                      <Table.Th w={40}>
+                        <Checkbox
+                          aria-label={t('invoices.approvals.selectAll')}
+                          checked={allChosen}
+                          indeterminate={chosen.length > 0 && !allChosen}
+                          onChange={() => setSelected(allChosen ? new Set() : new Set(selectableRows.map((i) => i.id)))}
+                        />
+                      </Table.Th>
+                    )}
                     <Table.Th>{t('invoices.date')}</Table.Th>
                     <Table.Th>{t('invoices.number')}</Table.Th>
                     <Table.Th>{t('invoices.seller')}</Table.Th>
@@ -74,9 +139,20 @@ export function ApprovalsPage() {
                 </Table.Thead>
                 <Table.Tbody>
                   {rows.map((i) => (
-                    <Table.Tr key={i.id} onClick={() => setOpen(i.id)} style={{ cursor: 'pointer' }}>
+                    <Table.Tr key={i.id} onClick={() => setOpen(i.id)} style={{ cursor: 'pointer' }} bg={selected.has(i.id) ? 'var(--mantine-color-green-light)' : undefined}>
+                      {showSelect && (
+                        <Table.Td onClick={(e) => e.stopPropagation()}>
+                          {selectable(i) && <Checkbox aria-label={i.number ?? i.id} checked={selected.has(i.id)} onChange={() => toggle(i.id)} />}
+                        </Table.Td>
+                      )}
                       <Table.Td>{formatDate(invoiceCostDate(i))}</Table.Td>
-                      <Table.Td>{i.number ?? <Text size="sm" c="dimmed" fs="italic">{i.description ?? t('invoices.fileNoData')}</Text>}</Table.Td>
+                      <Table.Td>
+                        {i.number ?? (
+                          <Text size="sm" c="dimmed" fs="italic">
+                            {i.description ?? t('invoices.fileNoData')}
+                          </Text>
+                        )}
+                      </Table.Td>
                       <Table.Td>{i.sellerName}</Table.Td>
                       <Table.Td ta="right" style={{ whiteSpace: 'nowrap' }}>
                         {formatMoney(i.netPrice, i.currency)}
@@ -123,6 +199,20 @@ export function ApprovalsPage() {
           )}
         </>
       )}
+      <Modal opened={confirming} onClose={() => setConfirming(false)} title={t('invoices.approvals.approveTitle', { count: chosen.length })}>
+        <Stack>
+          <Text size="sm">{t('invoices.approvals.approveSum', { sum: sumByCurrency(chosen) })}</Text>
+          <Textarea autosize minRows={2} label={t('invoices.comment')} value={comment} onChange={(e) => setComment(e.currentTarget.value)} data-autofocus />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setConfirming(false)}>
+              {t('app.cancel')}
+            </Button>
+            <Button color="green" leftSection={<IconCheck size={16} />} loading={bulkApprove.isPending} onClick={approve}>
+              {t('invoices.approvals.approveSelected', { count: chosen.length })}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
       <InvoiceDrawer id={open} onClose={() => setOpen(null)} />
     </Stack>
   )

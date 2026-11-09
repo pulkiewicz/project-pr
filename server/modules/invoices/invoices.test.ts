@@ -464,3 +464,33 @@ describe('powiadomienia e-mail o akceptacji', () => {
     expect(h.mailer.sent).toHaveLength(0)
   })
 })
+
+describe('zbiorcza akceptacja (strona „Do akceptacji”)', () => {
+  const pendingNow = async () => (await list(ania)).items.filter((i) => i.status === 'pending')
+
+  it('akceptuje tylko faktury czekające na mnie (bez własnych); reszta pominięta', async () => {
+    const pending = await pendingNow()
+    const ids = pending.map((i) => i.id)
+    const mine = pending.filter((i) => i.submittedBy !== kamil.id && (i.approverId ? i.approverId === kamil.id : true))
+    expect(mine.length).toBeGreaterThan(0)
+    expect(mine.length).toBeLessThan(pending.length)
+    expect((await req(h, 'POST', '/api/invoices/bulk-approve', outsider.headers, { ids })).status).toBe(403)
+    const res = await req(h, 'POST', '/api/invoices/bulk-approve', kamil.headers, { ids, comment: 'OK zbiorczo' })
+    expect(res.status).toBe(200)
+    expect((await res.json()) as InvoiceBulkResult).toEqual({ updated: mine.length, skipped: ids.length - mine.length })
+    for (const i of mine) {
+      const d = await byId(i.id)
+      expect(d).toMatchObject({ status: 'approved', decidedByName: 'EnvcheckInternal 3' })
+      expect(d.events[0]).toMatchObject({ kind: 'approved', comment: 'OK zbiorczo', meta: { bulk: true } })
+    }
+    expect((await pendingNow()).map((i) => i.id).sort()).toEqual(ids.filter((id) => !mine.some((m) => m.id === id)).sort())
+  })
+
+  it('Admin akceptuje zbiorczo także za wskazaną osobę; ponowna akceptacja nic nie zmienia', async () => {
+    const pending = await pendingNow()
+    const ids = pending.map((i) => i.id)
+    const res = (await (await req(h, 'POST', '/api/invoices/bulk-approve', admin.headers, { ids })).json()) as InvoiceBulkResult
+    expect(res).toEqual({ updated: pending.filter((i) => i.submittedBy !== admin.id).length, skipped: pending.filter((i) => i.submittedBy === admin.id).length })
+    expect(await (await req(h, 'POST', '/api/invoices/bulk-approve', admin.headers, { ids })).json()).toEqual({ updated: 0, skipped: ids.length })
+  })
+})

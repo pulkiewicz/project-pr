@@ -7,6 +7,7 @@
 - **Finanse → Do akceptacji** (`/akceptacja`): czekające na mnie (licznik przy menu, przeniesiony z „Koszty”) i wysłane przeze mnie; Admin — wszystkie faktury w akceptacji z kolumną „Akceptujący”. Na liście Koszty usunięto baner i przełącznik „Do mojej akceptacji”; stare linki `/faktury?akceptacja` prowadzą do nowej strony.
 - E-maile (gdy włączone): przy wysłaniu tylko do wskazanej osoby, poranne przypomnienie — faktury wskazane odbiorcy; link do `/akceptacja`.
 - Testy: harness ścieżki migracji przez `fileURLToPath` (testy działają także na Windows).
+- **Zbiorcza akceptacja** na stronie „Do akceptacji” (`POST /api/invoices/bulk-approve`): pola wyboru przy fakturach, które mogę zaakceptować (czekające na mnie; Admin — wszystkie poza własnymi), „zaznacz wszystkie”, filtr „Data faktury do” i potwierdzenie z liczbą faktur i sumą netto. Pominięte: nie w akceptacji, wysłane przez siebie, wskazane komuś innemu.
 
 ## Plan finansowy: edycja planu całego roku (08.11.2026)
 

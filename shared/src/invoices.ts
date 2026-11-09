@@ -139,6 +139,10 @@ export const invoiceBulkSubmitInput = z.object({
 })
 export type InvoiceBulkSubmitInput = z.input<typeof invoiceBulkSubmitInput>
 
+/** Zbiorcza akceptacja: tylko faktury w akceptacji, na decyzję których czeka ta osoba (Admin — każda); pozostałe pominięte. */
+export const invoiceBulkApproveInput = z.object({ ids: z.array(z.uuid()).min(1).max(500), comment: z.string().trim().max(2000).nullable().optional() })
+export type InvoiceBulkApproveInput = z.input<typeof invoiceBulkApproveInput>
+
 /** Eksport XLSX za okres (data wystawienia, a dla plików bez niej — data dodania do inFakt); obie granice włącznie. */
 export const invoiceExportQuery = z
   .object({ from: isoDate.optional(), to: isoDate.optional() })

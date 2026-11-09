@@ -3,6 +3,7 @@ import type {
   CostCategoryDto,
   InvoiceAllocationInput,
   InvoiceBulkAllocationInput,
+  InvoiceBulkApproveInput,
   InvoiceBulkResult,
   InvoiceBulkSubmitInput,
   InvoiceDetailDto,
@@ -89,7 +90,15 @@ export function useBulkSubmit() {
   })
 }
 
-export type InvoiceAction = 'submit' | 'approve' | 'reject' | 'reopen'
+export function useBulkApprove() {
+  const invalidate = useInvalidate()
+  return useMutation({
+    mutationFn: (data: InvoiceBulkApproveInput) => api<InvoiceBulkResult>('/invoices/bulk-approve', { method: 'POST', json: data }),
+    onSettled: invalidate,
+  })
+}
+
+export type InvoiceAction ='submit' | 'approve' | 'reject' | 'reopen'
 
 export function useInvoiceTransition() {
   const invalidate = useInvalidate()

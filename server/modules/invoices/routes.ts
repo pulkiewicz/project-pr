@@ -10,6 +10,7 @@ import {
   STAFF_ROLES,
   invoiceAllocationInput,
   invoiceBulkAllocationInput,
+  invoiceBulkApproveInput,
   invoiceBulkCategoryInput,
   invoiceBulkSubmitInput,
   invoiceCostDate,
@@ -648,6 +649,36 @@ invoicesRouter.openapi(
   async (c) => {
     const { comment, version } = c.req.valid('json')
     return transition(c, c.req.valid('param').id, version, ['pending'], 'approved', { kind: 'approved', comment }, notSubmitter(c))
+  },
+)
+
+/**
+ * Zbiorcza akceptacja (strona „Do akceptacji”). Akceptowane tylko faktury w akceptacji, które ta osoba może zatwierdzić
+ * (wskazana jej lub bez wskazania; Admin — każda), nigdy wysłane przez siebie; pozostałe pominięte.
+ */
+invoicesRouter.openapi(
+  route({ method: 'post', path: '/invoices/bulk-approve', request: { body: body(invoiceBulkApproveInput) }, responses: ok }, 'approve'),
+  async (c) => {
+    const { ids, comment } = c.req.valid('json')
+    const user = c.get('user')
+    const unique = [...new Set(ids)]
+    const res = await c.get('deps').db.transaction(async (tx) => {
+      const rows = await tx.select().from(costInvoices).where(inArray(costInvoices.id, unique))
+      const target = rows
+        .filter((r) => r.status === 'pending' && r.submittedBy !== user.id && (user.role === 'Admin' || awaitsDecisionOf(r, user.id)))
+        .map((r) => r.id)
+      if (target.length) {
+        await tx
+          .update(costInvoices)
+          .set({ status: 'approved', decidedBy: user.id, decidedAt: sql`now()`, version: sql`${costInvoices.version} + 1`, updatedAt: sql`now()`, updatedBy: user.id })
+          .where(and(inArray(costInvoices.id, target), eq(costInvoices.status, 'pending')))
+        await tx.insert(costInvoiceEvents).values(target.map((invoiceId) => ({ invoiceId, kind: 'approved' as const, comment: comment || null, userId: user.id, meta: { bulk: true } })))
+      }
+      const result: InvoiceBulkResult = { updated: target.length, skipped: unique.length - target.length }
+      await writeAudit(c, { action: 'invoices.bulk_approve', entity: 'cost_invoices', changes: { ids: target, ...result } }, tx)
+      return result
+    })
+    return c.json(res, 200)
   },
 )
 
