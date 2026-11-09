@@ -311,9 +311,19 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
     const statusOptions = DISPLAY_STATUSES.map((s) => ({ value: s, label: t(`invoices.status.${s}`) }))
     const projectFilterOptions = [{ value: 'unassigned', label: t('invoices.unassigned') }, { value: 'general', label: t('invoices.general') }, ...projectOptions]
     const categoryOptions = [{ value: NO_CATEGORY, label: t('invoices.categoryNone') }, ...categories.map((k) => ({ value: k.id, label: k.name }))]
-    const paymentOptions = (['overdue', 'due', 'paid'] as const).map((v) => ({ value: v, label: t(`invoices.pay.${v}`) }))
     const labelOf = (opts: { value: string; label: string }[]) => (v: unknown) => opts.find((o) => o.value === v)?.label ?? String(v)
     return [
+      {
+        // Kropka statusu płatności na początku wiersza (przed datą) — opis w podpowiedzi, bez filtra.
+        id: 'payment',
+        accessorFn: (r) => ({ paid: 2, due: 1, overdue: 0 })[invoiceDueState(r, todayWarsaw())],
+        header: t('invoices.pay.label'),
+        Header: () => null,
+        size: 40,
+        enableColumnFilter: false,
+        mantineTableBodyCellProps: { align: 'center' },
+        Cell: ({ row }) => <PaymentDot inv={row.original} />,
+      },
       {
         // Pliki bez daty wystawienia — data dodania do inFakt (szara). Filtr: miesiące kosztu.
         id: 'date',
@@ -407,19 +417,6 @@ function ListTab({ items, onOpen }: { items: InvoiceDto[]; onOpen: (id: string) 
         filterFn: (row, _id, value) => anyOf(displayStatus(row.original), value),
         filterTooltipValueFn: labelOf(statusOptions),
         Cell: ({ row }) => <InvoiceStatusBadge inv={row.original} />,
-      },
-      {
-        // Kropka zamiast odznaki — mniej miejsca; opis w podpowiedzi.
-        id: 'payment',
-        accessorFn: (r) => ({ paid: 2, due: 1, overdue: 0 })[invoiceDueState(r, todayWarsaw())],
-        header: t('invoices.pay.label'),
-        size: 80,
-        mantineTableBodyCellProps: { align: 'center' },
-        filterVariant: 'multi-select',
-        mantineFilterMultiSelectProps: { data: paymentOptions, placeholder: t('invoices.pay.label') },
-        filterFn: (row, _id, value) => anyOf(invoiceDueState(row.original, todayWarsaw()), value),
-        filterTooltipValueFn: labelOf(paymentOptions),
-        Cell: ({ row }) => <PaymentDot inv={row.original} />,
       },
     ]
   }, [t, projectOptions, categories, monthOptions])
