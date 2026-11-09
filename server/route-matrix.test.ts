@@ -33,7 +33,8 @@ describe('macierz ról × endpointy', () => {
 
   for (const policy of policies) {
     for (const role of ROLES) {
-      const expectAllowed = !policy.permission || allowed.has(`${role}|${policy.permission.module}|${policy.permission.action}`)
+      const p = policy.permission
+      const expectAllowed = !p || allowed.has(`${role}|${p.module}|${p.action}`) || (!!p.or && allowed.has(`${role}|${p.or.module}|${p.or.action}`))
       it(`${policy.method} ${policy.path} — ${role} → ${expectAllowed ? 'dozwolone' : '403'}`, async () => {
         const path = policy.path.replace(/\{[^}]+\}/g, crypto.randomUUID())
         const body = ['POST', 'PUT', 'PATCH'].includes(policy.method) ? {} : undefined

@@ -21,6 +21,10 @@ export const MODULES = {
   quoteKnowledge: { internal: true, staffOnly: true, scope: 'global' },
   /** Faktury kosztowe z inFakt → projekty. Dostęp dodatkowo zawężony do osób z ustawienia `invoices.access`. */
   invoices: { internal: true, staffOnly: true, scope: 'global' },
+  /** Do akceptacji (Finanse): `view` — zakładka, `approve` — akceptacja i odrzucanie faktur kosztowych. Lista `invoices.access` jak Koszty. */
+  invoiceApprovals: { internal: true, staffOnly: true, scope: 'global' },
+  /** Plan finansowy (Finanse): podgląd planu, pozycje i koszty stałe. Lista `invoices.access` jak Koszty. */
+  financePlan: { internal: true, staffOnly: true, scope: 'global' },
   /** Zarząd: ewidencja pojazdów i pracownicy. Dostęp dodatkowo zawężony do osób z ustawienia `management.access`. */
   fleet: { internal: true, staffOnly: true, scope: 'global' },
   employees: { internal: true, staffOnly: true, scope: 'global' },
@@ -97,6 +101,9 @@ export const DEFAULT_LEVELS: Record<ModuleKey, Row> = {
   // Faktury: rola tylko otwiera możliwość — o dostępie decyduje lista osób w Ustawieniach (Admin).
   // Księgowość: odczyt i eksport — z tej tabeli, bez list osób w Ustawieniach (te dotyczą pracowników Envcheck).
   invoices: row('P', 'P', '-', '-', '-', 'O'),
+  // Do akceptacji i Plan finansowy — osobne wiersze (wcześniej te same uprawnienia co Koszty).
+  invoiceApprovals: row('P', 'P', '-', '-', '-', 'O'),
+  financePlan: row('P', 'P', '-', '-', '-', 'O'),
   // Zarząd: jak Faktury — o dostępie decyduje lista osób w Ustawieniach (Admin).
   fleet: row('P', 'P', '-', '-', '-'),
   employees: row('P', 'P', '-', '-', '-', 'O'),

@@ -1,5 +1,13 @@
 # Changelog
 
+## Uprawnienia: osobne wiersze „Do akceptacji” i „Plan finansowy” (09.11.2026)
+
+- **Tabela Uprawnienia ma dwa nowe wiersze** (moduły `invoiceApprovals`, `financePlan`); wcześniej obie zakładki miały uprawnienia wiersza „Koszty”. Migracja `20261109210834_approvals_finance_plan_permissions` kopiuje aktualne wpisy „Koszty” każdej roli, więc po wdrożeniu dostęp się nie zmienia.
+- **Do akceptacji**: *podgląd* — zakładka i karta faktury (także bez podglądu Kosztów; wtedy lista obejmuje tylko faktury w akceptacji), *akceptacja* — akceptowanie i odrzucanie faktur (pojedynczo i zbiorczo), licznik w menu i lista akceptujących przy wysyłaniu. Prawo akceptacji przeniesione z wiersza „Koszty” (tamtejsza kolumna „akceptacja” nie jest już używana).
+- **Plan finansowy**: *podgląd* — zakładka, *dodawanie / edycja / usuwanie* — pozycje planu, koszty stałe i plan roku. Przycisk „Synchronizuj z inFakt” nadal według „Koszty: dodawanie”.
+- Listy osób w Ustawieniach (Koszty) obejmują też oba nowe moduły; Księgowość — jak dotąd według samej tabeli.
+- Trasy API: uprawnienie alternatywne (`or`) w `secureRoute` — lista, karta i pliki faktury dla Kosztów albo „Do akceptacji”.
+
 ## Uprawnienia: Księgowość według tabeli uprawnień (09.11.2026)
 
 - **Rola Księgowość widzi moduły zgodnie z tabelą Uprawnienia** — listy osób w Ustawieniach (Koszty, Zarząd, Czas pracy) nie dotyczą już tej roli; zawężają tylko pracowników Envcheck. Wcześniej osoba z rolą Księgowość bez wpisu na każdej z list nie widziała zakładek mimo uprawnień z roli. Domyślnie: Koszty (z Rozliczeniami, Planem finansowym i „Do akceptacji”), Pracownicy i Czas pracy — podgląd i eksport.

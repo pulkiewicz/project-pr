@@ -135,7 +135,7 @@ export function PlannedSection({ plan }: { plan: FinancePlanResponse }) {
     <Card withBorder>
       <Group justify="space-between" mb="sm">
         <Title order={4}>{t('finance.plan.title')}</Title>
-        {can('invoices', 'create') && (
+        {can('financePlan', 'create') && (
           <Group gap="xs">
             <Button size="xs" variant="light" leftSection={<IconPlus size={14} />} onClick={() => setEditing('new-revenue')}>
               {t('finance.plan.addRevenue')}
@@ -187,12 +187,12 @@ export function PlannedSection({ plan }: { plan: FinancePlanResponse }) {
                     </Table.Td>
                     <Table.Td>
                       <Group gap={2} justify="flex-end" wrap="nowrap">
-                        {can('invoices', 'edit') && (
+                        {can('financePlan', 'edit') && (
                           <ActionIcon size="sm" variant="subtle" aria-label={t('finance.plan.edit')} onClick={() => setEditing(i)}>
                             <IconPencil size={14} />
                           </ActionIcon>
                         )}
-                        {can('invoices', 'delete') && (
+                        {can('financePlan', 'delete') && (
                           <ActionIcon size="sm" variant="subtle" color="red" aria-label={t('finance.delete.confirm')} onClick={() => confirmDelete(t, i.name, () => del.mutate(i.id, { onError: notifyError }))}>
                             <IconTrash size={14} />
                           </ActionIcon>
@@ -302,7 +302,7 @@ export function FixedCostsSection({ plan }: { plan: FinancePlanResponse }) {
             {t('finance.fixed.hint')}
           </Text>
         </Stack>
-        {can('invoices', 'create') && (
+        {can('financePlan', 'create') && (
           <Button size="xs" variant="light" leftSection={<IconPlus size={14} />} onClick={() => setEditing('new')}>
             {t('finance.fixed.add')}
           </Button>
@@ -355,14 +355,14 @@ export function FixedCostsSection({ plan }: { plan: FinancePlanResponse }) {
                     </Table.Td>
                     <Table.Td>
                       <Group gap={2} justify="flex-end" wrap="nowrap">
-                        {can('invoices', 'edit') && (
+                        {can('financePlan', 'edit') && (
                           <Tooltip label={t('finance.fixed.edit')}>
                             <ActionIcon size="sm" variant="subtle" aria-label={t('finance.fixed.edit')} onClick={() => setEditing(f)}>
                               <IconPencil size={14} />
                             </ActionIcon>
                           </Tooltip>
                         )}
-                        {can('invoices', 'delete') && (
+                        {can('financePlan', 'delete') && (
                           <ActionIcon size="sm" variant="subtle" color="red" aria-label={t('finance.delete.confirm')} onClick={() => confirmDelete(t, f.name, () => del.mutate(f.id, { onError: notifyError }))}>
                             <IconTrash size={14} />
                           </ActionIcon>

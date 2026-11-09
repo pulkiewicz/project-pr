@@ -102,9 +102,9 @@ export function App() {
         <Route path="/baza-wiedzy" element={<Guard module="quoteKnowledge"><Suspense fallback={<Loader />}><KnowledgePage /></Suspense></Guard>} />
         <Route path="/baza-wiedzy/profile/:id" element={<Guard module="quoteKnowledge"><Suspense fallback={<Loader />}><KnowledgePage /></Suspense></Guard>} />
         <Route path="/faktury" element={<Guard module="invoices"><Suspense fallback={<Loader />}><InvoicesPage /></Suspense></Guard>} />
-        <Route path="/akceptacja" element={<Guard module="invoices"><Suspense fallback={<Loader />}><ApprovalsPage /></Suspense></Guard>} />
+        <Route path="/akceptacja" element={<Guard module="invoiceApprovals"><Suspense fallback={<Loader />}><ApprovalsPage /></Suspense></Guard>} />
         <Route path="/rozliczenia" element={<Guard module="invoices"><Suspense fallback={<Loader />}><SettlementsPage /></Suspense></Guard>} />
-        <Route path="/plan-finansowy" element={<Guard module="invoices"><Suspense fallback={<Loader />}><FinancePlanPage /></Suspense></Guard>} />
+        <Route path="/plan-finansowy" element={<Guard module="financePlan"><Suspense fallback={<Loader />}><FinancePlanPage /></Suspense></Guard>} />
         <Route path="/pracownicy" element={<Guard module="employees"><Suspense fallback={<Loader />}><EmployeesPage /></Suspense></Guard>} />
         <Route path="/pojazdy" element={<Guard module="fleet"><Suspense fallback={<Loader />}><FleetPage /></Suspense></Guard>} />
         <Route path="/czas-pracy" element={<Guard module="timesheets"><Suspense fallback={<Loader />}><TimesheetsPage /></Suspense></Guard>} />

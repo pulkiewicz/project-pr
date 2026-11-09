@@ -35,7 +35,7 @@ export function ApprovalsPage() {
   const { can } = useAuth()
   const me = useMe()
   const isAdmin = me.user.role === 'Admin'
-  const canApprove = can('invoices', 'approve')
+  const canApprove = can('invoiceApprovals', 'approve')
   const [view, setView] = useState<View>(isAdmin ? 'all' : canApprove ? 'mine' : 'sent')
   const [dateTo, setDateTo] = useState<string | null>(null)
   const [open, setOpen] = useState<string | null>(null)

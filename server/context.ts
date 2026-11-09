@@ -56,7 +56,8 @@ export interface RoutePolicy {
   method: string
   path: string
   /** `null` = endpoint dostępny dla każdego zalogowanego użytkownika (np. /me, /mfa/*). */
-  permission: { module: ModuleKey; action: Action } | null
+  /** `or` — alternatywne uprawnienie (wystarczy jedno z dwóch). */
+  permission: { module: ModuleKey; action: Action; or?: { module: ModuleKey; action: Action } } | null
   mfaExempt: boolean
 }
 

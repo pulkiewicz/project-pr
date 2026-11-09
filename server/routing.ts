@@ -20,7 +20,9 @@ export function newRouter() {
   })
 }
 
-type Secured = { permission: { module: ModuleKey; action: Action } | null; mfaExempt?: boolean }
+type Permission = { module: ModuleKey; action: Action }
+/** `or` — alternatywne uprawnienie (wystarczy jedno z dwóch), np. lista faktur dla Kosztów albo dla „Do akceptacji”. */
+type Secured = { permission: (Permission & { or?: Permission }) | null; mfaExempt?: boolean }
 
 /**
  * Definicja trasy z obowiązkową deklaracją uprawnienia.
@@ -29,7 +31,7 @@ type Secured = { permission: { module: ModuleKey; action: Action } | null; mfaEx
 export function secureRoute<R extends RouteConfig>(basePath: string, route: R, secured: Secured) {
   const mw: MiddlewareHandler<AppEnv>[] = []
   if (!secured.mfaExempt) mw.push(requireMfa)
-  if (secured.permission) mw.push(requirePermission(secured.permission.module, secured.permission.action))
+  if (secured.permission) mw.push(requirePermission(secured.permission.module, secured.permission.action, secured.permission.or))
   if (`${basePath}${route.path}`.includes('{projectId}')) mw.push(requireProjectAccess)
   const existing = route.middleware ? (Array.isArray(route.middleware) ? route.middleware : [route.middleware]) : []
   ROUTE_POLICIES.push({

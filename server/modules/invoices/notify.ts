@@ -14,14 +14,14 @@ export interface Approver {
   email: string
 }
 
-/** Akceptujący do wyboru przy wysłaniu: aktywne osoby z listy `invoices.access`, których rola ma `invoices:approve`. */
+/** Akceptujący do wyboru przy wysłaniu: aktywne osoby z listy `invoices.access`, których rola ma `invoiceApprovals:approve`. */
 export async function eligibleApprovers(db: Database): Promise<Approver[]> {
   const settings = await invoiceSettings(db)
   if (!settings.userIds.length) return []
   return db
     .select({ id: users.id, name: users.name, email: users.email })
     .from(users)
-    .innerJoin(permissions, and(eq(permissions.role, users.role), eq(permissions.module, 'invoices'), eq(permissions.action, 'approve'), eq(permissions.allowed, true)))
+    .innerJoin(permissions, and(eq(permissions.role, users.role), eq(permissions.module, 'invoiceApprovals'), eq(permissions.action, 'approve'), eq(permissions.allowed, true)))
     .where(and(inArray(users.id, settings.userIds), eq(users.isActive, true), isNull(users.deletedAt)))
     .orderBy(asc(users.name))
 }

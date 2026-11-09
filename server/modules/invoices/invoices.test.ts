@@ -500,3 +500,59 @@ describe('zbiorcza akceptacja (strona „Do akceptacji”)', () => {
     expect(await (await req(h, 'POST', '/api/invoices/bulk-approve', admin.headers, { ids })).json()).toEqual({ updated: 0, skipped: ids.length })
   })
 })
+
+describe('osobne wiersze uprawnień: „Do akceptacji” i „Plan finansowy”', () => {
+  const setPerm = (module: string, action: string, allowed: boolean) =>
+    h.db
+      .update(schema.permissions)
+      .set({ allowed })
+      .where(and(eq(schema.permissions.role, 'EnvcheckInternal'), eq(schema.permissions.module, module), eq(schema.permissions.action, action)))
+  const perms = async (u: TestUser) => ((await (await req(h, 'GET', '/api/me', u.headers)).json()) as MeResponse).permissions
+
+  it('migracja: nowe wiersze mają te same wpisy co Koszty', async () => {
+    const rows = await h.db.select().from(schema.permissions)
+    const of = (m: string) => rows.filter((r) => r.module === m).map((r) => `${r.role}|${r.action}|${r.allowed}`).sort()
+    expect(of('invoiceApprovals')).toEqual(of('invoices'))
+    expect(of('financePlan')).toEqual(of('invoices'))
+  })
+
+  it('„Do akceptacji” bez Kosztów: zakładka i karta faktury działają, lista tylko faktur w akceptacji', async () => {
+    await setPerm('invoices', 'view', false)
+    try {
+      expect(await perms(ania)).toEqual(expect.arrayContaining(['invoiceApprovals:view']))
+      expect(await perms(ania)).not.toContain('invoices:view')
+      const res = await req(h, 'GET', '/api/invoices', ania.headers)
+      expect(res.status).toBe(200)
+      const items = ((await res.json()) as InvoiceListResponse).items
+      expect(items.every((i) => i.status === 'pending')).toBe(true)
+      if (items[0]) expect((await req(h, 'GET', `/api/invoices/${items[0].id}`, ania.headers)).status).toBe(200)
+    } finally {
+      await setPerm('invoices', 'view', true)
+    }
+  })
+
+  it('akceptacja wymaga „Do akceptacji: akceptacja” — nie wiersza Koszty', async () => {
+    await setPerm('invoiceApprovals', 'approve', false)
+    try {
+      expect(await perms(kamil)).toContain('invoices:approve')
+      expect((await req(h, 'POST', '/api/invoices/bulk-approve', kamil.headers, { ids: [crypto.randomUUID()] })).status).toBe(403)
+      expect(((await (await req(h, 'GET', '/api/invoices/awaiting-approval', kamil.headers)).json()) as { count: number }).count).toBe(0)
+      // Bez prawa akceptacji nie ma kogo wskazać jako akceptującego.
+      expect(((await (await req(h, 'GET', '/api/invoices/approvers', ania.headers)).json()) as { id: string }[]).map((a) => a.id)).not.toContain(kamil.id)
+    } finally {
+      await setPerm('invoiceApprovals', 'approve', true)
+    }
+    expect((await req(h, 'POST', '/api/invoices/bulk-approve', kamil.headers, { ids: [crypto.randomUUID()] })).status).toBe(200)
+  })
+
+  it('Plan finansowy niezależnie od Kosztów', async () => {
+    expect((await req(h, 'GET', '/api/finance/plan?month=2026-10', ania.headers)).status).toBe(200)
+    await setPerm('financePlan', 'view', false)
+    try {
+      expect((await req(h, 'GET', '/api/finance/plan?month=2026-10', ania.headers)).status).toBe(403)
+      expect((await req(h, 'GET', '/api/invoices', ania.headers)).status).toBe(200)
+    } finally {
+      await setPerm('financePlan', 'view', true)
+    }
+  })
+})

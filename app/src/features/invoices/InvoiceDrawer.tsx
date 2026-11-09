@@ -392,7 +392,7 @@ export function InvoiceDrawer({ id, onClose }: { id: string | null; onClose: () 
                   )}
                 </>
               ) : (
-                can('invoices', 'approve') &&
+                can('invoiceApprovals', 'approve') &&
                 myDecision && (
                   <>
                     <Button color="red" variant="light" leftSection={<IconX size={16} />} onClick={() => setAction('reject')}>

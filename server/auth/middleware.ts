@@ -73,9 +73,10 @@ export const requireMfa: MiddlewareHandler<AppEnv> = async (c, next) => {
 }
 
 /** Warstwa 3: rola × moduł × akcja z tabeli `permissions`. */
-export function requirePermission(module: ModuleKey, action: Action): MiddlewareHandler<AppEnv> {
+export function requirePermission(module: ModuleKey, action: Action, or?: { module: ModuleKey; action: Action }): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
-    if (!c.get('permissions').has(`${module}:${action}`)) throw forbidden('permission_denied', `${module}:${action}`)
+    const perms = c.get('permissions')
+    if (!perms.has(`${module}:${action}`) && !(or && perms.has(`${or.module}:${or.action}`))) throw forbidden('permission_denied', `${module}:${action}`)
     await next()
   }
 }

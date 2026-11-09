@@ -49,6 +49,10 @@ const body = <T extends z.ZodType>(schema: T) => ({ ...json(schema), required: t
 const ok = { 200: { description: 'OK', ...json(z.any()) } }
 const idParam = z.object({ id: z.uuid() })
 const route = <R extends RouteConfig>(r: R, action: Action) => secureRoute('', r, { permission: { module: 'invoices', action } })
+/** Odczyt faktur: Koszty albo „Do akceptacji” (strona akceptacji i karta faktury). */
+const readRoute = <R extends RouteConfig>(r: R) => secureRoute('', r, { permission: { module: 'invoices', action: 'view', or: { module: 'invoiceApprovals', action: 'view' } } })
+/** Akceptacja i odrzucenie — moduł „Do akceptacji”. */
+const approveRoute = <R extends RouteConfig>(r: R) => secureRoute('', r, { permission: { module: 'invoiceApprovals', action: 'approve' } })
 const now = (c: Context<AppEnv>) => c.get('deps').now?.() ?? new Date()
 
 /** E-mail do akceptujących po wysłaniu do akceptacji (gdy włączony w Ustawieniach i skonfigurowana poczta). */
@@ -121,9 +125,12 @@ async function transition(
 
 // ---------------- Lista, szczegóły, synchronizacja ----------------
 
-invoicesRouter.openapi(route({ method: 'get', path: '/invoices', responses: ok }, 'view'), async (c) => {
+invoicesRouter.openapi(readRoute({ method: 'get', path: '/invoices', responses: ok }), async (c) => {
   const db = c.get('deps').db
-  const res: InvoiceListResponse = { items: await listInvoices(db), lastSync: await lastSync(db), configured: !!c.get('deps').infakt }
+  // Bez Kosztów (tylko „Do akceptacji”) — wyłącznie faktury w akceptacji.
+  const all = await listInvoices(db)
+  const items = c.get('permissions').has('invoices:view') ? all : all.filter((i) => i.status === 'pending')
+  const res: InvoiceListResponse = { items, lastSync: await lastSync(db), configured: !!c.get('deps').infakt }
   return c.json(res, 200)
 })
 
@@ -218,7 +225,7 @@ invoicesRouter.openapi(
  * (sprzed wyboru akceptującego) — wysłane przez kogoś innego. Bez uprawnienia `approve` — 0.
  */
 invoicesRouter.openapi(route({ method: 'get', path: '/invoices/awaiting-approval', responses: ok }, 'view'), async (c) => {
-  if (!c.get('permissions').has('invoices:approve')) return c.json({ count: 0 }, 200)
+  if (!c.get('permissions').has('invoiceApprovals:approve')) return c.json({ count: 0 }, 200)
   const me = c.get('user').id
   const [r] = await c
     .get('deps')
@@ -240,12 +247,12 @@ invoicesRouter.openapi(route({ method: 'get', path: '/invoices/approvers', respo
   return c.json(list, 200)
 })
 
-invoicesRouter.openapi(route({ method: 'get', path: '/invoices/{id}', request: { params: idParam }, responses: ok }, 'view'), async (c) =>
+invoicesRouter.openapi(readRoute({ method: 'get', path: '/invoices/{id}', request: { params: idParam }, responses: ok }), async (c) =>
   c.json(await detail(c, c.req.valid('param').id), 200),
 )
 
 /** Załączniki (PDF) z inFakt — linki do aplikacji inFakt (wymagają zalogowania w inFakt). */
-invoicesRouter.openapi(route({ method: 'get', path: '/invoices/{id}/attachments', request: { params: idParam }, responses: ok }, 'view'), async (c) => {
+invoicesRouter.openapi(readRoute({ method: 'get', path: '/invoices/{id}/attachments', request: { params: idParam }, responses: ok }), async (c) => {
   const deps = c.get('deps')
   if (!deps.infakt) throw new HttpProblem(503, 'infakt_not_configured')
   const [inv] = await deps.db.select({ uuid: costInvoices.infaktUuid }).from(costInvoices).where(eq(costInvoices.id, c.req.valid('param').id))
@@ -268,7 +275,7 @@ const attachmentParam = z.object({ id: z.uuid(), index: z.coerce.number().int().
  * Klucz API inFakt trafia tylko do hostów inFakt; zwracane są wyłącznie PDF i obrazy (inna odpowiedź, np. strona logowania — 502).
  */
 invoicesRouter.openapi(
-  route({ method: 'get', path: '/invoices/{id}/attachments/{index}/file', request: { params: attachmentParam }, responses: { 200: { description: 'Plik', content: { 'application/pdf': { schema: z.any() } } } } }, 'view'),
+  readRoute({ method: 'get', path: '/invoices/{id}/attachments/{index}/file', request: { params: attachmentParam }, responses: { 200: { description: 'Plik', content: { 'application/pdf': { schema: z.any() } } } } }),
   async (c) => {
     const deps = c.get('deps')
     if (!deps.infakt) throw new HttpProblem(503, 'infakt_not_configured')
@@ -643,7 +650,7 @@ const notSubmitter = (c: Context<AppEnv>) => (cur: typeof costInvoices.$inferSel
 }
 
 invoicesRouter.openapi(
-  route({ method: 'post', path: '/invoices/{id}/approve', request: { params: idParam, body: body(invoiceTransitionInput) }, responses: ok }, 'approve'),
+  approveRoute({ method: 'post', path: '/invoices/{id}/approve', request: { params: idParam, body: body(invoiceTransitionInput) }, responses: ok }),
   async (c) => {
     const { comment, version } = c.req.valid('json')
     return transition(c, c.req.valid('param').id, version, ['pending'], 'approved', { kind: 'approved', comment }, notSubmitter(c))
@@ -655,7 +662,7 @@ invoicesRouter.openapi(
  * (wskazana jej lub bez wskazania; Admin — każda), nigdy wysłane przez siebie; pozostałe pominięte.
  */
 invoicesRouter.openapi(
-  route({ method: 'post', path: '/invoices/bulk-approve', request: { body: body(invoiceBulkApproveInput) }, responses: ok }, 'approve'),
+  approveRoute({ method: 'post', path: '/invoices/bulk-approve', request: { body: body(invoiceBulkApproveInput) }, responses: ok }),
   async (c) => {
     const { ids, comment } = c.req.valid('json')
     const user = c.get('user')
@@ -681,7 +688,7 @@ invoicesRouter.openapi(
 )
 
 invoicesRouter.openapi(
-  route({ method: 'post', path: '/invoices/{id}/reject', request: { params: idParam, body: body(invoiceRejectInput) }, responses: ok }, 'approve'),
+  approveRoute({ method: 'post', path: '/invoices/{id}/reject', request: { params: idParam, body: body(invoiceRejectInput) }, responses: ok }),
   async (c) => {
     const { comment, version } = c.req.valid('json')
     return transition(c, c.req.valid('param').id, version, ['pending'], 'rejected', { kind: 'rejected', comment }, notSubmitter(c))

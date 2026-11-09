@@ -56,7 +56,7 @@ export function YearPlanEditor({ plan, onDirtyChange }: { plan: FinancePlanRespo
   const me = useMe()
   const categories = useCostCategories().data ?? []
   const save = useSavePlanYear()
-  const editable = can('invoices', 'edit')
+  const editable = can('financePlan', 'edit')
   const year = plan.month.slice(0, 4)
   const months = plan.year.map((m) => m.month)
 

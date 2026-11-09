@@ -16,7 +16,7 @@ const ok = { 200: { description: 'OK', content: { 'application/json': { schema: 
 const planQuery = z.object({ month: z.string().regex(financeMonth, 'validation.month').optional() })
 
 financeRouter.openapi(
-  secureRoute('', { method: 'get', path: '/finance/plan', request: { query: planQuery }, responses: ok }, { permission: { module: 'invoices', action: 'view' } }),
+  secureRoute('', { method: 'get', path: '/finance/plan', request: { query: planQuery }, responses: ok }, { permission: { module: 'financePlan', action: 'view' } }),
   async (c) => {
     const deps = c.get('deps')
     const month = c.req.valid('query').month ?? todayWarsaw(deps.now?.()).slice(0, 7)
@@ -29,7 +29,7 @@ financeRouter.openapi(
 
 const json = <T extends z.ZodType>(schema: T) => ({ content: { 'application/json': { schema } }, required: true as const })
 const idParam = z.object({ id: z.uuid() })
-const perm = (action: Action) => ({ permission: { module: 'invoices' as const, action } })
+const perm = (action: Action) => ({ permission: { module: 'financePlan' as const, action } })
 
 /** Projekt i kategoria muszą istnieć (inaczej 422 zamiast błędu klucza obcego); kategoria tylko dla kosztów. */
 async function checkRefs(db: Database, v: { projectId?: string | null; costCategoryId?: string | null }) {

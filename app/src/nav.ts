@@ -45,12 +45,12 @@ export const SALES_NAV: NavItem[] = [
 /** Moduły firmy: finanse (dostęp dla osób wskazanych w Ustawieniach). */
 export const FINANCE_NAV: NavItem[] = [
   { module: 'invoices', path: '/faktury', stage: '—', ready: true },
-  // Faktury w akceptacji: czekające na mnie (licznik), Admin — wszystkie z akceptującym; te same uprawnienia co Faktury.
-  { module: 'invoices', navKey: 'approvals', path: '/akceptacja', stage: '—', ready: true },
+  // Faktury w akceptacji: czekające na mnie (licznik), Admin — wszystkie z akceptującym; osobny wiersz w Uprawnieniach.
+  { module: 'invoiceApprovals', navKey: 'approvals', path: '/akceptacja', stage: '—', ready: true },
   // Rozliczenia faktur z wyciągami — te same uprawnienia co Faktury.
   { module: 'invoices', navKey: 'settlements', path: '/rozliczenia', stage: '—', ready: true },
-  // Plan finansowy miesiąca: przychody, koszty z faktur, koszty pracownicze — te same uprawnienia co Faktury.
-  { module: 'invoices', navKey: 'financePlan', path: '/plan-finansowy', stage: '—', ready: true },
+  // Plan finansowy miesiąca: przychody, koszty z faktur, koszty pracownicze — osobny wiersz w Uprawnieniach.
+  { module: 'financePlan', navKey: 'financePlan', path: '/plan-finansowy', stage: '—', ready: true },
 ]
 
 /** Moduły firmy: zarząd (dostęp dla osób wskazanych w Ustawieniach). */

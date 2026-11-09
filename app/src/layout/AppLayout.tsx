@@ -125,7 +125,7 @@ export function AppLayout() {
   const norm = (p: string) => p.replace(/\/+$/, '') || '/'
   const isActive = (path: string, exact = false) => (path === '/' || exact ? norm(location.pathname) === norm(path) : location.pathname.startsWith(path))
 
-  const awaiting = useAwaitingApproval(can('invoices', 'approve')).data?.count ?? 0
+  const awaiting = useAwaitingApproval(can('invoiceApprovals', 'approve')).data?.count ?? 0
   const item = (key: string, to: string, label: string, Icon: typeof IconGauge, internalMark = false, opts: { exact?: boolean; indent?: boolean; badge?: string; alert?: number } = {}) => {
     const nav = (
       <NavLink
