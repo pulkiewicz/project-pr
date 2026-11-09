@@ -4,8 +4,9 @@ import type { BankMatchReason } from '#shared'
  * Dopasowanie operacji z wyciągu do faktur kosztowych (B2). Czysta funkcja — dane wczytuje `service.ts`.
  *
  * Kolejność reguł (patrz `BANK_MATCH_REASONS`): numer faktury w opisie, ten sam numer w kilku przelewach o sumie
- * równej brutto, kontrahent + kwota, sama kwota + data. Automatycznie łączymy tylko numer + kwotę, i to wyłącznie
- * gdy dopasowanie jest jednoznaczne w obie strony (jedna faktura dla operacji, jedna operacja dla faktury).
+ * równej brutto, kontrahent + kwota, sama kwota + data (±7 dni, ±30 dni). Automatycznie łączymy numer + kwotę oraz
+ * kwotę przy różnicy dat do 7 dni — wyłącznie gdy dopasowanie jest jednoznaczne w obie strony (jedna faktura dla
+ * operacji, jedna operacja dla faktury). Pozostałe — propozycje do ręcznego potwierdzenia.
  */
 export interface MatchTx {
   id: string
@@ -38,6 +39,11 @@ export interface Match {
 }
 
 const MAX_SUGGESTIONS = 3
+/** Sama kwota: do 7 dni różnicy dat — automatycznie (gdy jednoznacznie), do 30 dni — propozycja. */
+const AUTO_DAYS = 7
+const SUGGEST_DAYS = 30
+
+type AmountCandidate = { inv: MatchInvoice; reason: BankMatchReason; distance: number; near: boolean }
 
 const plain = (s: string) =>
   s
@@ -107,6 +113,7 @@ export function findMatches(txs: MatchTx[], invoices: MatchInvoice[]): Match[] {
   }
 
   const out: Match[] = []
+  const amountCandidates = new Map<string, { tx: MatchTx; candidates: AmountCandidate[] }>()
   for (const tx of txs) {
     const hits = numberHits.get(tx.id)
     if (hits) {
@@ -127,19 +134,34 @@ export function findMatches(txs: MatchTx[], invoices: MatchInvoice[]): Match[] {
       continue
     }
 
-    // 3–4. Kwota równa niezapłaconej części brutto.
+    // 3–5. Kwota równa niezapłaconej części brutto.
     const date = tx.valueDate ?? tx.bookingDate
-    const candidates: { inv: MatchInvoice; reason: BankMatchReason; distance: number }[] = []
+    const candidates: AmountCandidate[] = []
     for (const inv of open) {
       if (inv.open !== tx.open || !inv.date) continue
       const d = days(inv.date, date) // < 0 — faktura przed operacją
-      if (d >= -60 && d <= 30 && similarName(tx.counterparty, inv.sellerName)) candidates.push({ inv, reason: 'seller_amount', distance: Math.abs(d) })
-      else if (Math.abs(d) <= 7) candidates.push({ inv, reason: 'amount_date', distance: Math.abs(d) + 100 })
+      const near = Math.abs(d) <= AUTO_DAYS
+      if (d >= -60 && d <= 30 && similarName(tx.counterparty, inv.sellerName)) candidates.push({ inv, reason: 'seller_amount', distance: Math.abs(d), near })
+      else if (near) candidates.push({ inv, reason: 'amount_date', distance: Math.abs(d) + 100, near })
+      else if (Math.abs(d) <= SUGGEST_DAYS) candidates.push({ inv, reason: 'amount_date_30', distance: Math.abs(d) + 200, near })
     }
-    candidates
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, MAX_SUGGESTIONS)
-      .forEach((c) => out.push({ txId: tx.id, invoiceId: c.inv.id, amount: tx.open, reason: c.reason, auto: false }))
+    if (candidates.length) amountCandidates.set(tx.id, { tx, candidates: candidates.sort((a, b) => a.distance - b.distance) })
+  }
+
+  // Sama kwota, daty faktury i płatności różnią się najwyżej o 7 dni — łączymy automatycznie, gdy jednoznacznie w obie strony
+  // (jedna taka faktura dla operacji i jedna taka operacja dla faktury; faktura bez numeru w opisie innej operacji).
+  // Różnica do 30 dni albo kilka możliwości — propozycja do ręcznego potwierdzenia.
+  const nearTxsByInvoice = new Map<string, number>()
+  for (const { candidates } of amountCandidates.values())
+    for (const c of candidates) if (c.near) nearTxsByInvoice.set(c.inv.id, (nearTxsByInvoice.get(c.inv.id) ?? 0) + 1)
+  for (const { tx, candidates } of amountCandidates.values()) {
+    const near = candidates.filter((c) => c.near)
+    const sure = near.length === 1 && nearTxsByInvoice.get(near[0]!.inv.id) === 1 && !txsByInvoice.has(near[0]!.inv.id) ? near[0]! : null
+    if (sure) {
+      out.push({ txId: tx.id, invoiceId: sure.inv.id, amount: tx.open, reason: sure.reason, auto: true })
+      continue
+    }
+    candidates.slice(0, MAX_SUGGESTIONS).forEach((c) => out.push({ txId: tx.id, invoiceId: c.inv.id, amount: tx.open, reason: c.reason, auto: false }))
   }
   return out
 }

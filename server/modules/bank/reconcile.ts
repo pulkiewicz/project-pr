@@ -55,7 +55,7 @@ async function loadInvoices(db: Tx) {
   return { list, info }
 }
 
-/** Operacje do dopasowania: wydatki (przelew, karta) „do ustalenia”, jeszcze bez powiązań. */
+/** Operacje do dopasowania: wydatki (przelew, karta) „do ustalenia” albo „jest faktura”, jeszcze bez powiązań. */
 async function loadOpenTxs(db: Tx, where?: SQL): Promise<MatchTx[]> {
   const rows = await db
     .select()
@@ -64,7 +64,7 @@ async function loadOpenTxs(db: Tx, where?: SQL): Promise<MatchTx[]> {
       and(
         inArray(bankTransactions.kind, [...BANK_TX_NEEDS_INVOICE]),
         lt(bankTransactions.amount, 0),
-        eq(bankTransactions.costStatus, 'pending'),
+        inArray(bankTransactions.costStatus, ['pending', 'invoice']),
         sql`not exists (select 1 from ${bankTxInvoiceLinks} where ${bankTxInvoiceLinks.transactionId} = ${bankTransactions.id})`,
         where,
       ),

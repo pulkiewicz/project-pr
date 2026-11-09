@@ -1854,7 +1854,8 @@
       "number": "Numer faktury w opisie przelewu",
       "number_sum": "Ten sam numer w kilku przelewach — suma równa brutto",
       "seller_amount": "Kwota równa brutto i podobny kontrahent",
-      "amount_date": "Kwota równa brutto i data ±7 dni"
+      "amount_date": "Kwota równa brutto i data ±7 dni",
+      "amount_date_30": "Kwota równa brutto, daty różnią się o 8–30 dni"
     },
     "rule": {
       "title": "Reguły kontrahentów ({{count}})",
@@ -1885,10 +1886,12 @@
         "balance": "Saldo początkowe wyciągu nr {{next}} ({{opening}}) ≠ saldo końcowe nr {{prev}} ({{closing}}) — brakuje operacji albo wyciągu."
       },
       "missingTitle": "Wydatki bez faktury: {{count}}",
-      "missingHint": "Przelewy i płatności kartą „do ustalenia” oraz oznaczone „jest faktura” bez połączenia — do uzupełnienia w inFakt albo oznaczenia jako koszt bez faktury.",
+      "missingHint": "Przelewy i płatności kartą „do ustalenia” oraz oznaczone „jest faktura” bez połączenia — do uzupełnienia w inFakt albo oznaczenia jako koszt bez faktury. Płatność z fakturą o tej samej kwocie i dacie różniącej się do 7 dni łączy się automatycznie; przy różnicy do 30 dni (albo kilku możliwych fakturach) w kolumnie „Propozycja faktury” — potwierdź ✓.",
       "statement": "Wyciąg",
       "reference": "Tytuł / nr faktury",
       "toLink": "faktura do podpięcia",
+      "suggestion": "Propozycja faktury",
+      "linked": "Połączono płatność z fakturą {{number}}",
       "title": "Rozliczenia",
       "tabUnpaid": "Faktury bez płatności w banku",
       "tabMissing": "Płatności bez faktury",

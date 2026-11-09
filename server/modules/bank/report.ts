@@ -4,6 +4,7 @@ import { BANK_TX_NEEDS_INVOICE, invoicePaymentState, paymentState, statementCont
 import type { Database } from '../../db/client.ts'
 import { bankStatements, bankTransactions, bankTxInvoiceLinks } from '../../db/schema.ts'
 import { listInvoices } from '../invoices/service.ts'
+import { suggestionsFor } from './reconcile.ts'
 
 const days = (a: string, b: string) => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000)
 
@@ -58,6 +59,9 @@ export async function buildReport(db: Database, today: string, range: { from?: s
       paidInInfakt,
     })
   }
+  // Propozycje faktur dla płatności bez faktury (kwota ±7 / ±30 dni, kontrahent) — do ręcznego potwierdzenia.
+  const suggestions = await suggestionsFor(db, txs.map(({ t }) => t.id))
+
   // Najpierw najdłużej po terminie, potem bez terminu / w terminie wg daty.
   unpaid.sort((a, b) => (b.overdueDays ?? -1) - (a.overdueDays ?? -1) || (a.issueDate ?? '').localeCompare(b.issueDate ?? ''))
 
@@ -78,6 +82,7 @@ export async function buildReport(db: Database, today: string, range: { from?: s
       cardHolder: t.cardHolder,
       kind: t.kind,
       costStatus: t.costStatus,
+      suggestions: suggestions.get(t.id) ?? [],
     })),
     unpaid,
   }

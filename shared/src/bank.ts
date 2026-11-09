@@ -144,9 +144,10 @@ export interface BankStatementDto extends BankStatementHeader {
  * - `number` — numer faktury w opisie przelewu (z zgodną kwotą łączy się automatycznie, gdy jednoznaczne),
  * - `number_sum` — ten sam numer w kilku przelewach, których suma daje brutto (np. „CZĘŚĆ NETTO” + „CZĘŚĆ VAT”),
  * - `seller_amount` — kwota równa brutto i podobny kontrahent, faktura od 60 dni przed do 30 dni po operacji,
- * - `amount_date` — sama kwota i data (±7 dni) — karty, BLIK, Przelewy24 / PayU.
+ * - `amount_date` — sama kwota i data (±7 dni) — karty, BLIK, Przelewy24 / PayU; jednoznaczne łączy się automatycznie,
+ * - `amount_date_30` — sama kwota, daty różnią się o 8–30 dni — tylko propozycja do ręcznego potwierdzenia.
  */
-export const BANK_MATCH_REASONS = ['number', 'number_sum', 'seller_amount', 'amount_date'] as const
+export const BANK_MATCH_REASONS = ['number', 'number_sum', 'seller_amount', 'amount_date', 'amount_date_30'] as const
 export type BankMatchReason = (typeof BANK_MATCH_REASONS)[number]
 
 /** Powiązanie operacji z fakturą kosztową; `amount` — część operacji rozliczona tą fakturą (grosze, dodatnia). */
@@ -319,6 +320,8 @@ export interface BankReportTxDto {
   cardHolder: string | null
   kind: BankTxKind
   costStatus: BankTxCostStatus
+  /** Propozycje faktur do ręcznego potwierdzenia (kwota, numer, kontrahent). */
+  suggestions: BankSuggestionDto[]
 }
 
 export interface BankReportInvoiceDto {

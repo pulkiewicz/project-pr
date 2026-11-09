@@ -159,8 +159,10 @@ Wyciąg wczytany przez pomyłkę można usunąć (kosz przy wyciągu).
   - przelewy i karty → **Do ustalenia**,
 - **łączy przelewy z fakturami**, gdy w opisie przelewu jest numer faktury i kwota zgadza się z brutto
   (zielona odznaka z numerem faktury w kolumnie „Faktura”),
-- dla pozostałych szuka **propozycji** (żółta odznaka) — np. ta sama kwota i podobny kontrahent, płatność kartą
-  w okolicy daty faktury, kilka przelewów z tym samym numerem.
+- **łączy po samej kwocie**, gdy kwota płatności równa się brutto faktury, a daty płatności i faktury różnią się
+  najwyżej o **7 dni** — o ile jest dokładnie jedna taka faktura i jedna taka płatność,
+- dla pozostałych szuka **propozycji** (żółta odznaka) do ręcznego potwierdzenia — np. ta sama kwota i różnica dat
+  do **30 dni**, ta sama kwota i podobny kontrahent, kilka faktur z tą samą kwotą, kilka przelewów z tym samym numerem.
 
 **Twoja praca na wyciągu** (przełącznik **„Tylko do ustalenia”** pokazuje, co zostało):
 1. **Propozycja trafna** → kliknij **✓** obok żółtej odznaki. Po najechaniu na odznakę widać, dlaczego aplikacja ją proponuje.
@@ -198,7 +200,8 @@ brakujący wyciąg albo nakładające się okresy.
   **inFakt** ma jako opłacone (np. z innego rachunku), są domyślnie ukryte — przełącznik **„Pokaż opłacone wg inFakt”**
   je pokazuje, z oznaczeniem.
 - **Płatności bez faktury** — przelewy i karty „do ustalenia” oraz te oznaczone „jest faktura”, ale bez połączenia.
-  **To lista dla księgowej** — czego brakuje w inFakt.
+  **To lista dla księgowej** — czego brakuje w inFakt. W kolumnie **Propozycja faktury** — faktury z tą samą kwotą
+  (różnica dat do 30 dni) albo z numerem w tytule: kliknięcie numeru otwiera kartę faktury, **✓** łączy płatność z fakturą.
 
 **Eksport XLSX** zapisuje obie listy i ciągłość wyciągów w jednym pliku Excel.
 

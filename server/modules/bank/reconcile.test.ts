@@ -48,15 +48,29 @@ describe('silnik dopasowań', () => {
     expect(dup.every((x) => !x.auto)).toBe(true)
   })
 
-  it('bez numeru: kontrahent + kwota (proforma, faktura po zapłacie), a sama kwota tylko ±7 dni', () => {
+  it('bez numeru: kontrahent + kwota (proforma, faktura po zapłacie); sama kwota ±7 dni jednoznacznie — automatycznie', () => {
     const m = findMatches(
       [tx('p', 20_467_200, ['260PRO0170'], 'BAŁTYKGAZ SP. Z O.O.', '2026-09-18'), tx('c', 20_200, [], 'BP - STARE BABICE 803', '2026-09-01')],
       [inv('final', 'FV/2026/09/111', 20_467_200, 'Bałtykgaz Sp. z o.o.', '2026-10-05'), inv('fuel', 'F/1', 20_200, 'Orlen S.A.', '2026-09-03'), inv('far', 'F/2', 20_200, 'Orlen S.A.', '2026-09-20')],
     )
     expect(m).toEqual([
       { txId: 'p', invoiceId: 'final', amount: 20_467_200, reason: 'seller_amount', auto: false },
-      { txId: 'c', invoiceId: 'fuel', amount: 20_200, reason: 'amount_date', auto: false },
+      { txId: 'c', invoiceId: 'fuel', amount: 20_200, reason: 'amount_date', auto: true },
     ])
+  })
+
+  it('sama kwota: 8–30 dni różnicy albo kilka możliwości — propozycje do ręcznego potwierdzenia', () => {
+    // 8–30 dni: propozycja; ponad 30 dni: nic.
+    expect(findMatches([tx('t', 5_000, [], 'SKLEP', '2026-10-20')], [inv('a', 'A/1', 5_000, 'Hurtownia', '2026-10-05'), inv('b', 'B/1', 5_000, 'Hurtownia', '2026-09-10')])).toEqual([
+      { txId: 't', invoiceId: 'a', amount: 5_000, reason: 'amount_date_30', auto: false },
+    ])
+    // Dwie faktury z tą kwotą w ciągu 7 dni — niejednoznaczne, obie jako propozycje.
+    expect(findMatches([tx('t', 5_000, [], 'SKLEP', '2026-10-20')], [inv('a', 'A/1', 5_000, 'Hurtownia', '2026-10-18'), inv('b', 'B/1', 5_000, 'Hurtownia', '2026-10-22')])).toEqual([
+      { txId: 't', invoiceId: 'a', amount: 5_000, reason: 'amount_date', auto: false },
+      { txId: 't', invoiceId: 'b', amount: 5_000, reason: 'amount_date', auto: false },
+    ])
+    // Dwie płatności z tą kwotą w ciągu 7 dni od jednej faktury — też tylko propozycje.
+    expect(findMatches([tx('t1', 5_000, [], 'SKLEP', '2026-10-20'), tx('t2', 5_000, [], 'SKLEP', '2026-10-21')], [inv('a', 'A/1', 5_000, 'Hurtownia', '2026-10-18')]).map((m) => m.auto)).toEqual([false, false])
   })
 
   it('stan zapłaty i klucz kontrahenta', () => {
@@ -96,8 +110,8 @@ beforeAll(async () => {
     .values([
       { ...base, infaktUuid: 'u-fv12', number: 'FV 12/10/2026', sellerName: 'Firma Testowa Sp. z o.o.', grossPrice: 123_000, netPrice: 100_000, issueDate: '2026-09-30' },
       { ...base, infaktUuid: 'u-fv1', number: 'FV/1/2026', sellerName: 'Hurtownia Test S.A.', grossPrice: 123_000, netPrice: 100_000, issueDate: '2026-09-28' },
-      // Paliwo: numer nie występuje w opisie płatności kartą — propozycja po kontrahencie i kwocie.
-      { ...base, infaktUuid: 'u-fuel', number: 'PAL/77/2026', sellerName: 'Stacja Paliw X Sp. z o.o.', grossPrice: 10_050, netPrice: 8_171, issueDate: '2026-10-05' },
+      // Paliwo: numer nie występuje w opisie płatności kartą, faktura 15 dni przed płatnością — propozycja po kontrahencie i kwocie.
+      { ...base, infaktUuid: 'u-fuel', number: 'PAL/77/2026', sellerName: 'Stacja Paliw X Sp. z o.o.', grossPrice: 10_050, netPrice: 8_171, issueDate: '2026-09-20' },
     ])
     .returning({ id: schema.costInvoices.id, uuid: schema.costInvoices.infaktUuid })
   for (const r of rows) ids[r.uuid.slice(2) as keyof typeof ids] = r.id
@@ -234,6 +248,8 @@ describe('rekoncyliacja przez API', () => {
     expect(r.continuity).toEqual([expect.objectContaining({ kind: 'overlap', prevNumber: expect.any(String), nextNumber: expect.any(String) })])
     expect(r.missing.map((x) => x.id)).toContain(split.id)
     expect(r.missing.find((x) => x.id === split.id)).toMatchObject({ amount: 123_000, reference: 'FV/1/2026', counterparty: 'HURTOWNIA TEST S.A.', costStatus: 'pending' })
+    // Propozycja faktury do potwierdzenia w Rozliczeniach.
+    expect(r.missing.find((x) => x.id === split.id)!.suggestions).toEqual([expect.objectContaining({ invoiceId: ids.fv1, invoiceNumber: 'FV/1/2026', amount: 123_000 })])
     // Połączone i oznaczone jako koszt bez faktury nie są brakami.
     expect(r.missing.every((x) => x.costStatus === 'pending' || x.costStatus === 'invoice')).toBe(true)
     const fv1 = r.unpaid.find((x) => x.id === ids.fv1)!

@@ -1,5 +1,11 @@
 # Changelog
 
+## Rozliczenia: dopasowanie płatności do faktur po kwocie (09.11.2026)
+
+- **Sama kwota, różnica dat do 7 dni — łączenie automatyczne**: płatność z wyciągu (przelew, karta) o kwocie równej niezapłaconej części brutto faktury i dacie różniącej się najwyżej o 7 dni łączy się przy imporcie wyciągu, „Dopasuj automatycznie” i synchronizacji z inFakt — tylko gdy jednoznacznie (jedna taka faktura dla płatności i jedna płatność dla faktury). Wcześniej sama kwota dawała wyłącznie propozycję.
+- **Różnica 8–30 dni albo kilka możliwości — propozycja do ręcznego potwierdzenia** (nowy powód `amount_date_30`).
+- **Rozliczenia → Płatności bez faktury**: kolumna „Propozycja faktury” z przyciskiem ✓ (połącz) i podglądem karty faktury; `BankReportTxDto.suggestions`. Do dopasowania trafiają też operacje oznaczone „jest faktura” bez połączenia.
+
 ## Rozliczenia: filtr miesiąca, odświeżanie po wgraniu wyciągu (09.11.2026)
 
 - **Filtr miesiąca** zamiast pól „Od / Do”: strzałki poprzedni / następny miesiąc i kalendarz miesięcy; **domyślnie bieżący miesiąc**. „Cały okres wyciągów” — raport za okres zaimportowanych wyciągów (dotychczasowy domyślny widok), „Bieżący miesiąc” wraca do dzisiejszego. Eksport XLSX za wybrany okres.

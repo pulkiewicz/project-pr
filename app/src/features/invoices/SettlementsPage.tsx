@@ -1,16 +1,17 @@
 import { ActionIcon, Alert, Badge, Button, Group, List, Loader, Stack, Switch, Table, Tabs, Text, Title, Tooltip } from '@mantine/core'
 import { MonthPickerInput } from '@mantine/dates'
 import { notifications } from '@mantine/notifications'
-import { IconAlertTriangle, IconChevronLeft, IconChevronRight, IconCircleCheck, IconDownload } from '@tabler/icons-react'
+import { IconAlertTriangle, IconChevronLeft, IconChevronRight, IconCheck, IconCircleCheck, IconDownload } from '@tabler/icons-react'
 import { addMonths, endOfMonth, format, parseISO } from 'date-fns'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { BankReportTxDto } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, todayWarsaw } from '../../lib/format'
 import { KindBadge } from './BankTab'
-import { bankReportPath, useBankReport } from './bankApi'
+import { bankReportPath, useBankReport, useLinkInvoice } from './bankApi'
 import { InvoiceDrawer } from './InvoiceDrawer'
 import { formatMoney } from './status'
 
@@ -18,6 +19,48 @@ const monthDate = (m: string) => parseISO(`${m}-01`)
 const shiftMonth = (m: string, n: number) => format(addMonths(monthDate(m), n), 'yyyy-MM')
 /** Okres raportu: miesiąc (od 1. do ostatniego dnia) albo null = cały okres zaimportowanych wyciągów. */
 const monthRange = (m: string | null) => (m ? { from: `${m}-01`, to: format(endOfMonth(monthDate(m)), 'yyyy-MM-dd') } : { from: null, to: null })
+/**
+ * Propozycje faktury dla płatności bez faktury (ta sama kwota; daty różnią się do 30 dni, podobny kontrahent albo
+ * kilka możliwości) — do ręcznego potwierdzenia. Klik w numer otwiera kartę faktury, ✓ łączy płatność z fakturą.
+ */
+function SuggestionsCell({ tx, onOpen }: { tx: BankReportTxDto; onOpen: (invoiceId: string) => void }) {
+  const { t } = useTranslation()
+  const { can } = useAuth()
+  const link = useLinkInvoice()
+  if (!tx.suggestions.length) return null
+  return (
+    <Stack gap={4}>
+      {tx.suggestions.map((s) => (
+        <Group key={s.invoiceId} gap={4} wrap="nowrap">
+          <Tooltip multiline w={300} label={`${t(`bank.reason.${s.reason}`)} · ${s.sellerName ?? ''} · ${formatDate(s.issueDate)} · ${t('invoices.gross')} ${formatMoney(s.grossPrice)}`}>
+            <Badge variant="outline" color="yellow" size="sm" style={{ textTransform: 'none', maxWidth: 180, cursor: 'pointer' }} onClick={() => onOpen(s.invoiceId)}>
+              {s.invoiceNumber ?? s.sellerName ?? '?'} · {formatDate(s.issueDate)}
+            </Badge>
+          </Tooltip>
+          {can('invoices', 'edit') && (
+            <ActionIcon
+              size="sm"
+              variant="light"
+              color="green"
+              aria-label={t('bank.accept')}
+              title={t('bank.accept')}
+              loading={link.isPending && link.variables?.invoiceId === s.invoiceId}
+              onClick={() =>
+                link.mutate(
+                  { txId: tx.id, invoiceId: s.invoiceId },
+                  { onSuccess: () => notifications.show({ color: 'green', message: t('bank.report.linked', { number: s.invoiceNumber ?? '' }) }), onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }) },
+                )
+              }
+            >
+              <IconCheck size={14} />
+            </ActionIcon>
+          )}
+        </Group>
+      ))}
+    </Stack>
+  )
+}
+
 const sum = (xs: (number | null)[]) => xs.reduce<number>((s, x) => s + (x ?? 0), 0)
 
 /**
@@ -210,6 +253,7 @@ export function SettlementsPage() {
                           <Table.Th w={130} ta="right">
                             {t('bank.amount')}
                           </Table.Th>
+                          <Table.Th w={230}>{t('bank.report.suggestion')}</Table.Th>
                         </Table.Tr>
                       </Table.Thead>
                       <Table.Tbody>
@@ -238,6 +282,9 @@ export function SettlementsPage() {
                             </Table.Td>
                             <Table.Td ta="right" style={{ whiteSpace: 'nowrap' }}>
                               {formatMoney(x.amount, x.currency)}
+                            </Table.Td>
+                            <Table.Td>
+                              <SuggestionsCell tx={x} onOpen={setOpen} />
                             </Table.Td>
                           </Table.Tr>
                         ))}
