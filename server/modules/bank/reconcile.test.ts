@@ -85,6 +85,16 @@ describe('silnik dopasowań', () => {
     ])
   })
 
+  it('różnica zaokrąglenia do 2 gr (Przelewy24 / PayPro): kwota zgodna, faktura zapłacona', () => {
+    const m = findMatches(
+      [tx('p24', 44_766, ['/OPT/X/////P24-W5C-T6T-D0Y ORDER NUMBER 028CEEE'], 'PAYPRO S.A.', '2026-10-07')],
+      [inv('fs', 'FS 15945/2026', 44_767, 'EMICA EMILIA RÓŻYCKA', '2026-10-08'), inv('far', 'X/9', 44_770, 'EMICA EMILIA RÓŻYCKA', '2026-10-08')],
+    )
+    expect(m).toEqual([{ txId: 'p24', invoiceId: 'fs', amount: 44_766, reason: 'amount_date', auto: true }])
+    expect(paymentState(44_767, 44_766)).toBe('paid')
+    expect(paymentState(44_767, 44_764)).toBe('partial')
+  })
+
   it('sama kwota: 8–30 dni różnicy albo kilka możliwości — propozycje do ręcznego potwierdzenia', () => {
     // 8–30 dni: propozycja; ponad 30 dni: nic.
     expect(findMatches([tx('t', 5_000, [], 'SKLEP', '2026-10-20')], [inv('a', 'A/1', 5_000, 'Hurtownia', '2026-10-05'), inv('b', 'B/1', 5_000, 'Hurtownia', '2026-09-10')])).toEqual([

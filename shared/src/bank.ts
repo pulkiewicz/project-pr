@@ -285,10 +285,15 @@ export interface InvoicePaymentDto {
 }
 
 export type InvoicePaymentState = 'paid' | 'partial' | 'unpaid'
+/**
+ * Tolerancja zaokrągleń (grosze): bramki płatności (Przelewy24 / PayPro) i przeliczenie netto → brutto potrafią dać
+ * kwotę różną o grosz (np. płatność 447,66 zł za fakturę 447,67 zł). Różnica do tej wartości = kwota zgodna.
+ */
+export const PAYMENT_TOLERANCE = 2
 /** Stan zapłaty z połączonych płatności; faktura bez kwoty brutto z jakąkolwiek płatnością — zapłacona. */
 export function paymentState(grossPrice: number | null, paidAmount: number): InvoicePaymentState {
   if (paidAmount <= 0) return 'unpaid'
-  return grossPrice == null || paidAmount >= grossPrice ? 'paid' : 'partial'
+  return grossPrice == null || paidAmount >= grossPrice - PAYMENT_TOLERANCE ? 'paid' : 'partial'
 }
 
 // ---------------- Raporty (B3) ----------------

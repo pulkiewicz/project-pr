@@ -1,4 +1,4 @@
-import type { BankMatchReason } from '#shared'
+import { PAYMENT_TOLERANCE, type BankMatchReason } from '#shared'
 
 /**
  * Dopasowanie operacji z wyciągu do faktur kosztowych (B2). Czysta funkcja — dane wczytuje `service.ts`.
@@ -91,6 +91,9 @@ export function similarName(a: string | null, b: string | null): boolean {
   return false
 }
 
+/** Kwoty zgodne z dokładnością do zaokrągleń (patrz `PAYMENT_TOLERANCE`). */
+const sameAmount = (a: number, b: number) => Math.abs(a - b) <= PAYMENT_TOLERANCE
+
 const days = (a: string, b: string) => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000)
 
 /** Grupa „ten sam numer” liczniejsza niż tyle operacji to raczej wspólny fragment opisu (np. stały tytuł), nie numer faktury. */
@@ -138,7 +141,7 @@ function sumGroupMatches(txs: MatchTx[], open: MatchInvoice[]): Match[] {
     const from = addDays(dates[0]!, -60)
     const to = addDays(dates[dates.length - 1]!, 30)
     const candidates = open
-      .filter((inv) => inv.open === total && inv.date && inv.date >= from && inv.date <= to)
+      .filter((inv) => inv.open != null && sameAmount(inv.open, total) && inv.date && inv.date >= from && inv.date <= to)
       .map((inv) => ({ inv, similar: group.some((t) => similarName(t.counterparty, inv.sellerName)), distance: Math.abs(days(inv.date!, dates[dates.length - 1]!)) }))
       .sort((a, b) => Number(b.similar) - Number(a.similar) || a.distance - b.distance)
       .slice(0, MAX_SUGGESTIONS)
@@ -158,7 +161,8 @@ export function findMatches(txs: MatchTx[], invoices: MatchInvoice[]): Match[] {
     const k = normNumber(inv.number)
     if (k) byNumber.set(k, [...(byNumber.get(k) ?? []), inv])
   }
-  const open = invoices.filter((i) => i.open != null && i.open > 0)
+  // Faktury z niedopłatą w granicach zaokrągleń są zapłacone — nie szukamy do nich kolejnych płatności.
+  const open = invoices.filter((i) => i.open != null && i.open > PAYMENT_TOLERANCE)
 
   // 1–2. Numer faktury w opisie.
   const numberHits = new Map<string, MatchInvoice[]>()
@@ -183,8 +187,8 @@ export function findMatches(txs: MatchTx[], invoices: MatchInvoice[]): Match[] {
     if (hits) {
       for (const inv of hits) {
         const same = txsByInvoice.get(inv.id)!
-        const exact = inv.open != null && inv.open === tx.open
-        const sum = same.length > 1 && inv.open != null && same.reduce((s, t) => s + t.open, 0) === inv.open
+        const exact = inv.open != null && sameAmount(inv.open, tx.open)
+        const sum = same.length > 1 && inv.open != null && sameAmount(same.reduce((s, t) => s + t.open, 0), inv.open)
         const amount = inv.open != null && inv.open > 0 ? Math.min(tx.open, inv.open) : tx.open
         out.push({
           txId: tx.id,
@@ -202,7 +206,7 @@ export function findMatches(txs: MatchTx[], invoices: MatchInvoice[]): Match[] {
     const date = tx.valueDate ?? tx.bookingDate
     const candidates: AmountCandidate[] = []
     for (const inv of open) {
-      if (inv.open !== tx.open || !inv.date) continue
+      if (!sameAmount(inv.open!, tx.open) || !inv.date) continue
       const d = days(inv.date, date) // < 0 — faktura przed operacją
       const near = Math.abs(d) <= AUTO_DAYS
       if (d >= -60 && d <= 30 && similarName(tx.counterparty, inv.sellerName)) candidates.push({ inv, reason: 'seller_amount', distance: Math.abs(d), near })
