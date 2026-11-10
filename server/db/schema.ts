@@ -1221,6 +1221,8 @@ export const employees = pgTable(
     /** `monthly` | `hourly`; kwota w groszach. */
     payBasis: text('pay_basis'),
     payAmount: integer('pay_amount'),
+    /** Nazwa w przelewach / na fakturach (firma B2B, inny zapis nazwiska) — dopasowanie płatności w Kosztach pracowniczych. */
+    billingName: text('billing_name'),
     /** Umowa zlecenie: status ucznia / studenta i termin jego ważności. */
     isStudent: boolean('is_student').notNull().default(false),
     studentUntil: date('student_until', { mode: 'string' }),

@@ -162,6 +162,8 @@ const employeeBase = z.object({
   emergencyContactName: optText(200),
   emergencyContactPhone: optText(50),
   contractType: z.enum(CONTRACT_TYPES).nullable().optional(),
+  /** Nazwa kontrahenta w przelewach / na fakturach (np. firma B2B), gdy inna niż imię i nazwisko — Koszty pracownicze. */
+  billingName: optText(200),
   contractStart: optDate,
   /** Null = umowa na czas nieokreślony. */
   contractEnd: optDate,

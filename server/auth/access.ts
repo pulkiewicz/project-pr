@@ -62,7 +62,7 @@ export async function invoiceSettings(db: Database): Promise<InvoiceSettings> {
 }
 
 /** Moduły Finansów: uprawnienia z roli obowiązują tylko osoby z listy `invoices.access`. */
-export const FINANCE_MODULES = ['invoices', 'invoiceApprovals', 'financePlan'] as const satisfies readonly ModuleKey[]
+export const FINANCE_MODULES = ['invoices', 'invoiceApprovals', 'financePlan', 'staffCosts'] as const satisfies readonly ModuleKey[]
 
 /** Uprawnienia Kosztów, Do akceptacji i Planu finansowego z roli obowiązują tylko osoby z listy `invoices.access`. */
 export function restrictInvoicePermissions(perms: Set<`${ModuleKey}:${Action}`>, userId: string, settings: InvoiceSettings) {

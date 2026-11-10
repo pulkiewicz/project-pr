@@ -27,6 +27,7 @@ const QuotesPage = lazy(() => import('./features/quotes/QuotesPage').then((m) =>
 const KnowledgePage = lazy(() => import('./features/quotes/KnowledgePage').then((m) => ({ default: m.KnowledgePage })))
 const InvoicesPage = lazy(() => import('./features/invoices/InvoicesPage').then((m) => ({ default: m.InvoicesPage })))
 const FinancePlanPage = lazy(() => import('./features/finance/FinancePlanPage').then((m) => ({ default: m.FinancePlanPage })))
+const StaffCostsPage = lazy(() => import('./features/finance/StaffCostsPage').then((m) => ({ default: m.StaffCostsPage })))
 const ApprovalsPage = lazy(() => import('./features/invoices/ApprovalsPage').then((m) => ({ default: m.ApprovalsPage })))
 const SettlementsPage = lazy(() => import('./features/invoices/SettlementsPage').then((m) => ({ default: m.SettlementsPage })))
 const ManagementHelpPage = lazy(() => import('./features/help/ManagementHelpPage').then((m) => ({ default: m.ManagementHelpPage })))
@@ -105,7 +106,8 @@ export function App() {
         <Route path="/akceptacja" element={<Guard module="invoiceApprovals"><Suspense fallback={<Loader />}><ApprovalsPage /></Suspense></Guard>} />
         <Route path="/rozliczenia" element={<Guard module="invoices"><Suspense fallback={<Loader />}><SettlementsPage /></Suspense></Guard>} />
         <Route path="/plan-finansowy" element={<Guard module="financePlan"><Suspense fallback={<Loader />}><FinancePlanPage /></Suspense></Guard>} />
-        <Route path="/pracownicy" element={<Guard module="employees"><Suspense fallback={<Loader />}><EmployeesPage /></Suspense></Guard>} />
+        <Route path="/koszty-pracownicze" element={<Guard module="staffCosts"><Suspense fallback={<Loader />}><StaffCostsPage /></Suspense></Guard>} />
+        <Route path="/pracownicy"element={<Guard module="employees"><Suspense fallback={<Loader />}><EmployeesPage /></Suspense></Guard>} />
         <Route path="/pojazdy" element={<Guard module="fleet"><Suspense fallback={<Loader />}><FleetPage /></Suspense></Guard>} />
         <Route path="/czas-pracy" element={<Guard module="timesheets"><Suspense fallback={<Loader />}><TimesheetsPage /></Suspense></Guard>} />
         {/* Pomoc Zarządu — dla osób z listy „Zarząd — pojazdy i pracownicy”. */}

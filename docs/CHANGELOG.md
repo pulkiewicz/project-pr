@@ -1,5 +1,15 @@
 # Changelog
 
+## Finanse: Koszty pracownicze — widok roku z prognozą (10.11.2026)
+
+- **Nowa pozycja menu Finanse → Koszty pracownicze** (`/koszty-pracownicze`): lista osób w 12 miesiącach, pogrupowana na umowy o pracę, zlecenia / dzieło i B2B (oraz „Inne” — staż, inna). Przy osobie skrót umowy (UoP, UZ, UoD, B2B) i data końca umowy; pod kwotą osobny wiersz „koszty pracodawcy”. Sumy grup i „Razem wszyscy” (wynagrodzenia, koszty pracodawcy, razem koszt, liczba osób), wykres słupkowy kosztu miesięcznego wg rodzaju umowy, karty: koszt roku (wykonanie + prognoza), średnia miesięczna, prognoza bieżącego miesiąca.
+- **Źródła kwot**: UoP — brutto z karty pracownika; zlecenie / dzieło — wypłaty z wyciągów bankowych dopasowane po imieniu i nazwisku (miesiąc z tytułu „WYNAGRODZENIE mm/rrrr”, inaczej data księgowania); B2B — faktury kosztowe netto (PLN) dopasowane po sprzedawcy. Koszty pracodawcy — szacunek 20,48% (ZUS pracodawcy, FP, FGŚP; student na zleceniu i B2B — 0%).
+- **Prognoza** od bieżącego miesiąca: UoP z karty, zlecenia i B2B — średnia z 3 ostatnich miesięcy z płatnościami (z 6 wstecz), bez płatności — kwota z karty. Przełącznik „Prognoza wg dat umów” / „Zakładając przedłużenie umów”. Można przejść do kolejnego roku.
+- **Problematyczne punkty**: umowa wygasła, a osoba aktywna; koniec w ciągu 60 dni; koniec w tym roku; płatność po końcu umowy (dopuszczalny miesiąc po końcu); brak kwoty w karcie UoP; brak płatności zlecenia / B2B w 2 ostatnich miesiącach; koniec statusu ucznia (od tego miesiąca składki ZUS). W tabeli: kreska w miesiącu końca umowy, kreskowanie po końcu, czerwone tło płatności po końcu; dymek komórki pokazuje źródło, przelewy / faktury i wypłatę netto z banku (UoP).
+- **Kontrola z wyciągów**: przelewy „WYNAGRODZENIE”, składki ZUS i zaliczki PIT-4 per miesiąc obok kosztów wyliczonych (bez B2B); lista wypłat bez dopasowanej osoby.
+- **Karta pracownika**: pole „Nazwa w przelewach / na fakturach” (`employees.billing_name`) — np. firma B2B; dopasowanie po nim oprócz imienia i nazwiska.
+- Uprawnienia: nowy wiersz „Koszty pracownicze” (`staffCosts`), objęty listą osób Kosztów w Ustawieniach. Migracja `20261110095042_staff_costs` nadaje go rolom, które mają jednocześnie Plan finansowy i Pracowników (wynagrodzenia imiennie). API: `GET /api/finance/staff-costs?year=rrrr`.
+
 ## Rozliczenia: komentarz i ręczne odhaczenie płatności bez faktury (10.11.2026)
 
 - **Płatności bez faktury**: kolumna „Komentarz” (edycja ołówkiem) i pole „rozliczone” — odhaczenie z komentarzem, np. dostawca nie miał części towaru i zwrócił pieniądze, a korekty faktury nie ma. Odhaczone znikają z listy braków i sumy; filtr „Odhaczone ręcznie” pokazuje je z komentarzem, osobą i datą; odznaczenie przywraca płatność. Rozliczenie w kosztach (status, projekt) bez zmian — w odróżnieniu od „Nie będzie faktury”.

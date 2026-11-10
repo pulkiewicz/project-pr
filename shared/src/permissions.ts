@@ -25,6 +25,8 @@ export const MODULES = {
   invoiceApprovals: { internal: true, staffOnly: true, scope: 'global' },
   /** Plan finansowy (Finanse): podgląd planu, pozycje i koszty stałe. Lista `invoices.access` jak Koszty. */
   financePlan: { internal: true, staffOnly: true, scope: 'global' },
+  /** Koszty pracownicze (Finanse): wynagrodzenia imiennie w widoku roku (UoP, zlecenia/dzieło, B2B) z prognozą. Lista `invoices.access` jak Koszty. */
+  staffCosts: { internal: true, staffOnly: true, scope: 'global' },
   /** Zarząd: ewidencja pojazdów i pracownicy. Dostęp dodatkowo zawężony do osób z ustawienia `management.access`. */
   fleet: { internal: true, staffOnly: true, scope: 'global' },
   employees: { internal: true, staffOnly: true, scope: 'global' },
@@ -104,6 +106,8 @@ export const DEFAULT_LEVELS: Record<ModuleKey, Row> = {
   // Do akceptacji i Plan finansowy — osobne wiersze (wcześniej te same uprawnienia co Koszty).
   invoiceApprovals: row('P', 'P', '-', '-', '-', 'O'),
   financePlan: row('P', 'P', '-', '-', '-', 'O'),
+  // Koszty pracownicze: wynagrodzenia imiennie — jak Plan finansowy i Pracownicy.
+  staffCosts: row('P', 'P', '-', '-', '-', 'O'),
   // Zarząd: jak Faktury — o dostępie decyduje lista osób w Ustawieniach (Admin).
   fleet: row('P', 'P', '-', '-', '-'),
   employees: row('P', 'P', '-', '-', '-', 'O'),

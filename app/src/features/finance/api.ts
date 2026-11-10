@@ -1,10 +1,14 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { FinanceFixedCostDto, FinancePlanItemDto, FinancePlanResponse, FixedCostInput, FixedCostPatch, PlanItemInput, PlanItemPatch, PlanYearInput, PlanYearResult } from '#shared'
+import type { FinanceFixedCostDto, FinancePlanItemDto, FinancePlanResponse, FixedCostInput, FixedCostPatch, PlanItemInput, PlanItemPatch, PlanYearInput, PlanYearResult, StaffCostsResponse } from '#shared'
 import { api } from '../../lib/api'
 
 /** Plan finansowy miesiąca; poprzedni miesiąc zostaje na ekranie, dopóki nie dojdzie nowy (przełączanie strzałkami). */
 export const useFinancePlan = (month: string) =>
   useQuery({ queryKey: ['invoices', 'finance-plan', month], queryFn: () => api<FinancePlanResponse>(`/finance/plan?month=${month}`), placeholderData: keepPreviousData })
+
+/** Koszty pracownicze roku z prognozą. */
+export const useStaffCosts = (year: string) =>
+  useQuery({ queryKey: ['invoices', 'staff-costs', year], queryFn: () => api<StaffCostsResponse>(`/finance/staff-costs?year=${year}`), placeholderData: keepPreviousData })
 
 /** Po zapisie odświeżane są wszystkie miesiące (pozycja powtarzana i koszt stały dotyczą wielu miesięcy). */
 function useInvalidatePlan() {

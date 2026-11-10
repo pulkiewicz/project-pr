@@ -305,6 +305,13 @@ function EmployeeDrawer({ item, opened, onClose }: { item: EmployeeDto | null; o
             onChange={(v) => set('payAmount', typeof v === 'number' ? Math.round(v * 100) : null)}
           />
         </SimpleGrid>
+        <TextInput
+          label={t('employees.billingName')}
+          description={t('employees.billingNameHint')}
+          disabled={!editable}
+          value={f.billingName ?? ''}
+          onChange={(e) => set('billingName', e.currentTarget.value || null)}
+        />
         {f.contractType === 'mandate' && (
           <SimpleGrid cols={{ base: 1, sm: 3 }}>
             <Checkbox

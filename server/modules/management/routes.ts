@@ -219,6 +219,7 @@ async function listEmployees(c: Context<AppEnv>, id?: string): Promise<EmployeeD
     contractEnd: e.contractEnd,
     payBasis: e.payBasis as EmployeeDto['payBasis'],
     payAmount: e.payAmount,
+    billingName: e.billingName,
     isStudent: e.isStudent,
     studentUntil: e.studentUntil,
     medicalExamValidUntil: e.medicalExamValidUntil,

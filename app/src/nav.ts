@@ -51,6 +51,8 @@ export const FINANCE_NAV: NavItem[] = [
   { module: 'invoices', navKey: 'settlements', path: '/rozliczenia', stage: '—', ready: true },
   // Plan finansowy miesiąca: przychody, koszty z faktur, koszty pracownicze — osobny wiersz w Uprawnieniach.
   { module: 'financePlan', navKey: 'financePlan', path: '/plan-finansowy', stage: '—', ready: true },
+  // Koszty pracownicze: rok per osoba (UoP / zlecenia / B2B) z prognozą — osobny wiersz w Uprawnieniach.
+  { module: 'staffCosts', navKey: 'staffCosts', path: '/koszty-pracownicze', stage: '—', ready: true },
 ]
 
 /** Moduły firmy: zarząd (dostęp dla osób wskazanych w Ustawieniach). */

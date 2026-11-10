@@ -126,6 +126,7 @@
     "invoiceApprovals": "Do akceptacji",
     "settlements": "Rozliczenia",
     "financePlan": "Plan finansowy",
+    "staffCosts": "Koszty pracownicze",
     "finance": "Finanse",
     "adminProjects": "Projekty",
     "management": "Zarząd",
@@ -828,6 +829,16 @@
     },
     "payAmount": "Kwota / stawka (zł)",
     "payAmountHint": "Brutto; dla B2B — netto z faktury.",
+    "billingName": "Nazwa w przelewach / na fakturach",
+    "billingNameHint": "Np. nazwa firmy B2B albo inny zapis nazwiska — Koszty pracownicze dopasowują po niej faktury i przelewy (oprócz imienia i nazwiska).",
+    "contractShort": {
+      "employment": "UoP",
+      "mandate": "UZ",
+      "specific_task": "UoD",
+      "b2b": "B2B",
+      "internship": "Staż",
+      "other": "Inna"
+    },
     "isStudent": "Status ucznia / studenta",
     "isStudentHint": "Do ukończenia 26 lat — zlecenie bez składek ZUS.",
     "studentUntil": "Status ważny do",
@@ -2076,6 +2087,100 @@
     "count_many": "{{count}} plików",
     "count_other": "{{count}} plików",
     "quoteFolder": "Folder wyceny na Drive"
+  },
+  "staffCosts": {
+    "title": "Koszty pracownicze",
+    "hint": "Umowy o pracę — kwota brutto z karty pracownika; zlecenia i dzieło — wypłaty z wyciągów bankowych (kwota przelewu, za miesiąc z tytułu „WYNAGRODZENIE mm/rrrr”, inaczej wg daty księgowania); B2B — faktury kosztowe netto. Koszty pracodawcy to szacunek ZUS pracodawcy, FP i FGŚP (20,48%; student na zleceniu — 0%); zaliczka PIT i ZUS pracownika są już w kwocie brutto. Kolumny od bieżącego miesiąca to prognoza: UoP z karty, zlecenia i B2B — średnia z 3 ostatnich miesięcy z płatnościami.",
+    "prevYear": "Poprzedni rok",
+    "nextYear": "Następny rok",
+    "mode": {
+      "contracts": "Prognoza wg dat umów",
+      "extended": "Zakładając przedłużenie umów"
+    },
+    "group": {
+      "employment": "Umowy o pracę",
+      "mandate": "Umowy zlecenia / o dzieło",
+      "b2b": "Współpraca B2B",
+      "other": "Inne (staż, inne)"
+    },
+    "source": {
+      "employment": "z karty (brutto)",
+      "mandate": "z banku (wypłaty)",
+      "b2b": "z faktur (netto)",
+      "other": "z banku (wypłaty)"
+    },
+    "col": {
+      "person": "Osoba",
+      "total": "Razem"
+    },
+    "forecast": "prognoza",
+    "employerRow": "koszty pracodawcy",
+    "groupPay": "Wynagrodzenia",
+    "groupEmployer": "Koszty pracodawcy",
+    "groupTotal": "Razem koszt",
+    "allTitle": "Razem wszyscy",
+    "headcount": "Liczba osób",
+    "cards": {
+      "year": "Koszt roku {{year}}",
+      "yearSub": "wykonanie {{actual}} + prognoza {{forecast}}",
+      "avg": "Średnio miesięcznie (wykonanie)",
+      "avgSub": "z {{count}} zamkniętych miesięcy",
+      "next": "Prognoza — {{month}}",
+      "nextSub": "UoP {{employment}} · zlecenia {{mandate}} · B2B {{b2b}}",
+      "issues": "Problematyczne punkty",
+      "issuesSub": "pilne: {{count}}"
+    },
+    "chart": "Koszt miesięczny wg rodzaju umowy",
+    "issuesTitle": "Umowy i płatności do sprawdzenia",
+    "noIssues": "Brak problemów z umowami.",
+    "issue": {
+      "expired": "Umowa wygasła {{date}}, a osoba jest aktywna — przedłuż umowę albo oznacz jako nieaktywną.",
+      "ends_soon": "Umowa kończy się {{date}} — za {{days}} dni.",
+      "ends_this_year": "Umowa kończy się {{date}}.",
+      "paid_after_end": "Płatność w {{month}} po końcu umowy ({{date}}).",
+      "missing_pay": "Brak kwoty wynagrodzenia w karcie pracownika — miesiące bez kosztu.",
+      "no_recent_payments": "Brak płatności w 2 ostatnich miesiącach, choć umowa trwa.",
+      "student_ends": "Status ucznia / studenta do {{date}} — potem zlecenie ze składkami ZUS (wyższy koszt)."
+    },
+    "mark": {
+      "contract_start": "Początek umowy {{date}}",
+      "contract_end": "Koniec umowy {{date}}",
+      "after_end": "Po końcu umowy",
+      "paid_after_end": "Płatność po końcu umowy",
+      "student_end": "Koniec statusu ucznia {{date}}"
+    },
+    "tip": {
+      "card": "Z karty pracownika",
+      "bank": "Wypłaty z banku",
+      "invoice": "Faktury kosztowe",
+      "forecast": "Prognoza",
+      "forecastAvg": "Prognoza: średnia z ostatnich płatności",
+      "forecastCard": "Prognoza: kwota z karty pracownika",
+      "extended": "Po przedłużeniu umowy: {{amount}}",
+      "paid": "Wypłacono z banku: {{amount}}",
+      "employer": "Koszty pracodawcy: {{amount}}"
+    },
+    "indefinite": "bezterminowo",
+    "until": "do {{date}}",
+    "bankTitle": "Kontrola z wyciągów bankowych (wg daty księgowania)",
+    "bankUntil": "Wyciągi do {{date}}",
+    "noBank": "Brak zaimportowanych wyciągów — zlecenia nie mają danych o wypłatach.",
+    "bank": {
+      "salaries": "Przelewy „WYNAGRODZENIE”",
+      "zus": "Składki ZUS",
+      "pit": "Zaliczki PIT-4",
+      "computed": "Wyliczone: wynagrodzenia + koszty pracodawcy (bez B2B)"
+    },
+    "unmatchedTitle": "Wypłaty bez dopasowanej osoby: {{count}}",
+    "unmatchedHint": "Uzupełnij „Nazwę w przelewach / na fakturach” w karcie pracownika albo imię i nazwisko zgodne z przelewem.",
+    "missingContract": "Aktywni pracownicy bez rodzaju umowy (pominięci): {{names}}",
+    "empty": "Brak pracowników z umowami w tym roku.",
+    "doc": {
+      "date": "Data",
+      "name": "Kontrahent",
+      "title": "Tytuł",
+      "amount": "Kwota"
+    }
   },
   "finance": {
     "title": "Plan finansowy",
