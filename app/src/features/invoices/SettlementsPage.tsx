@@ -2,7 +2,7 @@ import { ActionIcon, Alert, Badge, Button, Group, List, Loader, SegmentedControl
 import { MonthPickerInput } from '@mantine/dates'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
-import { IconAlertTriangle, IconChevronLeft, IconChevronRight, IconCheck, IconCircleCheck, IconDownload, IconReceiptOff } from '@tabler/icons-react'
+import { IconAlertTriangle, IconChevronLeft, IconChevronRight, IconCheck, IconDownload, IconReceiptOff } from '@tabler/icons-react'
 import { addMonths, endOfMonth, format, parseISO } from 'date-fns'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -197,11 +197,7 @@ export function SettlementsPage() {
                 ))}
               </List>
             </Alert>
-          ) : (
-            <Alert color="green" icon={<IconCircleCheck size={18} />}>
-              {t('bank.report.continuityOk')}
-            </Alert>
-          )}
+          ) : null}
 
           <Tabs defaultValue="unpaid" keepMounted={false} mt="sm">
             <Tabs.List>

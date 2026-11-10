@@ -1880,7 +1880,6 @@
       "export": "Eksport XLSX",
       "noStatements": "Nie zaimportowano jeszcze wyciągów — raport wydatków bez faktury będzie pusty.",
       "continuityTitle": "Ciągłość wyciągów — do sprawdzenia",
-      "continuityOk": "Wyciągi są ciągłe: okresy stykają się, a saldo początkowe każdego wyciągu równa się końcowemu poprzedniego.",
       "continuity": {
         "gap": "Brakuje wyciągu: po nr {{prev}} (do {{prevTo}}) następny nr {{next}} zaczyna się {{nextFrom}}.",
         "overlap": "Wyciągi nr {{prev}} (do {{prevTo}}) i nr {{next}} (od {{nextFrom}}) mają nakładające się okresy.",
