@@ -4,7 +4,7 @@ import type { BankMatchReason } from '#shared'
  * Dopasowanie operacji z wyciągu do faktur kosztowych (B2). Czysta funkcja — dane wczytuje `service.ts`.
  *
  * Kolejność reguł (patrz `BANK_MATCH_REASONS`): numer faktury w opisie, ten sam numer w kilku przelewach o sumie
- * równej brutto, kontrahent + kwota, sama kwota + data (±7 dni, ±30 dni). Automatycznie łączymy numer + kwotę oraz
+ * równej brutto (faktury o tym numerze albo — gdy jej nie ma — dowolnej faktury na łączną kwotę), kontrahent + kwota, sama kwota + data (±7 dni, ±30 dni). Automatycznie łączymy numer + kwotę oraz
  * kwotę przy różnicy dat do 7 dni — wyłącznie gdy dopasowanie jest jednoznaczne w obie strony (jedna faktura dla
  * operacji, jedna operacja dla faktury). Pozostałe — propozycje do ręcznego potwierdzenia.
  */
@@ -93,6 +93,65 @@ export function similarName(a: string | null, b: string | null): boolean {
 
 const days = (a: string, b: string) => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000)
 
+/** Grupa „ten sam numer” liczniejsza niż tyle operacji to raczej wspólny fragment opisu (np. stały tytuł), nie numer faktury. */
+const MAX_GROUP = 6
+
+/**
+ * Słowa opisu, które mogą być numerem dokumentu: z cyfrą, min. 4 znaki; bez dat (RRRRMMDD) i długich ciągów cyfr
+ * (numery rachunków, referencje banku).
+ */
+function refTokens(texts: string[]): Set<string> {
+  const out = new Set<string>()
+  // Daty (2026-09-05, 05.09.2026) usuwane przed podziałem na słowa — inaczej tworzyłyby pary „DATA20260905”.
+  const noDates = texts.map((t) => t.replace(/\b\d{4}[-.]\d{2}[-.]\d{2}\b|\b\d{2}[-.]\d{2}[-.]\d{4}\b/g, ' '))
+  for (const k of numberTokens(noDates)) {
+    if (k.length < 4 || !/\d/.test(k)) continue
+    if (/^\d+$/.test(k) && (k.length > 12 || /^20\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/.test(k))) continue
+    out.add(k)
+  }
+  return out
+}
+
+const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
+
+/**
+ * Kilka operacji z tym samym numerem w opisie (raty, część netto + VAT), dla których nie ma faktury o tym numerze —
+ * szukamy faktury na łączną kwotę: wystawionej od 60 dni przed pierwszą do 30 dni po ostatniej płatności
+ * (najpierw podobny kontrahent, potem najbliższa data). Zawsze propozycje do ręcznego potwierdzenia.
+ */
+function sumGroupMatches(txs: MatchTx[], open: MatchInvoice[]): Match[] {
+  const byToken = new Map<string, MatchTx[]>()
+  for (const tx of txs) for (const k of refTokens(tx.texts)) byToken.set(k, [...(byToken.get(k) ?? []), tx])
+  const out: Match[] = []
+  const seen = new Set<string>()
+  for (const group of byToken.values()) {
+    if (group.length < 2 || group.length > MAX_GROUP) continue
+    // Ta sama grupa operacji może wynikać z kilku słów opisu (np. „FV12/2026” i „122026”) — liczymy ją raz.
+    const key = group
+      .map((t) => t.id)
+      .sort()
+      .join(',')
+    if (seen.has(key)) continue
+    seen.add(key)
+    const total = group.reduce((s, t) => s + t.open, 0)
+    const dates = group.map((t) => t.valueDate ?? t.bookingDate).sort()
+    const from = addDays(dates[0]!, -60)
+    const to = addDays(dates[dates.length - 1]!, 30)
+    const candidates = open
+      .filter((inv) => inv.open === total && inv.date && inv.date >= from && inv.date <= to)
+      .map((inv) => ({ inv, similar: group.some((t) => similarName(t.counterparty, inv.sellerName)), distance: Math.abs(days(inv.date!, dates[dates.length - 1]!)) }))
+      .sort((a, b) => Number(b.similar) - Number(a.similar) || a.distance - b.distance)
+      .slice(0, MAX_SUGGESTIONS)
+    for (const tx of group)
+      for (const c of candidates) {
+        if (seen.has(`${tx.id}>${c.inv.id}`)) continue
+        seen.add(`${tx.id}>${c.inv.id}`)
+        out.push({ txId: tx.id, invoiceId: c.inv.id, amount: tx.open, reason: 'number_sum', auto: false })
+      }
+  }
+  return out
+}
+
 export function findMatches(txs: MatchTx[], invoices: MatchInvoice[]): Match[] {
   const byNumber = new Map<string, MatchInvoice[]>()
   for (const inv of invoices) {
@@ -112,7 +171,12 @@ export function findMatches(txs: MatchTx[], invoices: MatchInvoice[]): Match[] {
     for (const inv of hits) txsByInvoice.set(inv.id, [...(txsByInvoice.get(inv.id) ?? []), tx])
   }
 
-  const out: Match[] = []
+  // 2b. Ten sam numer w kilku operacjach, ale bez faktury o tym numerze — faktura na łączną kwotę.
+  const out: Match[] = sumGroupMatches(
+    txs.filter((t) => !numberHits.has(t.id)),
+    open,
+  )
+  const inSumGroup = new Set(out.map((m) => m.txId))
   const amountCandidates = new Map<string, { tx: MatchTx; candidates: AmountCandidate[] }>()
   for (const tx of txs) {
     const hits = numberHits.get(tx.id)
@@ -156,7 +220,8 @@ export function findMatches(txs: MatchTx[], invoices: MatchInvoice[]): Match[] {
     for (const c of candidates) if (c.near) nearTxsByInvoice.set(c.inv.id, (nearTxsByInvoice.get(c.inv.id) ?? 0) + 1)
   for (const { tx, candidates } of amountCandidates.values()) {
     const near = candidates.filter((c) => c.near)
-    const sure = near.length === 1 && nearTxsByInvoice.get(near[0]!.inv.id) === 1 && !txsByInvoice.has(near[0]!.inv.id) ? near[0]! : null
+    // Operacja z propozycją „suma kilku płatności” nie łączy się automatycznie z fakturą na samą swoją kwotę.
+    const sure = near.length === 1 && nearTxsByInvoice.get(near[0]!.inv.id) === 1 && !txsByInvoice.has(near[0]!.inv.id) && !inSumGroup.has(tx.id) ? near[0]! : null
     if (sure) {
       out.push({ txId: tx.id, invoiceId: sure.inv.id, amount: tx.open, reason: sure.reason, auto: true })
       continue

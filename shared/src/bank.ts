@@ -142,7 +142,8 @@ export interface BankStatementDto extends BankStatementHeader {
 /**
  * Powód dopasowania operacji do faktury (B2):
  * - `number` — numer faktury w opisie przelewu (z zgodną kwotą łączy się automatycznie, gdy jednoznaczne),
- * - `number_sum` — ten sam numer w kilku przelewach, których suma daje brutto (np. „CZĘŚĆ NETTO” + „CZĘŚĆ VAT”),
+ * - `number_sum` — ten sam numer w kilku przelewach, których suma daje brutto (np. „CZĘŚĆ NETTO” + „CZĘŚĆ VAT”);
+ *   faktura o tym numerze albo — gdy takiej nie ma — faktura na łączną kwotę (propozycja),
  * - `seller_amount` — kwota równa brutto i podobny kontrahent, faktura od 60 dni przed do 30 dni po operacji,
  * - `amount_date` — sama kwota i data (±7 dni) — karty, BLIK, Przelewy24 / PayU; jednoznaczne łączy się automatycznie,
  * - `amount_date_30` — sama kwota, daty różnią się o 8–30 dni — tylko propozycja do ręcznego potwierdzenia.

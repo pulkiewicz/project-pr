@@ -41,6 +41,32 @@ describe('silnik dopasowań', () => {
     ])
   })
 
+  it('ten sam numer w kilku płatnościach, faktura bez tego numeru — propozycja faktury na łączną kwotę', () => {
+    const txs = [tx('a', 60_000, ['ZAPŁATA ZA ZAM/77/2026 RATA 1'], 'KLIMA SERWIS', '2026-09-05'), tx('b', 40_000, ['ZAM/77/2026 RATA 2'], 'KLIMA SERWIS', '2026-09-20'), tx('x', 40_000, ['INNY PRZELEW'], 'ABC', '2026-12-20')]
+    const m = findMatches(txs, [inv('fv', null, 100_000, 'Klima Serwis Sp. z o.o.', '2026-09-25'), inv('other', 'Z/1', 100_000, 'Kto inny', '2026-09-24'), inv('old', 'S/1', 100_000, 'Klima Serwis', '2026-05-01')])
+    expect(m).toEqual([
+      { txId: 'a', invoiceId: 'fv', amount: 60_000, reason: 'number_sum', auto: false },
+      { txId: 'a', invoiceId: 'other', amount: 60_000, reason: 'number_sum', auto: false },
+      { txId: 'b', invoiceId: 'fv', amount: 40_000, reason: 'number_sum', auto: false },
+      { txId: 'b', invoiceId: 'other', amount: 40_000, reason: 'number_sum', auto: false },
+    ])
+    // Część płatności z tym numerem już połączona — wystarczy, że pozostałe dają resztę do zapłaty.
+    // (rata 1 połączona — w operacjach otwartych zostały raty 2 i 3, a faktura ma do zapłaty ich sumę).
+    const rest = [tx('b', 40_000, ['ZAM/77/2026 RATA 2'], 'KLIMA SERWIS', '2026-09-20'), tx('c', 25_000, ['ZAM/77/2026 RATA 3'], 'KLIMA SERWIS', '2026-10-05')]
+    expect(findMatches(rest, [inv('fv', null, 65_000, 'Klima Serwis', '2026-09-25')]).map((x) => [x.txId, x.reason])).toEqual([
+      ['b', 'number_sum'],
+      ['c', 'number_sum'],
+    ])
+    // Daty (RRRR-MM-DD) i długie ciągi cyfr nie tworzą grupy „ten sam numer”.
+    expect(findMatches([tx('d1', 1_000, ['DATA 2026-09-05']), tx('d2', 2_000, ['DATA 2026-09-05'])], [inv('s', null, 3_000)])).toEqual([])
+  })
+
+  it('płatność z grupy „ten sam numer” nie łączy się automatycznie z fakturą na samą swoją kwotę', () => {
+    const m = findMatches([tx('a', 1_000, ['ZAM 55/2026'], null, '2026-09-10'), tx('b', 2_000, ['ZAM 55/2026'], null, '2026-09-11')], [inv('sum', null, 3_000, null, '2026-09-12'), inv('one', null, 1_000, null, '2026-09-10')])
+    expect(m.every((x) => !x.auto)).toBe(true)
+    expect(m.filter((x) => x.txId === 'a').map((x) => x.invoiceId)).toEqual(['sum', 'one'])
+  })
+
   it('niejednoznaczne: dwie faktury z tym samym numerem albo dwie operacje z numerem jednej faktury — bez auto', () => {
     const two = findMatches([tx('t', 1_000, ['FV/1/2026'])], [inv('a', 'FV/1/2026', 1_000, 'A'), inv('b', 'FV/1/2026', 1_000, 'B')])
     expect(two.every((x) => !x.auto)).toBe(true)

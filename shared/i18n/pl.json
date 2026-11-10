@@ -1853,7 +1853,7 @@
     "summary": "Do ustalenia: {{pending}} · połączone z fakturą: {{linked}} · z propozycją: {{suggested}}",
     "reason": {
       "number": "Numer faktury w opisie przelewu",
-      "number_sum": "Ten sam numer w kilku przelewach — suma równa brutto",
+      "number_sum": "Ten sam numer w opisie kilku płatności — ich suma równa brutto faktury",
       "seller_amount": "Kwota równa brutto i podobny kontrahent",
       "amount_date": "Kwota równa brutto i data ±7 dni",
       "amount_date_30": "Kwota równa brutto, daty różnią się o 8–30 dni"
