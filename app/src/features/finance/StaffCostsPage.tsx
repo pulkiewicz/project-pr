@@ -1,5 +1,6 @@
 import { Accordion, ActionIcon, Alert, Badge, Box, Button, Card, Group, Loader, SegmentedControl, SimpleGrid, Stack, Table, Text, Title, Tooltip } from '@mantine/core'
 import { IconAlertTriangle, IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight, IconInfoCircle } from '@tabler/icons-react'
+import { useLocalStorage } from '@mantine/hooks'
 import dayjs from 'dayjs'
 import { Fragment, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -137,7 +138,7 @@ function PersonRows({ row, data, mode }: { row: StaffCostRow; data: StaffCostsRe
   )
 }
 
-function SumRows({ label, values, data, color, bold }: { label: string; values: Val[]; data: StaffCostsResponse; color?: string; bold?: boolean }) {
+function SumRows({ label, values, data, color, bold, noEmployer }: { label: string; values: Val[]; data: StaffCostsResponse; color?: string; bold?: boolean; noEmployer?: boolean }) {
   const { t } = useTranslation()
   const total = values.reduce(add, ZERO)
   const line = (name: string, pick: (v: Val) => number, strong: boolean) => (
@@ -160,7 +161,7 @@ function SumRows({ label, values, data, color, bold }: { label: string; values: 
   return (
     <>
       {line(`${label} — ${t('staffCosts.groupPay').toLowerCase()}`, (v) => v.amount, false)}
-      {line(`${label} — ${t('staffCosts.groupEmployer').toLowerCase()}`, (v) => v.employer, false)}
+      {!noEmployer && line(`${label} — ${t('staffCosts.groupEmployer').toLowerCase()}`, (v) => v.employer, false)}
       {line(`${label} — ${t('staffCosts.groupTotal').toLowerCase()}`, (v) => v.amount + v.employer, true)}
     </>
   )
@@ -219,6 +220,9 @@ export function StaffCostsPage() {
   const defaultFrom = addMonths(todayWarsaw().slice(0, 7), -STAFF_VIEW_BACK)
   const [from, setFrom] = useState(defaultFrom)
   const [mode, setMode] = useState<Mode>('contracts')
+  // Zwinięte grupy (zapamiętane w przeglądarce): widać tylko sumy grupy.
+  const [collapsed, setCollapsed] = useLocalStorage<StaffGroup[]>({ key: 'staffCosts.collapsedGroups', defaultValue: [] })
+  const toggleGroup = (g: StaffGroup) => setCollapsed((c) => (c.includes(g) ? c.filter((x) => x !== g) : [...c, g]))
   const q = useStaffCosts(from, STAFF_VIEW_MONTHS)
   const shiftBy = (n: number) => setFrom((f) => addMonths(f, n))
   const period = `${monthLabel(from, 'MMM YYYY')} – ${monthLabel(addMonths(from, STAFF_VIEW_MONTHS - 1), 'MMM YYYY')}`
@@ -375,17 +379,27 @@ export function StaffCostsPage() {
                 if (!rows.length) return null
                 return (
                   <Fragment key={g}>
-                    <Table.Tr>
+                    <Table.Tr
+                      onClick={() => toggleGroup(g)}
+                      style={{ cursor: 'pointer' }}
+                      aria-expanded={!collapsed.includes(g)}
+                      title={t(collapsed.includes(g) ? 'staffCosts.expand' : 'staffCosts.collapse')}
+                    >
                       <Table.Td colSpan={data.months.length + 2} bg={`var(--mantine-color-${GROUP_COLOR[g]}-light)`} style={{ borderTop: '2px solid var(--mantine-color-default-border)' }}>
-                        <Text fw={700} size="sm" c={`${GROUP_COLOR[g]}.8`} style={{ position: 'sticky', left: 8, display: 'inline-block' }}>
-                          {t(`staffCosts.group.${g}`)} ({rows.length}) <Text span size="xs" c="dimmed" fw={400}>— {t(`staffCosts.source.${g}`)}</Text>
-                        </Text>
+                        <Group gap={6} wrap="nowrap" style={{ position: 'sticky', left: 8, display: 'inline-flex' }}>
+                          <IconChevronRight
+                            size={16}
+                            color={`var(--mantine-color-${GROUP_COLOR[g]}-8)`}
+                            style={{ transform: collapsed.includes(g) ? undefined : 'rotate(90deg)', transition: 'transform 150ms' }}
+                          />
+                          <Text fw={700} size="sm" c={`${GROUP_COLOR[g]}.8`}>
+                            {t(`staffCosts.group.${g}`)} ({rows.length}) <Text span size="xs" c="dimmed" fw={400}>— {t(`staffCosts.source.${g}`)}</Text>
+                          </Text>
+                        </Group>
                       </Table.Td>
                     </Table.Tr>
-                    {rows.map((r) => (
-                      <PersonRows key={r.employeeId} row={r} data={data} mode={mode} />
-                    ))}
-                    <SumRows label={t(`staffCosts.group.${g}`)} values={calc.perGroup[g]} data={data} color={`${GROUP_COLOR[g]}.8`} />
+                    {!collapsed.includes(g) && rows.map((r) => <PersonRows key={r.employeeId} row={r} data={data} mode={mode} />)}
+                    <SumRows label={t(`staffCosts.group.${g}`)} values={calc.perGroup[g]} data={data} color={`${GROUP_COLOR[g]}.8`} noEmployer={g === 'b2b'} />
                   </Fragment>
                 )
               })}

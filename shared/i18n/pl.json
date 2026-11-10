@@ -2096,6 +2096,8 @@
     "nextMonth": "Miesiąc do przodu",
     "nextPeriod": "7 miesięcy do przodu",
     "today": "Bieżący okres",
+    "collapse": "Zwiń grupę — zostaną same sumy",
+    "expand": "Rozwiń grupę",
     "mode": {
       "contracts": "Prognoza wg dat umów",
       "extended": "Zakładając przedłużenie umów"
