@@ -1,8 +1,8 @@
-import { ActionIcon, Alert, Badge, Button, Group, List, Loader, SegmentedControl, Stack, Switch, Table, Tabs, Text, Title, Tooltip } from '@mantine/core'
+import { ActionIcon, Alert, Badge, Button, Checkbox, Group, List, Loader, Modal, SegmentedControl, Stack, Switch, Table, Tabs, Text, Textarea, Title, Tooltip } from '@mantine/core'
 import { MonthPickerInput } from '@mantine/dates'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
-import { IconAlertTriangle, IconChevronLeft, IconChevronRight, IconCheck, IconDownload, IconReceiptOff } from '@tabler/icons-react'
+import { IconAlertTriangle, IconChevronLeft, IconChevronRight, IconCheck, IconDownload, IconPencil, IconReceiptOff } from '@tabler/icons-react'
 import { addMonths, endOfMonth, format, parseISO } from 'date-fns'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -10,9 +10,9 @@ import type { BankReportTxDto } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
-import { formatDate, todayWarsaw } from '../../lib/format'
+import { formatDate, formatDateTime, todayWarsaw } from '../../lib/format'
 import { KindBadge } from './BankTab'
-import { bankReportPath, useBankReport, useLinkInvoice, useUpdateBankTx } from './bankApi'
+import { bankReportPath, useBankReport, useBankSettlement, useLinkInvoice, useUpdateBankTx } from './bankApi'
 import { InvoiceDrawer } from './InvoiceDrawer'
 import { formatMoney } from './status'
 
@@ -93,9 +93,103 @@ function NoInvoiceButton({ tx }: { tx: BankReportTxDto }) {
   )
 }
 
-/** Filtr płatności bez faktury: bez propozycji i bez oznaczenia (nic nie dopasowano), z propozycją, oznaczone „jest faktura”. */
-type MissingFilter = 'all' | 'unmatched' | 'suggested' | 'toLink'
-const missingFilterOf = (x: BankReportTxDto): Exclude<MissingFilter, 'all'> => (x.costStatus === 'invoice' ? 'toLink' : x.suggestions.length ? 'suggested' : 'unmatched')
+/**
+ * Komentarz i ręczne odhaczenie płatności (np. dostawca zwrócił część kwoty za brakujący towar, a korekty faktury
+ * nie ma). `settle` — odhaczenie z komentarzem; bez niego — sama zmiana komentarza.
+ */
+function SettlementModal({ tx, settle, onClose }: { tx: BankReportTxDto; settle: boolean; onClose: () => void }) {
+  const { t } = useTranslation()
+  const save = useBankSettlement()
+  const [note, setNote] = useState(tx.settlementNote ?? '')
+  const submit = () =>
+    save.mutate(
+      { id: tx.id, note: note.trim() || null, ...(settle ? { settled: true } : {}) },
+      {
+        onSuccess: () => {
+          notifications.show({ color: 'green', message: t(settle ? 'bank.report.settleDone' : 'bank.report.commentSaved') })
+          onClose()
+        },
+        onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+      },
+    )
+  return (
+    <Modal opened onClose={onClose} title={t(settle ? 'bank.report.settleTitle' : tx.settlementNote ? 'bank.report.commentEdit' : 'bank.report.commentAdd')}>
+      <Stack>
+        {settle && (
+          <Text size="sm">
+            {t('bank.report.settleBody', { counterparty: tx.counterparty ?? '—', amount: formatMoney(tx.amount, tx.currency), date: formatDate(tx.bookingDate) })}
+          </Text>
+        )}
+        <Textarea autosize minRows={3} maxLength={1000} label={t('bank.report.comment')} placeholder={t('bank.report.commentPlaceholder')} value={note} onChange={(e) => setNote(e.currentTarget.value)} data-autofocus />
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>
+            {t('app.cancel')}
+          </Button>
+          <Button color={settle ? 'green' : undefined} leftSection={settle ? <IconCheck size={16} /> : undefined} loading={save.isPending} onClick={submit}>
+            {settle ? t('bank.report.settleConfirm') : t('app.save')}
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  )
+}
+
+/** Komentarz w wierszu (z edycją) i informacja, kto odhaczył. */
+function CommentCell({ tx, canEdit, onEdit }: { tx: BankReportTxDto; canEdit: boolean; onEdit: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <Stack gap={2}>
+      <Group gap={4} wrap="nowrap" align="flex-start">
+        {tx.settlementNote ? (
+          <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
+            {tx.settlementNote}
+          </Text>
+        ) : (
+          canEdit && (
+            <Text size="xs" c="dimmed">
+              —
+            </Text>
+          )
+        )}
+        {canEdit && (
+          <ActionIcon size="sm" variant="subtle" color="gray" aria-label={t(tx.settlementNote ? 'bank.report.commentEdit' : 'bank.report.commentAdd')} title={t(tx.settlementNote ? 'bank.report.commentEdit' : 'bank.report.commentAdd')} onClick={onEdit}>
+            <IconPencil size={14} />
+          </ActionIcon>
+        )}
+      </Group>
+      {tx.settledAt && (
+        <Text size="xs" c="dimmed">
+          {t('bank.report.settledBy', { name: tx.settledByName ?? '—', at: formatDateTime(tx.settledAt) })}
+        </Text>
+      )}
+    </Stack>
+  )
+}
+
+/** Pole „rozliczone”: zaznaczenie otwiera okno z komentarzem, odznaczenie od razu przywraca płatność na listę. */
+function SettleCheckbox({ tx, onSettle }: { tx: BankReportTxDto; onSettle: () => void }) {
+  const { t } = useTranslation()
+  const save = useBankSettlement()
+  const unsettle = () =>
+    save.mutate(
+      { id: tx.id, settled: false },
+      { onSuccess: () => notifications.show({ message: t('bank.report.unsettleDone') }), onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }) },
+    )
+  const label = t(tx.settledAt ? 'bank.report.unsettle' : 'bank.report.settle')
+  return (
+    <Tooltip label={label}>
+      <Checkbox aria-label={label} color="green" checked={!!tx.settledAt} disabled={save.isPending} onChange={() => (tx.settledAt ? unsettle() : onSettle())} />
+    </Tooltip>
+  )
+}
+
+/**
+ * Filtr płatności bez faktury: bez propozycji i bez oznaczenia (nic nie dopasowano), z propozycją, oznaczone „jest faktura”,
+ * odhaczone ręcznie (domyślnie ukryte — „Wszystkie” to pozycje do wyjaśnienia).
+ */
+type MissingFilter = 'all' | 'unmatched' | 'suggested' | 'toLink' | 'settled'
+const missingFilterOf = (x: BankReportTxDto): Exclude<MissingFilter, 'all'> =>
+  x.settledAt ? 'settled' : x.costStatus === 'invoice' ? 'toLink' : x.suggestions.length ? 'suggested' : 'unmatched'
 /** Filtr faktur bez płatności: bez żadnej płatności w wyciągach albo zapłacone częściowo. */
 type UnpaidFilter = 'all' | 'none' | 'partial'
 
@@ -122,9 +216,14 @@ export function SettlementsPage() {
   const unpaidKind = (i: { paidAmount: number }) => (i.paidAmount > 0 ? 'partial' : 'none')
   const unpaid = useMemo(() => unpaidAll.filter((i) => unpaidFilter === 'all' || unpaidKind(i) === unpaidFilter), [unpaidAll, unpaidFilter])
   const [missingFilter, setMissingFilter] = useState<MissingFilter>('all')
-  const missingAll = useMemo(() => r?.missing ?? [], [r])
-  const missing = useMemo(() => missingAll.filter((x) => missingFilter === 'all' || missingFilterOf(x) === missingFilter), [missingAll, missingFilter])
-  const countMissing = (f: Exclude<MissingFilter, 'all'>) => missingAll.filter((x) => missingFilterOf(x) === f).length
+  // Do wyjaśnienia — bez odhaczonych ręcznie (te w osobnym filtrze).
+  const missingAll = useMemo(() => (r?.missing ?? []).filter((x) => !x.settledAt), [r])
+  const missing = useMemo(
+    () => (missingFilter === 'all' ? missingAll : (r?.missing ?? []).filter((x) => missingFilterOf(x) === missingFilter)),
+    [r, missingAll, missingFilter],
+  )
+  const countMissing = (f: Exclude<MissingFilter, 'all'>) => (r?.missing ?? []).filter((x) => missingFilterOf(x) === f).length
+  const [settling, setSettling] = useState<{ tx: BankReportTxDto; settle: boolean } | null>(null)
   const countUnpaid = (f: Exclude<UnpaidFilter, 'all'>) => unpaidAll.filter((i) => unpaidKind(i) === f).length
   const canEdit = can('invoices', 'edit')
 
@@ -302,6 +401,7 @@ export function SettlementsPage() {
                     { value: 'unmatched', label: `${t('bank.report.filter.unmatched')} (${countMissing('unmatched')})` },
                     { value: 'suggested', label: `${t('bank.report.filter.suggested')} (${countMissing('suggested')})` },
                     { value: 'toLink', label: `${t('bank.report.filter.toLink')} (${countMissing('toLink')})` },
+                    { value: 'settled', label: `${t('bank.report.filter.settled')} (${countMissing('settled')})` },
                   ]}
                 />
                 <Text size="sm" c="dimmed">
@@ -321,12 +421,13 @@ export function SettlementsPage() {
                             {t('bank.amount')}
                           </Table.Th>
                           <Table.Th w={230}>{t('bank.report.suggestion')}</Table.Th>
-                          {canEdit && <Table.Th w={44} />}
+                          <Table.Th w={240}>{t('bank.report.comment')}</Table.Th>
+                          {canEdit && <Table.Th w={76} />}
                         </Table.Tr>
                       </Table.Thead>
                       <Table.Tbody>
                         {missing.map((x) => (
-                          <Table.Tr key={x.id}>
+                          <Table.Tr key={x.id} bg={x.settledAt ? 'var(--mantine-color-green-light)' : undefined}>
                             <Table.Td>{formatDate(x.bookingDate)}</Table.Td>
                             <Table.Td>{x.statementNumber}</Table.Td>
                             <Table.Td>
@@ -354,9 +455,15 @@ export function SettlementsPage() {
                             <Table.Td>
                               <SuggestionsCell tx={x} onOpen={setOpen} />
                             </Table.Td>
+                            <Table.Td>
+                              <CommentCell tx={x} canEdit={canEdit} onEdit={() => setSettling({ tx: x, settle: false })} />
+                            </Table.Td>
                             {canEdit && (
                               <Table.Td>
-                                <NoInvoiceButton tx={x} />
+                                <Group gap={6} wrap="nowrap">
+                                  <SettleCheckbox tx={x} onSettle={() => setSettling({ tx: x, settle: true })} />
+                                  {!x.settledAt && <NoInvoiceButton tx={x} />}
+                                </Group>
                               </Table.Td>
                             )}
                           </Table.Tr>
@@ -371,6 +478,7 @@ export function SettlementsPage() {
         </>
       )}
       <InvoiceDrawer id={open} onClose={() => setOpen(null)} />
+      {settling && <SettlementModal key={settling.tx.id} tx={settling.tx} settle={settling.settle} onClose={() => setSettling(null)} />}
     </Stack>
   )
 }

@@ -221,6 +221,9 @@ export interface BankCostDto {
 }
 
 export const bankLinkInput = z.object({ invoiceId: z.uuid() })
+/** Rozliczenia: komentarz do płatności i ręczne odhaczenie (np. zwrot od dostawcy bez korekty faktury). */
+export const bankSettlementInput = z.object({ note: z.string().trim().max(1000).nullable().optional(), settled: z.boolean().optional() })
+export type BankSettlementInput = z.infer<typeof bankSettlementInput>
 export const bankMatchInput = z.object({ statementId: z.uuid().optional() })
 
 export interface BankMatchResult {
@@ -328,6 +331,11 @@ export interface BankReportTxDto {
   costStatus: BankTxCostStatus
   /** Propozycje faktur do ręcznego potwierdzenia (kwota, numer, kontrahent). */
   suggestions: BankSuggestionDto[]
+  /** Komentarz do płatności (Rozliczenia). */
+  settlementNote: string | null
+  /** Odhaczona ręcznie — kiedy i przez kogo; null = nie. */
+  settledAt: string | null
+  settledByName: string | null
 }
 
 export interface BankReportInvoiceDto {

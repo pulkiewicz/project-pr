@@ -202,6 +202,11 @@ brakujący wyciąg albo nakładające się okresy.
 - **Płatności bez faktury** — przelewy i karty „do ustalenia” oraz te oznaczone „jest faktura”, ale bez połączenia.
   **To lista dla księgowej** — czego brakuje w inFakt. W kolumnie **Propozycja faktury** — faktury z tą samą kwotą
   (różnica dat do 30 dni) albo z numerem w tytule: kliknięcie numeru otwiera kartę faktury, **✓** łączy płatność z fakturą.
+  **Komentarz i ręczne odhaczenie** — gdy faktury nie da się dopasować, np. dostawca nie miał części towaru i zwrócił
+  pieniądze na konto, a korekty faktury nie dostaliśmy: ołówkiem dodaj komentarz, a polem w ostatniej kolumnie odhacz
+  płatność. Zniknie z listy (filtr **Odhaczone ręcznie** pokazuje odhaczone z komentarzem, kto i kiedy); rozliczenie
+  w kosztach się nie zmienia. Odznaczenie przywraca płatność na listę. Przycisk **Nie będzie faktury** to co innego —
+  płatność staje się kosztem bez faktury.
 
 **Eksport XLSX** zapisuje obie listy i ciągłość wyciągów w jednym pliku Excel.
 

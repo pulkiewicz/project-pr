@@ -313,6 +313,32 @@ describe('rekoncyliacja przez API', () => {
     expect((await xlsx.arrayBuffer()).byteLength).toBeGreaterThan(1000)
     expect((await req(h, 'GET', '/api/bank/report', outsider.headers)).status).toBe(403)
   })
+
+  it('komentarz i ręczne odhaczenie płatności (np. zwrot od dostawcy bez korekty FV); rozliczenie w kosztach bez zmian', async () => {
+    const split = (await txsOf('10/2026'))[2]!
+    const item = async () => ((await (await req(h, 'GET', '/api/bank/report', ania.headers)).json()) as BankReportDto).missing.find((x) => x.id === split.id)
+    expect(await item()).toMatchObject({ settlementNote: null, settledAt: null, settledByName: null })
+
+    const note = 'Dostawca zwrócił 200 zł za brakujący towar — korekta FV nie dotarła'
+    expect((await req(h, 'PATCH', `/api/bank/transactions/${split.id}/settlement`, ania.headers, { note })).status).toBe(200)
+    expect(await item()).toMatchObject({ settlementNote: note, settledAt: null })
+
+    expect((await req(h, 'PATCH', `/api/bank/transactions/${split.id}/settlement`, ania.headers, { settled: true })).status).toBe(200)
+    const settled = (await item())!
+    expect(settled).toMatchObject({ settlementNote: note, settledByName: expect.any(String), costStatus: 'pending' })
+    expect(settled.settledAt).not.toBeNull()
+    // Rozliczenie w kosztach bez zmian — nie staje się „kosztem bez faktury”.
+    expect((await txsOf('10/2026'))[2]).toMatchObject({ costStatus: 'pending' })
+
+    expect((await req(h, 'PATCH', `/api/bank/transactions/${split.id}/settlement`, ania.headers, { settled: false, note: '' })).status).toBe(200)
+    expect(await item()).toMatchObject({ settlementNote: null, settledAt: null, settledByName: null })
+
+    expect((await req(h, 'PATCH', `/api/bank/transactions/${crypto.randomUUID()}/settlement`, ania.headers, { settled: true })).status).toBe(404)
+    expect((await req(h, 'PATCH', `/api/bank/transactions/${split.id}/settlement`, outsider.headers, { settled: true })).status).toBe(403)
+    expect((await req(h, 'PATCH', `/api/bank/transactions/${split.id}/settlement`, ania.headers, { note: 'x'.repeat(1001) })).status).toBe(422)
+    const audit = await h.db.select().from(schema.auditLog).where(eq(schema.auditLog.action, 'bank.tx_settlement'))
+    expect(audit.length).toBe(3)
+  })
 })
 
 describe('ciągłość wyciągów', () => {

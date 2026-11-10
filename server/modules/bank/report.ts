@@ -2,7 +2,7 @@ import { and, asc, eq, gte, inArray, lt, lte, or, sql } from 'drizzle-orm'
 import ExcelJS from 'exceljs'
 import { BANK_TX_NEEDS_INVOICE, invoicePaymentState, paymentState, statementContinuity, type BankReportDto, type BankReportInvoiceDto } from '#shared'
 import type { Database } from '../../db/client.ts'
-import { bankStatements, bankTransactions, bankTxInvoiceLinks } from '../../db/schema.ts'
+import { bankStatements, bankTransactions, bankTxInvoiceLinks, users } from '../../db/schema.ts'
 import { listInvoices } from '../invoices/service.ts'
 import { suggestionsFor } from './reconcile.ts'
 
@@ -21,9 +21,10 @@ export async function buildReport(db: Database, today: string, range: { from?: s
   const to = range.to ?? coverage?.to ?? today
 
   const txs = await db
-    .select({ t: bankTransactions, statementNumber: bankStatements.number, currency: bankStatements.currency })
+    .select({ t: bankTransactions, statementNumber: bankStatements.number, currency: bankStatements.currency, settledByName: users.name })
     .from(bankTransactions)
     .innerJoin(bankStatements, eq(bankStatements.id, bankTransactions.statementId))
+    .leftJoin(users, eq(users.id, bankTransactions.settledBy))
     .where(
       and(
         gte(bankTransactions.bookingDate, from),
@@ -70,7 +71,7 @@ export async function buildReport(db: Database, today: string, range: { from?: s
     to,
     coverage,
     continuity: statementContinuity(statements),
-    missing: txs.map(({ t, statementNumber, currency }) => ({
+    missing: txs.map(({ t, statementNumber, currency, settledByName }) => ({
       id: t.id,
       statementId: t.statementId,
       statementNumber,
@@ -83,6 +84,9 @@ export async function buildReport(db: Database, today: string, range: { from?: s
       kind: t.kind,
       costStatus: t.costStatus,
       suggestions: suggestions.get(t.id) ?? [],
+      settlementNote: t.settlementNote,
+      settledAt: t.settledAt ? new Date(t.settledAt).toISOString() : null,
+      settledByName: t.settledAt ? settledByName : null,
     })),
     unpaid,
   }
@@ -116,6 +120,8 @@ export async function reportWorkbook(r: BankReportDto): Promise<ArrayBuffer> {
     { header: 'Karta', key: 'card', width: 20 },
     { header: 'Kwota', key: 'amount', width: 14, style: { numFmt: money } },
     { header: 'Uwagi', key: 'note', width: 28 },
+    { header: 'Komentarz', key: 'comment', width: 40 },
+    { header: 'Odhaczone', key: 'settled', width: 24 },
   ])
   for (const t of r.missing) {
     missing.addRow({
@@ -127,6 +133,8 @@ export async function reportWorkbook(r: BankReportDto): Promise<ArrayBuffer> {
       card: t.cardHolder ?? '',
       amount: pln(t.amount),
       note: t.costStatus === 'invoice' ? 'faktura do podpięcia' : '',
+      comment: t.settlementNote ?? '',
+      settled: t.settledAt ? `tak${t.settledByName ? ` — ${t.settledByName}` : ''}` : '',
     })
   }
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## Rozliczenia: komentarz i ręczne odhaczenie płatności bez faktury (10.11.2026)
+
+- **Płatności bez faktury**: kolumna „Komentarz” (edycja ołówkiem) i pole „rozliczone” — odhaczenie z komentarzem, np. dostawca nie miał części towaru i zwrócił pieniądze, a korekty faktury nie ma. Odhaczone znikają z listy braków i sumy; filtr „Odhaczone ręcznie” pokazuje je z komentarzem, osobą i datą; odznaczenie przywraca płatność. Rozliczenie w kosztach (status, projekt) bez zmian — w odróżnieniu od „Nie będzie faktury”.
+- API: `PATCH /api/bank/transactions/{id}/settlement` (`note`, `settled`; uprawnienie Koszty: edycja), audyt `bank.tx_settlement`. Nowe kolumny `bank_transactions.settlement_note`, `settled_at`, `settled_by` (migracja `20261110090726_bank_tx_manual_settlement`). Eksport XLSX: kolumny „Komentarz” i „Odhaczone”.
+
 ## Uprawnienia: osobne wiersze „Do akceptacji” i „Plan finansowy” (09.11.2026)
 
 - **Tabela Uprawnienia ma dwa nowe wiersze** (moduły `invoiceApprovals`, `financePlan`); wcześniej obie zakładki miały uprawnienia wiersza „Koszty”. Migracja `20261109210834_approvals_finance_plan_permissions` kopiuje aktualne wpisy „Koszty” każdej roli, więc po wdrożeniu dostęp się nie zmienia.

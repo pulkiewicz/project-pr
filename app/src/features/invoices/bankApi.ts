@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { BankCostDto, BankReportDto, BankImportPreview, BankImportResult, BankMatchResult, BankRuleDto, BankRuleResult, BankStatementDetailDto, BankStatementDto, BankTransactionDto, BankTxPatch } from '#shared'
+import type { BankCostDto, BankReportDto, BankImportPreview, BankImportResult, BankMatchResult, BankRuleDto, BankRuleResult, BankSettlementInput, BankStatementDetailDto, BankStatementDto, BankTransactionDto, BankTxPatch } from '#shared'
 import { api } from '../../lib/api'
 
 export const useBankStatements = () => useQuery({ queryKey: ['bank', 'statements'], queryFn: () => api<BankStatementDto[]>('/bank/statements') })
@@ -57,6 +57,15 @@ function useSetTx() {
     void qc.invalidateQueries({ queryKey: ['bank', 'report'] })
     void qc.invalidateQueries({ queryKey: ['invoices'] })
   }
+}
+
+/** Rozliczenia: komentarz / ręczne odhaczenie płatności — raport i wyciągi odświeżane. */
+export function useBankSettlement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: BankSettlementInput & { id: string }) => api<{ ok: true }>(`/bank/transactions/${id}/settlement`, { method: 'PATCH', json: data }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['bank'] }),
+  })
 }
 
 export function useLinkInvoice() {

@@ -1148,6 +1148,11 @@ export const bankTransactions = pgTable(
     general: boolean('general').notNull().default(false),
     /** Stawka VAT kosztu bez faktury (`BANK_VAT_RATES`) — w kosztach per projekt liczy się netto. */
     vatRate: integer('vat_rate').notNull().default(0),
+    /** Rozliczenia: komentarz do płatności (np. zwrot od dostawcy za brakujący towar, korekta nie dotarła). */
+    settlementNote: text('settlement_note'),
+    /** Rozliczenia: płatność odhaczona ręcznie — znika z listy „Płatności bez faktury”; rozliczenie w kosztach bez zmian. */
+    settledAt: ts('settled_at'),
+    settledBy: uuid('settled_by').references(() => users.id),
     updatedAt: ts('updated_at'),
     updatedBy: uuid('updated_by'),
     createdAt: ts('created_at').notNull().defaultNow(),

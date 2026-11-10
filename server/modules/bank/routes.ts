@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { z, type RouteConfig } from '@hono/zod-openapi'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import type { Context } from 'hono'
-import { bankLinkInput, bankMatchInput, bankRuleInput, bankTxPatch, type Action, type BankImportResult, type BankRuleResult } from '#shared'
+import { bankLinkInput, bankMatchInput, bankRuleInput, bankSettlementInput, bankTxPatch, type Action, type BankImportResult, type BankRuleResult } from '#shared'
 import type { AppEnv } from '../../context.ts'
 import { bankStatements, bankTransactions, costCategories, costInvoices, projects } from '../../db/schema.ts'
 import { HttpProblem, notFound } from '../../lib/problem.ts'
@@ -126,6 +126,33 @@ bankRouter.openapi(
     })
     const [dto] = await listTransactions(db, eq(bankTransactions.id, id))
     return c.json(dto, 200)
+  },
+)
+
+/**
+ * Rozliczenia: komentarz i ręczne odhaczenie płatności bez faktury (np. dostawca zwrócił część kwoty, a korekty
+ * faktury nie ma). Rozliczenie w kosztach (status, projekt) bez zmian — odhaczenie tylko zdejmuje płatność z listy braków.
+ */
+bankRouter.openapi(
+  route({ method: 'patch', path: '/bank/transactions/{id}/settlement', request: { params: idParam, body: body(bankSettlementInput) }, responses: ok }, 'edit'),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const input = c.req.valid('json')
+    const db = c.get('deps').db
+    const [cur] = await db.select({ note: bankTransactions.settlementNote, settledAt: bankTransactions.settledAt }).from(bankTransactions).where(eq(bankTransactions.id, id))
+    if (!cur) throw notFound()
+    const user = c.get('user')
+    const set: Partial<typeof bankTransactions.$inferInsert> = {}
+    if (input.note !== undefined) set.settlementNote = input.note || null
+    if (input.settled !== undefined) {
+      set.settledAt = input.settled ? (cur.settledAt ?? new Date().toISOString()) : null
+      set.settledBy = input.settled ? user.id : null
+    }
+    await db.transaction(async (tx) => {
+      await tx.update(bankTransactions).set({ ...set, updatedAt: sql`now()`, updatedBy: user.id }).where(eq(bankTransactions.id, id))
+      await writeAudit(c, { action: 'bank.tx_settlement', entity: 'bank_transactions', entityId: id, changes: { old: { note: cur.note, settled: !!cur.settledAt }, new: input } }, tx)
+    })
+    return c.json({ ok: true as const }, 200)
   },
 )
 
