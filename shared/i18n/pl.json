@@ -2090,9 +2090,12 @@
   },
   "staffCosts": {
     "title": "Koszty pracownicze",
-    "hint": "Umowy o pracę — kwota brutto z karty pracownika; zlecenia i dzieło — wypłaty z wyciągów bankowych (kwota przelewu, za miesiąc z tytułu „WYNAGRODZENIE mm/rrrr”, inaczej wg daty księgowania); B2B — faktury kosztowe netto. Koszty pracodawcy to szacunek ZUS pracodawcy, FP i FGŚP (20,48%; student na zleceniu — 0%); zaliczka PIT i ZUS pracownika są już w kwocie brutto. Kolumny od bieżącego miesiąca to prognoza: UoP z karty, zlecenia i B2B — średnia z 3 ostatnich miesięcy z płatnościami.",
-    "prevYear": "Poprzedni rok",
-    "nextYear": "Następny rok",
+    "hint": "Umowy o pracę — kwota brutto z karty pracownika; zlecenia i dzieło — wypłaty z wyciągów bankowych (kwota przelewu, za miesiąc z tytułu „WYNAGRODZENIE mm/rrrr”, inaczej wg daty księgowania); B2B — faktury kosztowe netto. Koszty pracodawcy to szacunek ZUS pracodawcy, FP i FGŚP (20,48%; student na zleceniu — 0%); zaliczka PIT i ZUS pracownika są już w kwocie brutto. Widok: bieżący miesiąc, 3 wstecz i 3 do przodu — strzałkami przesuwasz okres, także dalej w przyszłość jako symulację. Kolumny od bieżącego miesiąca to prognoza: UoP z karty, zlecenia i B2B — średnia z 3 ostatnich miesięcy z płatnościami.",
+    "prevPeriod": "7 miesięcy wstecz",
+    "prevMonth": "Miesiąc wstecz",
+    "nextMonth": "Miesiąc do przodu",
+    "nextPeriod": "7 miesięcy do przodu",
+    "today": "Bieżący okres",
     "mode": {
       "contracts": "Prognoza wg dat umów",
       "extended": "Zakładając przedłużenie umów"
@@ -2121,7 +2124,7 @@
     "allTitle": "Razem wszyscy",
     "headcount": "Liczba osób",
     "cards": {
-      "year": "Koszt roku {{year}}",
+      "year": "Koszt w okresie {{period}}",
       "yearSub": "wykonanie {{actual}} + prognoza {{forecast}}",
       "avg": "Średnio miesięcznie (wykonanie)",
       "avgSub": "z {{count}} zamkniętych miesięcy",
@@ -2173,8 +2176,7 @@
     },
     "unmatchedTitle": "Wypłaty bez dopasowanej osoby: {{count}}",
     "unmatchedHint": "Uzupełnij „Nazwę w przelewach / na fakturach” w karcie pracownika albo imię i nazwisko zgodne z przelewem.",
-    "missingContract": "Aktywni pracownicy bez rodzaju umowy (pominięci): {{names}}",
-    "empty": "Brak pracowników z umowami w tym roku.",
+    "empty": "Brak pracowników z umowami w tym okresie.",
     "doc": {
       "date": "Data",
       "name": "Kontrahent",

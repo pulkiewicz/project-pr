@@ -1,10 +1,9 @@
-import { Accordion, ActionIcon, Alert, Badge, Box, Card, Group, Loader, SegmentedControl, SimpleGrid, Stack, Table, Text, Title, Tooltip } from '@mantine/core'
-import { YearPickerInput } from '@mantine/dates'
-import { IconAlertTriangle, IconChevronLeft, IconChevronRight, IconInfoCircle } from '@tabler/icons-react'
+import { Accordion, ActionIcon, Alert, Badge, Box, Button, Card, Group, Loader, SegmentedControl, SimpleGrid, Stack, Table, Text, Title, Tooltip } from '@mantine/core'
+import { IconAlertTriangle, IconChevronLeft, IconChevronRight, IconChevronsLeft, IconChevronsRight, IconInfoCircle } from '@tabler/icons-react'
 import dayjs from 'dayjs'
 import { Fragment, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { STAFF_GROUPS, type StaffCostCell, type StaffCostRow, type StaffCostsResponse, type StaffGroup, type StaffIssue, type StaffIssueSeverity } from '#shared'
+import { STAFF_GROUPS, STAFF_VIEW_BACK, STAFF_VIEW_MONTHS, addMonths, type StaffCostCell, type StaffCostRow, type StaffCostsResponse, type StaffGroup, type StaffIssue, type StaffIssueSeverity } from '#shared'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, todayWarsaw } from '../../lib/format'
 import { formatMoney } from '../invoices/status'
@@ -217,7 +216,7 @@ function MonthBars({ data, perGroup }: { data: StaffCostsResponse; perGroup: Rec
                 })}
               </Stack>
               <Text size="xs" ta="center" fw={m === data.currentMonth ? 700 : undefined}>
-                {monthLabel(m)}
+                {monthLabel(m, "MMM [']YY")}
               </Text>
             </Stack>
           </Tooltip>
@@ -230,9 +229,12 @@ function MonthBars({ data, perGroup }: { data: StaffCostsResponse; perGroup: Rec
 export function StaffCostsPage() {
   const { t } = useTranslation()
   const issueText = useIssueText()
-  const [year, setYear] = useState(() => todayWarsaw().slice(0, 4))
+  const defaultFrom = addMonths(todayWarsaw().slice(0, 7), -STAFF_VIEW_BACK)
+  const [from, setFrom] = useState(defaultFrom)
   const [mode, setMode] = useState<Mode>('contracts')
-  const q = useStaffCosts(year)
+  const q = useStaffCosts(from, STAFF_VIEW_MONTHS)
+  const shiftBy = (n: number) => setFrom((f) => addMonths(f, n))
+  const period = `${monthLabel(from, 'MMM YYYY')} – ${monthLabel(addMonths(from, STAFF_VIEW_MONTHS - 1), 'MMM YYYY')}`
   const data = q.data
 
   const calc = useMemo(() => {
@@ -270,13 +272,32 @@ export function StaffCostsPage() {
         </Group>
         <Group gap="xs">
           <SegmentedControl size="xs" value={mode} onChange={(v) => setMode(v as Mode)} data={(['contracts', 'extended'] as const).map((m) => ({ value: m, label: t(`staffCosts.mode.${m}`) }))} />
-          <ActionIcon variant="default" aria-label={t('staffCosts.prevYear')} onClick={() => setYear(String(Number(year) - 1))}>
-            <IconChevronLeft size={16} />
-          </ActionIcon>
-          <YearPickerInput size="xs" w={90} value={dayjs(`${year}-01-01`).toDate()} onChange={(d) => d && setYear(dayjs(d).format('YYYY'))} />
-          <ActionIcon variant="default" aria-label={t('staffCosts.nextYear')} onClick={() => setYear(String(Number(year) + 1))}>
-            <IconChevronRight size={16} />
-          </ActionIcon>
+          <Tooltip label={t('staffCosts.prevPeriod')}>
+            <ActionIcon variant="default" aria-label={t('staffCosts.prevPeriod')} onClick={() => shiftBy(-STAFF_VIEW_MONTHS)}>
+              <IconChevronsLeft size={16} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label={t('staffCosts.prevMonth')}>
+            <ActionIcon variant="default" aria-label={t('staffCosts.prevMonth')} onClick={() => shiftBy(-1)}>
+              <IconChevronLeft size={16} />
+            </ActionIcon>
+          </Tooltip>
+          <Text size="sm" fw={600} miw={150} ta="center">
+            {period}
+          </Text>
+          <Tooltip label={t('staffCosts.nextMonth')}>
+            <ActionIcon variant="default" aria-label={t('staffCosts.nextMonth')} onClick={() => shiftBy(1)}>
+              <IconChevronRight size={16} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label={t('staffCosts.nextPeriod')}>
+            <ActionIcon variant="default" aria-label={t('staffCosts.nextPeriod')} onClick={() => shiftBy(STAFF_VIEW_MONTHS)}>
+              <IconChevronsRight size={16} />
+            </ActionIcon>
+          </Tooltip>
+          <Button size="xs" variant="default" disabled={from === defaultFrom} onClick={() => setFrom(defaultFrom)}>
+            {t('staffCosts.today')}
+          </Button>
           {q.isFetching && <Loader size="xs" />}
         </Group>
       </Group>
@@ -284,7 +305,7 @@ export function StaffCostsPage() {
       <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }}>
         <Card withBorder padding="sm">
           <Text size="xs" c="dimmed">
-            {t('staffCosts.cards.year', { year })}
+            {t('staffCosts.cards.year', { period })}
           </Text>
           <Text size="xl" fw={700} style={NUM}>
             {short(calc.actual + calc.forecast)}
@@ -328,12 +349,6 @@ export function StaffCostsPage() {
         </Card>
       </SimpleGrid>
 
-      {data.missingContract.length > 0 && (
-        <Alert color="yellow" variant="light" icon={<IconAlertTriangle size={16} />}>
-          {t('staffCosts.missingContract', { names: data.missingContract.join(', ') })}
-        </Alert>
-      )}
-
       {calc.issues.length > 0 && (
         <Card withBorder padding="sm">
           <Text size="sm" fw={600} mb="xs">
@@ -361,7 +376,7 @@ export function StaffCostsPage() {
       <MonthBars data={data} perGroup={calc.perGroup} />
 
       <Card withBorder padding={0}>
-        <Table.ScrollContainer minWidth={1300}>
+        <Table.ScrollContainer minWidth={900}>
           <Table fz="sm" verticalSpacing={3} horizontalSpacing={6} style={NUM} withColumnBorders={false}>
             <Table.Thead>
               <Table.Tr>
@@ -369,7 +384,7 @@ export function StaffCostsPage() {
                 {data.months.map((m) => (
                   <Table.Th key={m} ta="right" style={{ background: m >= data.currentMonth ? FORECAST_BG : undefined }}>
                     <Text size="sm" fw={m === data.currentMonth ? 800 : 600} span>
-                      {monthLabel(m)}
+                      {monthLabel(m, "MMM [']YY")}
                     </Text>
                     {m >= data.currentMonth && (
                       <Text size="10px" c="dimmed" fs="italic">
@@ -384,7 +399,7 @@ export function StaffCostsPage() {
             <Table.Tbody>
               {data.rows.length === 0 && (
                 <Table.Tr>
-                  <Table.Td colSpan={14}>
+                  <Table.Td colSpan={data.months.length + 2}>
                     <Text c="dimmed" size="sm" p="sm">
                       {t('staffCosts.empty')}
                     </Text>
@@ -397,7 +412,7 @@ export function StaffCostsPage() {
                 return (
                   <Fragment key={g}>
                     <Table.Tr>
-                      <Table.Td colSpan={14} bg={`var(--mantine-color-${GROUP_COLOR[g]}-light)`} style={{ borderTop: '2px solid var(--mantine-color-default-border)' }}>
+                      <Table.Td colSpan={data.months.length + 2} bg={`var(--mantine-color-${GROUP_COLOR[g]}-light)`} style={{ borderTop: '2px solid var(--mantine-color-default-border)' }}>
                         <Text fw={700} size="sm" c={`${GROUP_COLOR[g]}.8`} style={{ position: 'sticky', left: 8, display: 'inline-block' }}>
                           {t(`staffCosts.group.${g}`)} ({rows.length}) <Text span size="xs" c="dimmed" fw={400}>— {t(`staffCosts.source.${g}`)}</Text>
                         </Text>
@@ -413,7 +428,7 @@ export function StaffCostsPage() {
               {data.rows.length > 0 && (
                 <>
                   <Table.Tr>
-                    <Table.Td colSpan={14} style={{ borderTop: '3px double var(--mantine-color-default-border)' }}>
+                    <Table.Td colSpan={data.months.length + 2} style={{ borderTop: '3px double var(--mantine-color-default-border)' }}>
                       <Text fw={700} size="sm" style={{ position: 'sticky', left: 8, display: 'inline-block' }}>
                         {t('staffCosts.allTitle')}
                       </Text>
@@ -449,14 +464,14 @@ export function StaffCostsPage() {
             {data.bankUntil ? t('staffCosts.bankUntil', { date: formatDate(data.bankUntil) }) : t('staffCosts.noBank')}
           </Text>
         </Group>
-        <Table.ScrollContainer minWidth={1100}>
+        <Table.ScrollContainer minWidth={800}>
           <Table fz="xs" verticalSpacing={3} horizontalSpacing={6} style={NUM}>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th />
                 {data.months.map((m) => (
                   <Table.Th key={m} ta="right">
-                    {monthLabel(m)}
+                    {monthLabel(m, "MMM [']YY")}
                   </Table.Th>
                 ))}
                 <Table.Th ta="right">{t('staffCosts.col.total')}</Table.Th>

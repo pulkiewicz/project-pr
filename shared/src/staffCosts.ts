@@ -95,7 +95,9 @@ export interface StaffUnmatchedPayment {
 }
 
 export interface StaffCostsResponse {
-  year: string
+  /** Okres widoku: pierwszy i ostatni miesiąc (yyyy-MM). */
+  from: string
+  to: string
   today: string
   /** Pierwszy miesiąc prognozy (bieżący); wcześniejsze miesiące — wykonanie. */
   currentMonth: string
@@ -188,11 +190,18 @@ const studentIn = (e: StaffEmployeeInput, m: string) => e.isStudent && (!e.stude
 
 // ---------------- Obliczenie ----------------
 
+/** Domyślny widok: bieżący miesiąc, 3 wstecz i 3 do przodu. */
+export const STAFF_VIEW_MONTHS = 7
+export const STAFF_VIEW_BACK = 3
+export const STAFF_VIEW_MAX_MONTHS = 24
+
 export interface StaffCostsArgs {
-  year: string
+  /** Pierwszy miesiąc okresu (yyyy-MM) i liczba miesięcy. */
+  from: string
+  count: number
   today: string
   employees: StaffEmployeeInput[]
-  /** Wydatki z wyciągów (od co najmniej 6 miesięcy przed rokiem / bieżącym miesiącem). */
+  /** Wydatki z wyciągów (od co najmniej 6 miesięcy przed okresem / bieżącym miesiącem). */
   bank: StaffBankTxInput[]
   /** Faktury kosztowe w PLN (jak wyżej). */
   invoices: StaffInvoiceInput[]
@@ -200,7 +209,9 @@ export interface StaffCostsArgs {
 }
 
 export function buildStaffCosts(a: StaffCostsArgs): StaffCostsResponse {
-  const months = Array.from({ length: 12 }, (_, i) => `${a.year}-${String(i + 1).padStart(2, '0')}`)
+  const months = Array.from({ length: a.count }, (_, i) => addMonths(a.from, i))
+  const last = months[months.length - 1]!
+  const inPeriod = (date: string) => date.slice(0, 7) >= a.from && date.slice(0, 7) <= last
   const currentMonth = a.today.slice(0, 7)
   const bankUntil = a.bank.reduce<string | null>((max, t) => (!max || t.bookingDate > max ? t.bookingDate : max), null)
   const bankUntilMonth = bankUntil?.slice(0, 7) ?? null
@@ -240,7 +251,7 @@ export function buildStaffCosts(a: StaffCostsArgs): StaffCostsResponse {
     const card = (m: string) => staffCost(e, m, a.workingDays)
     const extendable = !!e.contractEnd && (e.isActive || e.contractEnd >= a.today)
     // Umowa kończy się przed końcem roku, a osoba nadal aktywna — widoczna także w kolejnych latach (prognoza po przedłużeniu).
-    const endedButActive = extendable && e.contractEnd! < `${a.year}-12-31` && a.year >= currentMonth.slice(0, 4)
+    const endedButActive = extendable && e.contractEnd!.slice(0, 7) < last && last >= currentMonth
     const covered = months.some((m) => card(m)) || months.some((m) => actual(m) !== 0) || endedButActive
     if (!covered) continue
     if (!contractType) {
@@ -322,12 +333,12 @@ export function buildStaffCosts(a: StaffCostsArgs): StaffCostsResponse {
       const days = daysBetween(a.today, e.contractEnd)
       if (days < 0 && e.isActive) issues.push({ code: 'expired', severity: 'red', date: e.contractEnd })
       else if (days >= 0 && days <= STAFF_ENDS_SOON_DAYS) issues.push({ code: 'ends_soon', severity: 'orange', date: e.contractEnd })
-      else if (days > STAFF_ENDS_SOON_DAYS && e.contractEnd.startsWith(a.year)) issues.push({ code: 'ends_this_year', severity: 'yellow', date: e.contractEnd })
+      else if (days > STAFF_ENDS_SOON_DAYS && inPeriod(e.contractEnd)) issues.push({ code: 'ends_this_year', severity: 'yellow', date: e.contractEnd })
     }
     const late = cells.find((c) => c.marks.includes('paid_after_end'))
     if (late) issues.push({ code: 'paid_after_end', severity: 'red', month: late.month, date: e.contractEnd })
     if (group === 'employment' && months.some((m) => card(m)?.missingPay)) issues.push({ code: 'missing_pay', severity: 'orange' })
-    if (group === 'mandate' && e.isStudent && e.studentUntil && e.studentUntil >= a.today && e.studentUntil.startsWith(a.year))
+    if (group === 'mandate' && e.isStudent && e.studentUntil && e.studentUntil >= a.today && e.studentUntil.slice(0, 7) <= last)
       issues.push({ code: 'student_ends', severity: 'yellow', date: e.studentUntil })
     // Brak płatności w 2 ostatnich zamkniętych miesiącach (dla zleceń tylko w okresie, za który są wyciągi).
     if (group !== 'employment' && card(currentMonth)) {
@@ -356,7 +367,7 @@ export function buildStaffCosts(a: StaffCostsArgs): StaffCostsResponse {
   }
   rows.sort((x, y) => x.name.localeCompare(y.name, 'pl'))
 
-  const yearTx = a.bank.filter((t) => t.bookingDate.startsWith(a.year))
+  const yearTx = a.bank.filter((t) => inPeriod(t.bookingDate))
   const bank: StaffBankMonth[] = months.map((m) => {
     const inM = yearTx.filter((t) => t.bookingDate.startsWith(m))
     return {
@@ -371,5 +382,5 @@ export function buildStaffCosts(a: StaffCostsArgs): StaffCostsResponse {
     .map((t) => ({ date: t.bookingDate, name: t.counterpartyName, title: t.title, amount: t.amount }))
     .sort((x, y) => x.date.localeCompare(y.date))
 
-  return { year: a.year, today: a.today, currentMonth, months, rows, bank, bankUntil, unmatched, missingContract: missingContract.sort((x, y) => x.localeCompare(y, 'pl')) }
+  return { from: a.from, to: last, today: a.today, currentMonth, months, rows, bank, bankUntil, unmatched, missingContract: missingContract.sort((x, y) => x.localeCompare(y, 'pl')) }
 }

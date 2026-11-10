@@ -1,6 +1,6 @@
 import { z } from '@hono/zod-openapi'
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
-import { PLAN_REPEAT_MAX, financeMonth, fixedCostInput, fixedCostPatch, monthsBetween, planItemInput, planItemPatch, planLineKey, planYearInput, type Action, type PlanYearResult } from '#shared'
+import { PLAN_REPEAT_MAX, STAFF_VIEW_BACK, STAFF_VIEW_MAX_MONTHS, STAFF_VIEW_MONTHS, addMonths, financeMonth, fixedCostInput, fixedCostPatch, monthsBetween, planItemInput, planItemPatch, planLineKey, planYearInput, type Action, type PlanYearResult } from '#shared'
 import type { Database } from '../../db/client.ts'
 import { costCategories, financeFixedCosts, financePlanItems, projects } from '../../db/schema.ts'
 import { todayWarsaw } from '../../lib/dates.ts'
@@ -26,13 +26,21 @@ financeRouter.openapi(
   },
 )
 
-/** Koszty pracownicze — rok z prognozą; wynagrodzenia imiennie (osobny wiersz w Uprawnieniach). */
+/**
+ * Koszty pracownicze — okres z prognozą (domyślnie bieżący miesiąc, 3 wstecz i 3 do przodu);
+ * wynagrodzenia imiennie (osobny wiersz w Uprawnieniach).
+ */
+const staffQuery = z.object({
+  from: z.string().regex(financeMonth, 'validation.month').optional(),
+  months: z.coerce.number().int().min(1).max(STAFF_VIEW_MAX_MONTHS).optional(),
+})
 financeRouter.openapi(
-  secureRoute('', { method: 'get', path: '/finance/staff-costs', request: { query: z.object({ year: z.string().regex(/^20\d{2}$/).optional() }) }, responses: ok }, { permission: { module: 'staffCosts', action: 'view' } }),
+  secureRoute('', { method: 'get', path: '/finance/staff-costs', request: { query: staffQuery }, responses: ok }, { permission: { module: 'staffCosts', action: 'view' } }),
   async (c) => {
     const deps = c.get('deps')
     const today = todayWarsaw(deps.now?.())
-    return c.json(await staffCosts(deps.db, c.req.valid('query').year ?? today.slice(0, 4), today), 200)
+    const q = c.req.valid('query')
+    return c.json(await staffCosts(deps.db, q.from ?? addMonths(today.slice(0, 7), -STAFF_VIEW_BACK), q.months ?? STAFF_VIEW_MONTHS, today), 200)
   },
 )
 

@@ -6,9 +6,9 @@ import { api } from '../../lib/api'
 export const useFinancePlan = (month: string) =>
   useQuery({ queryKey: ['invoices', 'finance-plan', month], queryFn: () => api<FinancePlanResponse>(`/finance/plan?month=${month}`), placeholderData: keepPreviousData })
 
-/** Koszty pracownicze roku z prognozą. */
-export const useStaffCosts = (year: string) =>
-  useQuery({ queryKey: ['invoices', 'staff-costs', year], queryFn: () => api<StaffCostsResponse>(`/finance/staff-costs?year=${year}`), placeholderData: keepPreviousData })
+/** Koszty pracownicze okresu (`months` miesięcy od `from`, yyyy-MM) z prognozą. */
+export const useStaffCosts = (from: string, months: number) =>
+  useQuery({ queryKey: ['invoices', 'staff-costs', from, months], queryFn: () => api<StaffCostsResponse>(`/finance/staff-costs?from=${from}&months=${months}`), placeholderData: keepPreviousData })
 
 /** Po zapisie odświeżane są wszystkie miesiące (pozycja powtarzana i koszt stały dotyczą wielu miesięcy). */
 function useInvalidatePlan() {

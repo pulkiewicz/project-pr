@@ -49,14 +49,14 @@ describe('koszty pracownicze', () => {
 
   it('UoP z karty z narzutem; koniec umowy: puste miesiące, prognoza „po przedłużeniu” i problem', () => {
     const e = emp({ contractEnd: '2026-12-31' })
-    const r = buildStaffCosts({ year: '2026', today, employees: [e], bank: [], invoices: [], workingDays: wd })
+    const r = buildStaffCosts({ from: '2026-01', count: 12, today, employees: [e], bank: [], invoices: [], workingDays: wd })
     const row = r.rows[0]!
     expect(row.group).toBe('employment')
     expect(row.cells[0]).toMatchObject({ amount: 1_000_000, employer: 204_800, source: 'card' })
     expect(row.cells[11]).toMatchObject({ source: 'forecast', marks: ['contract_end'] })
     expect(row.issues).toEqual([{ code: 'ends_soon', severity: 'orange', date: '2026-12-31' }])
 
-    const next = buildStaffCosts({ year: '2027', today, employees: [e], bank: [], invoices: [], workingDays: wd })
+    const next = buildStaffCosts({ from: '2027-01', count: 12, today, employees: [e], bank: [], invoices: [], workingDays: wd })
     expect(next.rows[0]!.cells[0]).toMatchObject({ amount: 0, source: null, extended: { amount: 1_000_000, employer: 204_800 }, marks: ['after_end'] })
   })
 
@@ -69,7 +69,7 @@ describe('koszty pracownicze', () => {
       tx('2026-10-31', 600_000, 'ANNA NOWAK', 'WYNAGRODZENIE 10/2026', 'salary'),
       tx('2026-10-15', 999_000, 'PIOTR ZIELINSKI', 'WYNAGRODZENIE 10/2026', 'salary'),
     ]
-    const r = buildStaffCosts({ year: '2026', today, employees: [e], bank, invoices: [], workingDays: wd })
+    const r = buildStaffCosts({ from: '2026-01', count: 12, today, employees: [e], bank, invoices: [], workingDays: wd })
     const row = r.rows[0]!
     expect(row.cells[9]).toMatchObject({ amount: 600_000, employer: 0, source: 'bank' })
     expect(row.forecastBasis).toBe('avg')
@@ -85,7 +85,7 @@ describe('koszty pracownicze', () => {
       { id: '2', number: 'FV 1/09', sellerName: 'Lis Consulting', date: '2026-09-30', net: 1_500_000 },
       { id: '3', number: 'X', sellerName: 'Inna firma', date: '2026-09-30', net: 7 },
     ]
-    const r = buildStaffCosts({ year: '2026', today, employees: [e], bank: [], invoices, workingDays: wd })
+    const r = buildStaffCosts({ from: '2026-01', count: 12, today, employees: [e], bank: [], invoices, workingDays: wd })
     const row = r.rows[0]!
     expect(row.cells[4]).toMatchObject({ amount: 1_500_000, employer: 0, source: 'invoice' })
     expect(row.cells[8]!.marks).toContain('paid_after_end')
@@ -93,8 +93,19 @@ describe('koszty pracownicze', () => {
   })
 
   it('pracownik bez rodzaju umowy — pominięty, na liście do uzupełnienia', () => {
-    const r = buildStaffCosts({ year: '2026', today, employees: [emp({ contractType: null })], bank: [], invoices: [], workingDays: wd })
+    const r = buildStaffCosts({ from: '2026-01', count: 12, today, employees: [emp({ contractType: null })], bank: [], invoices: [], workingDays: wd })
     expect(r.rows).toEqual([])
     expect(r.missingContract).toEqual(['Kowalski Jan'])
+  })
+
+  it('okno 7 miesięcy przez przełom roku: 3 wstecz, bieżący, 3 do przodu; kontrola z banku tylko z okresu', () => {
+    const e = emp({ contractEnd: '2027-01-31' })
+    const bank = [tx('2026-07-15', 100, 'ZUS', 'ZUS', 'zus'), tx('2026-09-15', 200, 'ZUS', 'ZUS', 'zus')]
+    const r = buildStaffCosts({ from: '2026-08', count: 7, today, employees: [e], bank, invoices: [], workingDays: wd })
+    expect(r.months).toEqual(['2026-08', '2026-09', '2026-10', '2026-11', '2026-12', '2027-01', '2027-02'])
+    expect([r.from, r.to]).toEqual(['2026-08', '2027-02'])
+    expect(r.rows[0]!.cells.map((c) => c.source)).toEqual(['card', 'card', 'card', 'forecast', 'forecast', 'forecast', null])
+    expect(r.rows[0]!.cells[6]!.extended).toEqual({ amount: 1_000_000, employer: 204_800 })
+    expect(r.bank.map((b) => b.zus)).toEqual([0, 200, 0, 0, 0, 0, 0])
   })
 })
