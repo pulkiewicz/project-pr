@@ -3,19 +3,20 @@ import { IconAlertTriangle, IconChevronLeft, IconChevronRight, IconChevronsLeft,
 import dayjs from 'dayjs'
 import { Fragment, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { STAFF_GROUPS, STAFF_VIEW_BACK, STAFF_VIEW_MONTHS, addMonths, type StaffCostCell, type StaffCostRow, type StaffCostsResponse, type StaffGroup, type StaffIssue, type StaffIssueSeverity } from '#shared'
+import { STAFF_GROUPS, STAFF_VIEW_BACK, STAFF_VIEW_MONTHS, addMonths, type StaffCostCell, type StaffCostRow, type StaffCostsResponse, type StaffGroup } from '#shared'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, todayWarsaw } from '../../lib/format'
 import { formatMoney } from '../invoices/status'
 import { useStaffCosts } from './api'
+import { Link as RouterLink } from 'react-router-dom'
+import { useAuth } from '../../auth/AuthProvider'
+import { SEVERITY_COLOR, SEVERITY_RANK, useIssueText, worstIssue } from './staffIssues'
 
 const NUM = { fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' } as const
 const wholePln = new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 })
 const short = (cents: number) => wholePln.format(Math.round(cents / 100))
 const monthLabel = (m: string, fmt = 'MMM') => dayjs(`${m}-01`).locale('pl').format(fmt)
 const GROUP_COLOR: Record<StaffGroup, string> = { employment: 'blue', mandate: 'teal', b2b: 'grape', other: 'gray' }
-const SEVERITY_RANK: Record<StaffIssueSeverity, number> = { red: 0, orange: 1, yellow: 2, gray: 3 }
-const SEVERITY_COLOR: Record<StaffIssueSeverity, string> = { red: 'red', orange: 'orange', yellow: 'yellow', gray: 'gray' }
 const FORECAST_BG = 'var(--mantine-color-gray-light)'
 const HATCH = 'repeating-linear-gradient(135deg, transparent 0 5px, var(--mantine-color-gray-light-hover) 5px 7px)'
 const STICKY = { position: 'sticky', left: 0, zIndex: 1, background: 'var(--mantine-color-body)', minWidth: 230 } as const
@@ -27,20 +28,6 @@ type Val = { amount: number; employer: number }
 const val = (c: StaffCostCell, mode: Mode): Val => (mode === 'extended' && c.extended ? c.extended : { amount: c.amount, employer: c.employer })
 const add = (a: Val, b: Val): Val => ({ amount: a.amount + b.amount, employer: a.employer + b.employer })
 const ZERO: Val = { amount: 0, employer: 0 }
-
-function worstIssue(issues: StaffIssue[]): StaffIssue | null {
-  return [...issues].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity])[0] ?? null
-}
-
-function useIssueText() {
-  const { t } = useTranslation()
-  return (i: StaffIssue, today: string) =>
-    t(`staffCosts.issue.${i.code}`, {
-      date: i.date ? formatDate(i.date) : '',
-      month: i.month ? monthLabel(i.month, 'MMMM YYYY') : '',
-      days: i.date ? dayjs(i.date).diff(dayjs(today), 'day') : 0,
-    })
-}
 
 function CellTip({ row, c, mode }: { row: StaffCostRow; c: StaffCostCell; mode: Mode }) {
   const { t } = useTranslation()
@@ -228,7 +215,7 @@ function MonthBars({ data, perGroup }: { data: StaffCostsResponse; perGroup: Rec
 
 export function StaffCostsPage() {
   const { t } = useTranslation()
-  const issueText = useIssueText()
+  const canEmployees = useAuth().can('employees', 'view')
   const defaultFrom = addMonths(todayWarsaw().slice(0, 7), -STAFF_VIEW_BACK)
   const [from, setFrom] = useState(defaultFrom)
   const [mode, setMode] = useState<Mode>('contracts')
@@ -336,7 +323,7 @@ export function StaffCostsPage() {
             {t('staffCosts.cards.nextSub', { employment: nextOf('employment'), mandate: nextOf('mandate'), b2b: nextOf('b2b') })}
           </Text>
         </Card>
-        <Card withBorder padding="sm">
+        <Card withBorder padding="sm" component={canEmployees ? RouterLink : undefined} to="/pracownicy" style={canEmployees ? { textDecoration: 'none', color: 'inherit' } : undefined}>
           <Text size="xs" c="dimmed">
             {t('staffCosts.cards.issues')}
           </Text>
@@ -345,33 +332,10 @@ export function StaffCostsPage() {
           </Text>
           <Text size="xs" c="dimmed">
             {t('staffCosts.cards.issuesSub', { count: urgent })}
+            {canEmployees && ` · ${t('staffCosts.cards.issuesLink')}`}
           </Text>
         </Card>
       </SimpleGrid>
-
-      {calc.issues.length > 0 && (
-        <Card withBorder padding="sm">
-          <Text size="sm" fw={600} mb="xs">
-            {t('staffCosts.issuesTitle')}
-          </Text>
-          <Stack gap={4}>
-            {calc.issues.map(({ row, issue }, i) => (
-              <Group key={i} gap="xs" wrap="nowrap">
-                <Badge size="xs" color={SEVERITY_COLOR[issue.severity]} variant={issue.severity === 'red' ? 'filled' : 'light'} w={14} p={0} circle>
-                  {' '}
-                </Badge>
-                <Text size="sm" fw={500} miw={180}>
-                  {row.name}{' '}
-                  <Text span size="xs" c="dimmed">
-                    {row.contractType ? t(`employees.contractShort.${row.contractType}`) : ''}
-                  </Text>
-                </Text>
-                <Text size="sm">{issueText(issue, data.today)}</Text>
-              </Group>
-            ))}
-          </Stack>
-        </Card>
-      )}
 
       <MonthBars data={data} perGroup={calc.perGroup} />
 

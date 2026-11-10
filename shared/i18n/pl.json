@@ -2131,7 +2131,8 @@
       "next": "Prognoza — {{month}}",
       "nextSub": "UoP {{employment}} · zlecenia {{mandate}} · B2B {{b2b}}",
       "issues": "Problematyczne punkty",
-      "issuesSub": "pilne: {{count}}"
+      "issuesSub": "pilne: {{count}}",
+      "issuesLink": "lista w Pracownikach"
     },
     "chart": "Koszt miesięczny wg rodzaju umowy",
     "issuesTitle": "Umowy i płatności do sprawdzenia",

@@ -13,7 +13,8 @@ import { ApiError } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, todayWarsaw } from '../../lib/format'
 import { formatMoney } from '../invoices/status'
-import { fetchPesel, useDelete, useEmployees, useSaveEmployee, useUserOptions } from './api'
+import { StaffIssuesCard } from '../finance/staffIssues'
+import { fetchPesel, useContractIssues, useDelete, useEmployees, useSaveEmployee, useUserOptions } from './api'
 import { Deadline, RowsEditor, fromDate, toDate } from './common'
 import { ImportFromAvizationsModal } from './ImportFromAvizationsModal'
 
@@ -36,6 +37,7 @@ export function EmployeesPage() {
   const { t } = useTranslation()
   const { can } = useAuth()
   const q = useEmployees()
+  const issues = useContractIssues()
   const [open, setOpen] = useState<EmployeeDto | 'new' | null>(null)
   const [onlyAttention, setOnlyAttention] = useState(false)
   const [showInactive, setShowInactive] = useState(false)
@@ -161,6 +163,7 @@ export function EmployeesPage() {
         <Switch label={t('deadline.showInactive')} checked={showInactive} onChange={(e) => setShowInactive(e.currentTarget.checked)} />
       </Group>
       <MantineReactTable table={table} />
+      {issues.data && <StaffIssuesCard people={issues.data.people} today={issues.data.today} onOpen={(id) => setOpen(q.data?.find((e) => e.id === id) ?? null)} />}
       <ImportFromAvizationsModal opened={importing} onClose={() => setImporting(false)} />
       <EmployeeDrawer opened={!!open} item={open === 'new' ? null : open} onClose={() => setOpen(null)} />
     </Stack>

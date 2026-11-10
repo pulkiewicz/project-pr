@@ -3,6 +3,10 @@ import { and, asc, desc, eq, ilike, inArray, isNull, sql } from 'drizzle-orm'
 import type { Context } from 'hono'
 import {
   STAFF_ROLES,
+  STAFF_VIEW_BACK,
+  STAFF_VIEW_MONTHS,
+  addMonths,
+  type EmployeeContractIssues,
   birthDateFromPesel,
   employeeImportInput,
   employeeInput,
@@ -25,6 +29,8 @@ import { decryptField, encryptField } from '../../lib/field-crypto.ts'
 import { HttpProblem, conflict, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
 import { diffFields, writeAudit } from '../audit/service.ts'
+import { staffCosts } from '../finance/staff-costs.ts'
+import { todayWarsaw } from '../../lib/dates.ts'
 
 /** Zarząd Envcheck: ewidencja pojazdów (`fleet`) i pracownicy (`employees`). */
 export const managementRouter = newRouter()
@@ -259,6 +265,21 @@ async function assertUser(db: Database, id: string | null | undefined) {
 }
 
 managementRouter.openapi(route({ method: 'get', path: '/employees', responses: ok }, 'employees', 'view'), async (c) => c.json(await listEmployees(c), 200))
+
+/**
+ * Umowy i płatności do sprawdzenia (pod listą pracowników): problemy z Kosztów pracowniczych w bieżącym okresie
+ * (3 miesiące wstecz, bieżący, 3 do przodu) — bez kwot.
+ */
+managementRouter.openapi(route({ method: 'get', path: '/employees/contract-issues', responses: ok }, 'employees', 'view'), async (c) => {
+  const deps = c.get('deps')
+  const today = todayWarsaw(deps.now?.())
+  const { rows } = await staffCosts(deps.db, addMonths(today.slice(0, 7), -STAFF_VIEW_BACK), STAFF_VIEW_MONTHS, today)
+  const issues: EmployeeContractIssues = {
+    today,
+    people: rows.filter((r) => r.issues.length).map((r) => ({ employeeId: r.employeeId, name: r.name, contractType: r.contractType, issues: r.issues })),
+  }
+  return c.json(issues, 200)
+})
 
 /** Konta pracowników Envcheck — do połączenia pracownika z kontem w aplikacji. */
 managementRouter.openapi(route({ method: 'get', path: '/employees/user-options', responses: ok }, 'employees', 'view'), async (c) => {

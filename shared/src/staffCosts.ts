@@ -112,6 +112,12 @@ export interface StaffCostsResponse {
   missingContract: string[]
 }
 
+/** Pracownicy → „Umowy i płatności do sprawdzenia”: same problemy, bez kwot. */
+export interface EmployeeContractIssues {
+  today: string
+  people: { employeeId: string; name: string; contractType: ContractType | null; issues: StaffIssue[] }[]
+}
+
 // ---------------- Dane wejściowe ----------------
 
 export interface StaffEmployeeInput extends StaffInput {

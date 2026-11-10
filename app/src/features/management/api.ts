@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { AvizationCandidate, EmployeeDto, EmployeeInput, FleetVehicleDto, FleetVehicleInput, ManagementSettings, ManagementUserOption } from '#shared'
+import type { AvizationCandidate, EmployeeContractIssues, EmployeeDto, EmployeeInput, FleetVehicleDto, FleetVehicleInput, ManagementSettings, ManagementUserOption } from '#shared'
 import { api } from '../../lib/api'
 
 export const useVehicles = () => useQuery({ queryKey: ['fleet', 'list'], queryFn: () => api<FleetVehicleDto[]>('/fleet') })
 export const useEmployeeOptions = () => useQuery({ queryKey: ['fleet', 'employee-options'], queryFn: () => api<ManagementUserOption[]>('/fleet/employee-options') })
 
 export const useEmployees = () => useQuery({ queryKey: ['employees', 'list'], queryFn: () => api<EmployeeDto[]>('/employees') })
-export const useUserOptions = () => useQuery({ queryKey: ['employees', 'user-options'], queryFn: () => api<ManagementUserOption[]>('/employees/user-options') })
+/** Umowy i płatności do sprawdzenia (problemy z Kosztów pracowniczych, bez kwot). */
+export const useContractIssues = () => useQuery({ queryKey: ['employees', 'contract-issues'], queryFn: () => api<EmployeeContractIssues>('/employees/contract-issues') })
+export const useUserOptions =() => useQuery({ queryKey: ['employees', 'user-options'], queryFn: () => api<ManagementUserOption[]>('/employees/user-options') })
 
 /** Zapis / usunięcie odświeża obie listy (pojazd pokazuje nazwisko użytkownika). */
 function useInvalidate() {
