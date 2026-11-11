@@ -1,5 +1,11 @@
 # Changelog
 
+## Wyceny: profil „Envcheck Core / standard” (11.11.2026)
+
+- **Nowy profil w Bazie wiedzy** — standardowa komora klimatyczna małogabarytowa wg karty katalogowej Envcheck Core (8.03.2024): przestrzeń robocza 510 × 510 × 510 mm, −40…+180 °C, ±0,5 °C. Jedno urządzenie, sześć standardowych sekcji, 38 pozycji z kosztami z arkusza „Wstępna cena wykonania V2” (opisy pozycji uzupełnione o parametry z karty).
+- Parametry jak w arkuszu: marża ×1,6, rezerwa gwarancyjna 10% (nadpisanie wzoru), gwarancja 12 mies. → koszt 34 800 zł, 59 160 zł netto, 72 766,80 zł brutto. Opcje spoza standardu (moduł wilgotności, ogrzewanie okna, odparowanie kondensatu, demineralizator, router LTE) wypisane w notatkach profilu — bez kosztów.
+- Migracja danych `20261111093756_envcheck_core_profile` (stałe UUID, idempotentna).
+
 ## Finanse: Koszty pracownicze — widok roku z prognozą (10.11.2026)
 
 - **Nowa pozycja menu Finanse → Koszty pracownicze** (`/koszty-pracownicze`): lista osób w 12 miesiącach, pogrupowana na umowy o pracę, zlecenia / dzieło i B2B (oraz „Inne” — staż, inna). Przy osobie skrót umowy (UoP, UZ, UoD, B2B) i data końca umowy; pod kwotą osobny wiersz „koszty pracodawcy”. Sumy grup i „Razem wszyscy” (wynagrodzenia, koszty pracodawcy, razem koszt, liczba osób), wykres słupkowy kosztu miesięcznego wg rodzaju umowy, karty: koszt roku (wykonanie + prognoza), średnia miesięczna, prognoza bieżącego miesiąca.

@@ -71,9 +71,24 @@ describe('import OF033 i OF036 — sumy jak w arkuszach', () => {
     expect(q.summary!.sections.find((s) => s.name === 'Układ chłodzenia')!.cost).toBe(302000)
   })
 
-  it('5 profili z bazy wiedzy', async () => {
+  it('6 profili z bazy wiedzy', async () => {
     const names = (await list(admin, 'profile')).map((p) => p.name).sort()
-    expect(names).toEqual(['Komora grzewcza', 'Mała / kaskada', 'Mała / standard', 'Walk-in / custom duża', 'Średnia / standard'])
+    expect(names).toEqual(['Envcheck Core / standard', 'Komora grzewcza', 'Mała / kaskada', 'Mała / standard', 'Walk-in / custom duża', 'Średnia / standard'])
+  })
+
+  it('profil Envcheck Core: koszt 34 800 → netto 59 160 → brutto 72 766,80 (arkusz „Wstępna cena wykonania V2”)', async () => {
+    const item = (await list(admin, 'profile')).find((p) => p.name === 'Envcheck Core / standard')!
+    const q = await get(admin, item.id)
+    expect(q.params).toMatchObject({ marginMultiplier: 1.6, reservePctOverride: 0.1, warrantyMonths: 12 })
+    expect(q.summary).toMatchObject({ cost: 34800, marginValue: 20880, reservePct: 0.1, reserveValue: 3480, net: 59160, gross: 72766.8 })
+    expect(q.summary!.sections.map((s) => [s.name, s.cost])).toEqual([
+      ['Obudowa', 9600],
+      ['Układ chłodzenia', 9100],
+      ['Automatyka i sterowanie', 10500],
+      ['Układy dodatkowe', 2900],
+      ['Wyposażenie dodatkowe', 700],
+      ['Koszty inne', 2000],
+    ])
   })
 
   it('wycena historyczna jest tylko do odczytu', async () => {
