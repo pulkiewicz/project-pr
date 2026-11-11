@@ -146,3 +146,26 @@ describe('odrzucenie wyceny i zmiana profilu', () => {
     expect((await req(h, 'POST', `/api/quotes/${q.id}/apply-profile`, staff.headers, { profileId: p.id, version: q.version })).status).toBe(409)
   })
 })
+
+describe('szansa: liczba wycen, najnowsza wycena, wartość z wyceny', () => {
+  it('wartość szansy = netto ostatniej nieodrzuconej wyceny z ceną; bez niej — wartość ręczna', async () => {
+    const fresh = (await (await req(h, 'POST', '/api/crm/opportunities', admin.headers, { name: 'Test wartości', stage: 'new', value: 12345 })).json()) as OpportunityDto
+    expect(fresh).toMatchObject({ value: 12345, valueManual: 12345, quotes: { count: 0, latest: null, valueFrom: null } })
+    const profiles = (await (await req(h, 'GET', '/api/quotes?kind=profile', staff.headers)).json()) as { id: string }[]
+    const a = (await (await req(h, 'POST', '/api/quotes', staff.headers, { opportunityId: fresh.id, basedOnId: profiles[0]!.id })).json()) as QuoteDto
+    const b = (await (await req(h, 'POST', '/api/quotes', staff.headers, { opportunityId: fresh.id })).json()) as QuoteDto
+    const get = async () => (await (await req(h, 'GET', `/api/crm/opportunities/${fresh.id}`, admin.headers)).json()) as OpportunityDto
+    let o = await get()
+    expect(o.quotes.count).toBe(2)
+    expect(o.quotes.latest).toMatchObject({ id: b.id, revision: 'B' })
+    // Rew. B jest pusta (0 zł) — wartość z rew. A.
+    expect(o.quotes.valueFrom).toMatchObject({ id: a.id, revision: 'A' })
+    expect(o.value).toBe(o.quotes.valueFrom!.net)
+    expect(o.value).toBeGreaterThan(0)
+    expect(o.valueManual).toBe(12345)
+    await req(h, 'POST', `/api/quotes/${a.id}/reject`, staff.headers, { reason: 'test odrzucenia', version: a.version })
+    o = await get()
+    expect(o.quotes.valueFrom).toBeNull()
+    expect(o.value).toBe(12345)
+  })
+})

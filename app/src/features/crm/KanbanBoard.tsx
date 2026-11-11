@@ -1,5 +1,6 @@
-import { ActionIcon, Badge, Box, Card, Group, Menu, ScrollArea, Stack, Text } from '@mantine/core'
-import { IconDots } from '@tabler/icons-react'
+import { ActionIcon, Anchor, Badge, Box, Card, Group, Menu, ScrollArea, Stack, Text, Tooltip } from '@mantine/core'
+import { IconDots, IconFileInvoice } from '@tabler/icons-react'
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { OPPORTUNITY_STAGES, type OpportunityDto, type OpportunityStage } from '#shared'
@@ -58,15 +59,33 @@ function OpportunityCard({ o, canMove, onOpen, onMove }: { o: OpportunityDto; ca
         </Text>
       )}
       <Group justify="space-between" mt={4} gap={4}>
-        <Text size="xs" fw={500}>
-          {o.value != null ? formatPLNWhole(o.value) : ''}
-        </Text>
+        <Tooltip label={o.quotes.valueFrom ? t('crm.valueFromQuote', { code: o.code, revision: o.quotes.valueFrom.revision ?? '' }) : t('crm.valueManual')} disabled={o.value == null} withinPortal>
+          <Text size="xs" fw={500}>
+            {o.value != null ? formatPLNWhole(o.value) : ''}
+          </Text>
+        </Tooltip>
         {o.submissionDeadline && (
           <Text size="xs" c="dimmed">
             {formatDate(o.submissionDeadline)}
           </Text>
         )}
       </Group>
+      {o.quotes.latest && (
+        <Group gap={4} wrap="nowrap" mt={2}>
+          <IconFileInvoice size={12} color="var(--mantine-color-dimmed)" style={{ flexShrink: 0 }} />
+          <Text size="xs" c="dimmed">
+            {t('crm.quotesCount', { count: o.quotes.count })} ·
+          </Text>
+          <Anchor component={Link} to={`/wyceny/${o.quotes.latest.id}`} size="xs" fw={500} onClick={(e) => e.stopPropagation()} draggable={false} data-testid="kanban-latest-quote">
+            {t('crm.latestQuote', { revision: o.quotes.latest.revision ?? '' })}
+          </Anchor>
+          {o.quotes.latest.status === 'rejected' && (
+            <Badge size="xs" color="red" variant="light">
+              {t('quotes.status.rejected')}
+            </Badge>
+          )}
+        </Group>
+      )}
       {(o.ownerName || o.projectCode) && (
         <Group justify="space-between" gap={4}>
           <Text size="xs" c="dimmed" truncate>

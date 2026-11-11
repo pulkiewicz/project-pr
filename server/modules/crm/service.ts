@@ -7,9 +7,11 @@ import {
   type CompanyDto,
   type ContactDto,
   type OpportunityDto,
+  type OpportunityQuotesInfo,
 } from '#shared'
 import type { Database } from '../../db/client.ts'
 import { companies, contacts, crmActivities, opportunities, opportunityCodeSeq, projects, users } from '../../db/schema.ts'
+import { opportunityQuoteStats } from '../quotes/service.ts'
 
 const owners = aliasedTable(users, 'owner')
 
@@ -39,7 +41,9 @@ type OpportunityRow = {
   lastActivityAt: string | null
 }
 
-export function toOpportunityDto(r: OpportunityRow, now: Date): OpportunityDto {
+const NO_QUOTES: OpportunityQuotesInfo = { count: 0, latest: null, valueFrom: null }
+
+export function toOpportunityDto(r: OpportunityRow, now: Date, quotesInfo: OpportunityQuotesInfo = NO_QUOTES): OpportunityDto {
   const o = r.o
   const lastActivityAt = r.lastActivityAt ? new Date(r.lastActivityAt).toISOString() : null
   const touched = [o.stageChangedAt, lastActivityAt].filter(Boolean).map((d) => new Date(d!).getTime())
@@ -58,7 +62,9 @@ export function toOpportunityDto(r: OpportunityRow, now: Date): OpportunityDto {
     ownerName: r.ownerName,
     type: o.type,
     source: o.source,
-    value: o.value,
+    value: quotesInfo.valueFrom?.net ?? o.value,
+    valueManual: o.value,
+    quotes: quotesInfo,
     submissionDeadline: o.submissionDeadline,
     decisionDate: o.decisionDate,
     nextStep: o.nextStep,
@@ -87,7 +93,8 @@ export async function listOpportunities(db: Database, now: Date, where?: SQL) {
     .leftJoin(projects, eq(projects.id, opportunities.projectId))
     .where(and(isNull(opportunities.deletedAt), where))
     .orderBy(desc(opportunities.createdAt), desc(opportunities.code))
-  return rows.map((r) => toOpportunityDto(r, now))
+  const stats = await opportunityQuoteStats(db, where ? rows.map((r) => r.o.id) : undefined)
+  return rows.map((r) => toOpportunityDto(r, now, stats.get(r.o.id)))
 }
 
 export async function getOpportunity(db: Database, id: string, now: Date) {

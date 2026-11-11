@@ -1138,7 +1138,14 @@
     "deleteOpportunityQuotes_many": "Razem z nią zostanie usuniętych {{count}} wycen.",
     "deleteOpportunityQuotes_other": "Razem z nią zostaną usunięte wyceny: {{count}}.",
     "deleteOpportunityHasProject": "Z tej szansy założono projekt — nie można jej usunąć.",
-    "opportunityDeleted": "Usunięto szansę {{code}}"
+    "opportunityDeleted": "Usunięto szansę {{code}}",
+    "valueFromQuote": "Z wyceny {{code}} rew. {{revision}} (netto)",
+    "valueManual": "Wartość wpisana ręcznie",
+    "quotesCount_one": "{{count}} wycena",
+    "quotesCount_few": "{{count}} wyceny",
+    "quotesCount_many": "{{count}} wycen",
+    "quotesCount_other": "{{count}} wyceny",
+    "latestQuote": "najnowsza: rew. {{revision}}"
   },
   "quotes": {
     "title": "Wyceny",

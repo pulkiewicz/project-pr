@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { httpUrl } from './hrf.ts'
+import type { QuoteStatus } from './quotes.ts'
 
 /** Lejek sprzedaży (decyzja C1 planu Envcheck Hub): 6 etapów. */
 export const OPPORTUNITY_STAGES = ['new', 'quoting', 'submitted', 'won', 'lost', 'abandoned', 'on_hold'] as const
@@ -172,7 +173,12 @@ export interface OpportunityDto {
   ownerName: string | null
   type: OpportunityType | null
   source: string | null
+  /** Wartość szansy: kwota netto ostatniej nieodrzuconej wyceny, a bez niej — wartość wpisana ręcznie. */
   value: number | null
+  /** Wartość wpisana ręcznie (pole formularza). */
+  valueManual: number | null
+  /** Wyceny szansy: liczba (bez usuniętych), najnowsza rewizja i wycena, z której pochodzi wartość. */
+  quotes: OpportunityQuotesInfo
   submissionDeadline: string | null
   decisionDate: string | null
   nextStep: string | null
@@ -190,6 +196,20 @@ export interface OpportunityDto {
   noResponse: boolean
   createdAt: string
   version: number
+}
+
+export interface OpportunityQuoteRef {
+  id: string
+  revision: string | null
+  status: QuoteStatus
+  net: number | null
+}
+
+export interface OpportunityQuotesInfo {
+  count: number
+  latest: OpportunityQuoteRef | null
+  /** Wycena, której kwota netto jest wartością szansy (null — wartość ręczna). */
+  valueFrom: OpportunityQuoteRef | null
 }
 
 export interface ActivityDto {

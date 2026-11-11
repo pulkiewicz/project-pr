@@ -1,5 +1,7 @@
 import { aliasedTable, and, asc, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm'
 import {
+  type OpportunityQuoteRef,
+  type OpportunityQuotesInfo,
   DEFAULT_PARAMS,
   DEFAULT_PRICE_MAX_AGE_MONTHS,
   DEFAULT_RESERVE,
@@ -261,4 +263,32 @@ export async function lineOf(db: Database, quoteId: string, lineId: string) {
     .where(and(eq(quoteLines.id, lineId), eq(quoteDevices.quoteId, quoteId)))
   if (!l) throw notFound()
   return l.l
+}
+
+const revisionOrder = (r: string | null) => [r?.length ?? 0, r ?? ''] as const
+const newerRevision = (a: string | null, b: string | null) => {
+  const [la, sa] = revisionOrder(a)
+  const [lb, sb] = revisionOrder(b)
+  return la !== lb ? la > lb : sa > sb
+}
+
+/**
+ * Wyceny per szansa (CRM): liczba, najnowsza rewizja i kwota netto ostatniej nieodrzuconej wyceny z niezerową ceną.
+ * Kwoty liczone zawsze (wartość szansy jest widoczna w CRM niezależnie od uprawnień do cen wyceny).
+ */
+export async function opportunityQuoteStats(db: Database, opportunityIds?: string[]): Promise<Map<string, OpportunityQuotesInfo>> {
+  if (opportunityIds && !opportunityIds.length) return new Map()
+  const all = new Set<`${ModuleKey}:${Action}`>(['quotes:view', 'quotesPricing:view'])
+  const items = await listQuotes(db, all, 'quote', opportunityIds ? inArray(quotes.opportunityId, opportunityIds) : undefined)
+  const out = new Map<string, OpportunityQuotesInfo>()
+  for (const q of items) {
+    if (!q.opportunityId) continue
+    const ref: OpportunityQuoteRef = { id: q.id, revision: q.revision, status: q.status, net: q.net }
+    const cur = out.get(q.opportunityId) ?? { count: 0, latest: null, valueFrom: null }
+    cur.count++
+    if (!cur.latest || newerRevision(q.revision, cur.latest.revision)) cur.latest = ref
+    if (q.status !== 'rejected' && (q.net ?? 0) > 0 && (!cur.valueFrom || newerRevision(q.revision, cur.valueFrom.revision))) cur.valueFrom = ref
+    out.set(q.opportunityId, cur)
+  }
+  return out
 }

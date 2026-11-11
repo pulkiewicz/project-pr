@@ -196,7 +196,7 @@ export function OpportunityDrawer({ id, opened, onClose, onCreated }: { id: stri
     if (!opened) return
     if (!id) setF(EMPTY)
     else if (o) {
-      const { name, companyId, contactId, ownerId, type, source, value, submissionDeadline, decisionDate, nextStep, nextStepDate, link, notes } = o
+      const { name, companyId, contactId, ownerId, type, source, valueManual: value, submissionDeadline, decisionDate, nextStep, nextStepDate, link, notes } = o
       setF({ name, companyId, contactId, ownerId, type, source, value, submissionDeadline, decisionDate, nextStep, nextStepDate, link, notes })
     }
     setActivity({ kind: 'note', body: '' })
@@ -331,7 +331,19 @@ export function OpportunityDrawer({ id, opened, onClose, onCreated }: { id: stri
               onChange={(v) => set('type', v as OpportunityType | null)}
             />
             <Autocomplete label={t('crm.source')} disabled={!editable} data={sourceSuggestions} value={f.source ?? ''} onChange={(v) => set('source', v || null)} />
-            <NumberInput label={t('crm.value')} min={0} thousandSeparator=" " decimalSeparator="," disabled={!editable} value={f.value ?? ''} onChange={(v) => set('value', v === '' ? null : Number(v))} />
+            {o?.quotes.valueFrom ? (
+              <NumberInput
+                label={t('crm.value')}
+                description={t('crm.valueFromQuote', { code: o.code, revision: o.quotes.valueFrom.revision ?? '' })}
+                thousandSeparator=" "
+                decimalSeparator=","
+                decimalScale={2}
+                readOnly
+                value={o.value ?? ''}
+              />
+            ) : (
+              <NumberInput label={t('crm.value')} min={0} thousandSeparator=" " decimalSeparator="," disabled={!editable} value={f.value ?? ''} onChange={(v) => set('value', v === '' ? null : Number(v))} />
+            )}
             {dateField('submissionDeadline', t('crm.submissionDeadline'))}
             {dateField('decisionDate', t('crm.decisionDate'))}
           </SimpleGrid>
