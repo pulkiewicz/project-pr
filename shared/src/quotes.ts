@@ -157,6 +157,59 @@ export const quoteInfoSchema = z.object({
 })
 export type QuoteInfo = z.infer<typeof quoteInfoSchema>
 
+/** Parametry techniczne profilu (Baza wiedzy) — do porównania z wymaganiami zapytania; puste = nieznane. */
+const specNum = (min: number, max: number) => z.number().min(min).max(max).nullable().optional()
+const mm = specNum(0, 100_000)
+export const profileSpecSchema = z
+  .object({
+    /** Wymiary wewnętrzne (przestrzeń robocza) [mm]: szerokość × wysokość × głębokość. */
+    innerWidth: mm,
+    innerHeight: mm,
+    innerDepth: mm,
+    /** Wymiary zewnętrzne [mm]: szerokość × wysokość × głębokość. */
+    outerWidth: mm,
+    outerHeight: mm,
+    outerDepth: mm,
+    /** Objętość robocza [l]. */
+    volume: specNum(0, 1e7),
+    /** Zakres temperatur [°C]. */
+    tempMin: specNum(-273, 2000),
+    tempMax: specNum(-273, 2000),
+    /** Zakres wilgotności [%RH]. */
+    humidityMin: specNum(0, 100),
+    humidityMax: specNum(0, 100),
+    /** Dynamika zmian temperatury [K/min]. */
+    rate: specNum(0, 1000),
+  })
+  .refine((v) => v.tempMin == null || v.tempMax == null || v.tempMin <= v.tempMax, { message: 'validation.rangeMinMax', path: ['tempMax'] })
+  .refine((v) => v.humidityMin == null || v.humidityMax == null || v.humidityMin <= v.humidityMax, { message: 'validation.rangeMinMax', path: ['humidityMax'] })
+export type ProfileSpec = z.infer<typeof profileSpecSchema>
+export const PROFILE_SPEC_KEYS = ['innerWidth', 'innerHeight', 'innerDepth', 'outerWidth', 'outerHeight', 'outerDepth', 'volume', 'tempMin', 'tempMax', 'humidityMin', 'humidityMax', 'rate'] as const satisfies readonly (keyof ProfileSpec)[]
+
+/** Objętość [l] z wymiarów wewnętrznych [mm]; null, gdy brakuje wymiaru. */
+export function volumeFromDims(w: number | null | undefined, h: number | null | undefined, d: number | null | undefined): number | null {
+  if (w == null || h == null || d == null) return null
+  return Math.round((w * h * d) / 1e5) / 10
+}
+
+/** Skrót parametrów profilu do kart i list, np. „510 × 510 × 510 mm · 132,7 l · −40…+180 °C · 15…98 %RH · 3 K/min”. */
+export function formatProfileSpec(s: ProfileSpec | null | undefined): string {
+  if (!s) return ''
+  const n = (v: number) => new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 1 }).format(v).replace('-', '−')
+  const signed = (v: number) => (v > 0 ? `+${n(v)}` : n(v))
+  const range = (a: number | null | undefined, b: number | null | undefined, unit: string, fmt: (v: number) => string) =>
+    a == null && b == null ? null : `${a == null ? '…' : fmt(a)}…${b == null ? '…' : fmt(b)} ${unit}`
+  const dims = [s.innerWidth, s.innerHeight, s.innerDepth]
+  const parts = [
+    dims.every((v) => v != null) ? `${dims.map((v) => n(v!)).join(' × ')} mm` : null,
+    s.volume != null ? `${n(s.volume)} l` : null,
+    range(s.tempMin, s.tempMax, '°C', signed),
+    range(s.humidityMin, s.humidityMax, '%RH', n),
+    s.rate != null ? `${n(s.rate)} K/min` : null,
+  ]
+  return parts.filter(Boolean).join(' · ')
+}
+
 export const quoteParamsSchema = z.object({
   marginMultiplier: z.number().min(1).max(20),
   complexity: z.enum(COMPLEXITIES),
@@ -189,6 +242,8 @@ export const quotePatch = z.object({
   notes: optText(20000),
   info: quoteInfoSchema.optional(),
   params: quoteParamsSchema.partial().optional(),
+  /** Tylko profil: parametry techniczne (zastępują poprzednie w całości). */
+  profileSpec: profileSpecSchema.optional(),
   version: z.number().int(),
 })
 export type QuotePatch = z.input<typeof quotePatch>
@@ -366,6 +421,8 @@ export interface QuoteListItemDto {
   updatedByName: string | null
   /** Termin złożenia oferty (krok 3), `yyyy-MM-dd`. */
   submissionDeadline: string | null
+  /** Parametry techniczne — tylko profile (wyceny: pusty obiekt). */
+  profileSpec: ProfileSpec
 }
 
 /** Parametry w DTO: pola cenowe (marża, rezerwa, ryzyko, VAT) są null bez `quotesPricing:view`. */

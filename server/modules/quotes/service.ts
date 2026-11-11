@@ -128,6 +128,7 @@ function listItem(r: BaseRow, perms: Perms, devices: QuoteDeviceDto[], settings:
     updatedAt: r.q.updatedAt,
     updatedByName: r.updatedByName,
     submissionDeadline: r.q.info?.submissionDeadline ?? null,
+    profileSpec: r.q.kind === 'profile' ? (r.q.profileSpec ?? {}) : {},
   }
 }
 

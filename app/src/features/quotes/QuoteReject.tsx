@@ -2,7 +2,7 @@ import { Alert, Button, Card, Group, Modal, Select, Stack, Text, Textarea } from
 import { IconAlertTriangle, IconArrowBackUp } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { QuoteDto } from '#shared'
+import { formatProfileSpec, type QuoteDto } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { formatDateTime } from '../../lib/format'
 import { quoteOps, useQuoteMutation, useQuotes } from './api'
@@ -117,6 +117,7 @@ export function ProfileSwitcher({ q }: { q: QuoteDto }) {
             data={(profiles.data ?? []).filter((p) => p.id !== q.basedOnId).map((p) => ({ value: p.id, label: p.name ?? '' }))}
             value={profileId}
             onChange={setProfileId}
+            description={formatProfileSpec(profiles.data?.find((p) => p.id === profileId)?.profileSpec) || undefined}
             placeholder={profiles.isLoading ? t('app.loading') : undefined}
             data-autofocus
           />

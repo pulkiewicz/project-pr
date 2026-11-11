@@ -4,7 +4,7 @@ import { IconPlus } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { COMPLEXITIES, type QuoteSettings } from '#shared'
+import { COMPLEXITIES, formatProfileSpec, type QuoteSettings } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { formatDateTime } from '../../lib/format'
@@ -117,6 +117,11 @@ function Profiles() {
                         </Text>
                       )}
                     </Group>
+                    {formatProfileSpec(p.profileSpec) && (
+                      <Text size="sm" mt={4} data-testid="profile-spec">
+                        {formatProfileSpec(p.profileSpec)}
+                      </Text>
+                    )}
                     <Text size="sm" c="dimmed" lineClamp={3} mt={4}>
                       {p.description}
                     </Text>

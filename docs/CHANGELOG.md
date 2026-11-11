@@ -1,5 +1,11 @@
 # Changelog
 
+## Wyceny: parametry techniczne profilu (11.11.2026)
+
+- **Zakładka „Parametry” w profilu wyceny** (Baza wiedzy): wymiary wewnętrzne i zewnętrzne (szerokość × wysokość × głębokość, mm), objętość robocza (l — z podpowiedzią wyliczoną z wymiarów wewnętrznych), zakres temperatur (min, maks, °C), zakres wilgotności (min, maks, %RH) i dynamika zmian temperatury (K/min). Puste pole = nieznane; maks. mniejsze niż min. jest odrzucane.
+- Skrót parametrów (np. „510 × 510 × 510 mm · 132,7 l · −40…+180 °C · 15…98 %RH”) na kartach profili oraz pod polem wyboru profilu przy nowej wycenie i zmianie profilu (krok 7). Kopia profilu („Zapisz jako profil”) przejmuje parametry.
+- Nowa kolumna `quotes.profile_spec` (migracja `20261111094828_profile_spec`, która uzupełnia też parametry „Envcheck Core / standard” z karty katalogowej — bez dynamiki zmian, której karta nie podaje). API: `PATCH /api/quotes/{id}` z polem `profileSpec` (tylko profile; wycena → 422 `not_a_profile`).
+
 ## Wyceny: profil „Envcheck Core / standard” (11.11.2026)
 
 - **Nowy profil w Bazie wiedzy** — standardowa komora klimatyczna małogabarytowa wg karty katalogowej Envcheck Core (8.03.2024): przestrzeń robocza 510 × 510 × 510 mm, −40…+180 °C, ±0,5 °C. Jedno urządzenie, sześć standardowych sekcji, 38 pozycji z kosztami z arkusza „Wstępna cena wykonania V2” (opisy pozycji uzupełnione o parametry z karty).

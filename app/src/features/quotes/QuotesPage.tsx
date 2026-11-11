@@ -7,7 +7,7 @@ import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mj
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { OPPORTUNITY_INACTIVE, type QuoteListItemDto } from '#shared'
+import { OPPORTUNITY_INACTIVE, formatProfileSpec, type QuoteListItemDto } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime, formatPLNWhole } from '../../lib/format'
@@ -85,6 +85,7 @@ export function NewQuoteModal({ opened, onClose, opportunityId }: { opened: bool
             data={baseData}
             value={baseId}
             onChange={setBaseId}
+            description={basis === 'profile' ? formatProfileSpec(profiles.data?.find((p) => p.id === baseId)?.profileSpec) || undefined : undefined}
             data-testid="new-quote-base"
           />
         )}

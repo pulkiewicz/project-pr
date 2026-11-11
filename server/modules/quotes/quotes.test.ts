@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import ExcelJS from 'exceljs'
-import { DEFAULT_PARAMS, computeSummary, nextRevision, reservePct, type OpportunityDto, type QuoteDto, type QuoteListItemDto } from '#shared'
+import { DEFAULT_PARAMS, computeSummary, formatProfileSpec, nextRevision, reservePct, volumeFromDims, type OpportunityDto, type QuoteDto, type QuoteListItemDto } from '#shared'
 import { and, inArray } from 'drizzle-orm'
 import { createUser, eq, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
 
@@ -225,5 +225,39 @@ describe('ustawienia i dostęp', () => {
 
   it('rola zewnętrzna nie ma dostępu do wycen', async () => {
     expect((await req(h, 'GET', '/api/quotes', arsanit.headers)).status).toBe(403)
+  })
+})
+
+describe('parametry techniczne profilu', () => {
+  const core = async () => get(admin, (await list(admin, 'profile')).find((p) => p.name === 'Envcheck Core / standard')!.id)
+
+  it('Envcheck Core: wymiary, objętość i zakresy z karty katalogowej; skrót na liście', async () => {
+    const q = await core()
+    expect(q.profileSpec).toEqual({ innerWidth: 510, innerHeight: 510, innerDepth: 510, outerWidth: 720, outerHeight: 1520, outerDepth: 1080, volume: 132.7, tempMin: -40, tempMax: 180, humidityMin: 15, humidityMax: 98, rate: null })
+    expect(formatProfileSpec(q.profileSpec)).toBe('510 × 510 × 510 mm · 132,7 l · −40…+180 °C · 15…98 %RH')
+    expect(volumeFromDims(510, 510, 510)).toBe(132.7)
+  })
+
+  it('zapis zastępuje parametry w całości; min > maks odrzucone; kopia profilu przejmuje parametry', async () => {
+    const created = (await (await req(h, 'POST', '/api/quotes', admin.headers, { kind: 'profile', name: 'Test parametrów' })).json()) as QuoteDto
+    expect(created.profileSpec).toEqual({})
+    const bad = await req(h, 'PATCH', `/api/quotes/${created.id}`, admin.headers, { profileSpec: { tempMin: 50, tempMax: 10 }, version: created.version })
+    expect(bad.status).toBe(422)
+    const res = await req(h, 'PATCH', `/api/quotes/${created.id}`, admin.headers, { profileSpec: { innerWidth: 1000, tempMin: -70, tempMax: 150, rate: 5 }, version: created.version })
+    expect(res.status).toBe(200)
+    const saved = (await res.json()) as QuoteDto
+    expect(saved.profileSpec).toEqual({ innerWidth: 1000, tempMin: -70, tempMax: 150, rate: 5 })
+    const listed = (await list(admin, 'profile')).find((p) => p.id === created.id)!
+    expect(formatProfileSpec(listed.profileSpec)).toBe('−70…+150 °C · 5 K/min')
+    const copy = (await (await req(h, 'POST', `/api/quotes/${created.id}/save-as-profile`, admin.headers, { name: 'Kopia' })).json()) as QuoteDto
+    expect(copy.profileSpec).toEqual(saved.profileSpec)
+  })
+
+  it('wycena nie przyjmuje parametrów profilu', async () => {
+    const created = (await (await req(h, 'POST', '/api/quotes', admin.headers, { opportunityId: oppId('OF029'), basedOnId: (await core()).id })).json()) as QuoteDto
+    expect(created.profileSpec).toEqual({})
+    const res = await req(h, 'PATCH', `/api/quotes/${created.id}`, admin.headers, { profileSpec: { tempMin: 0 }, version: created.version })
+    expect(res.status).toBe(422)
+    expect(await res.json()).toMatchObject({ code: 'not_a_profile' })
   })
 })

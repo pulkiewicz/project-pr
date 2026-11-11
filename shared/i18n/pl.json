@@ -407,7 +407,8 @@
     "projectCode": "Kod: 2–30 znaków, litery, cyfry, - i _ (np. WEW-BIURO)",
     "time": "Niepoprawna godzina (GG:MM)",
     "url": "Podaj adres zaczynający się od http:// lub https://",
-    "rejectReasonRequired": "Podaj przyczynę (min. 3 znaki)"
+    "rejectReasonRequired": "Podaj przyczynę (min. 3 znaki)",
+    "rangeMinMax": "Wartość maks. nie może być mniejsza niż min."
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -1180,7 +1181,8 @@
     "tabs": {
       "items": "Wycena",
       "summary": "Podsumowanie",
-      "info": "Informacje i notatki"
+      "info": "Informacje i notatki",
+      "spec": "Parametry"
     },
     "device": "Urządzenie",
     "addDevice": "Dodaj urządzenie / opcję",
@@ -2380,5 +2382,22 @@
       "duplicate": "Dwa wiersze mają tę samą nazwę, projekt i kategorię — zmień nazwę jednego z nich.",
       "unnamed": "Uzupełnij nazwę każdego wiersza."
     }
+  },
+  "profileSpec": {
+    "hint": "Parametry techniczne profilu — ułatwiają dobór profilu do wymagań zapytania. Puste pole = nieznane.",
+    "inner": "Wymiary wewnętrzne (przestrzeń robocza)",
+    "outer": "Wymiary zewnętrzne",
+    "ranges": "Objętość, zakresy i dynamika",
+    "width": "Szerokość",
+    "height": "Wysokość",
+    "depth": "Głębokość",
+    "volume": "Objętość robocza",
+    "fromDims": "Z wymiarów wewnętrznych: {{value}} l.",
+    "useComputed": "Wstaw",
+    "tempMin": "Temperatura min.",
+    "tempMax": "Temperatura maks.",
+    "humidityMin": "Wilgotność min.",
+    "humidityMax": "Wilgotność maks.",
+    "rate": "Dynamika zmian temperatury"
   }
 }

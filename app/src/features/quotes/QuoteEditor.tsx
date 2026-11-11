@@ -55,6 +55,7 @@ import { useOpportunity } from '../crm/api'
 import { useStartAiJob } from './ai-api'
 import { CalcPanel } from './CalcPanel'
 import { ChecklistPanel } from './ChecklistPanel'
+import { ProfileSpecPanel } from './ProfileSpecPanel'
 import { RevisionModal } from './RevisionModal'
 import { ProfileSwitcher, RejectQuoteModal, RejectedBanner } from './QuoteReject'
 import { FormalStep, IdentificationStep, QuestionsDeadline, StepNav, SummaryStep, deadlineLabel, stepInfos } from './WorkflowSteps'
@@ -798,6 +799,7 @@ export function QuoteEditor({ id }: { id: string }) {
                 </Text>
               )}
             </Tabs.Tab>
+            <Tabs.Tab value="spec">{t('quotes.tabs.spec')}</Tabs.Tab>
             <Tabs.Tab value="info">{t('quotes.tabs.info')}</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="items" pt="sm">
@@ -805,6 +807,9 @@ export function QuoteEditor({ id }: { id: string }) {
           </Tabs.Panel>
           <Tabs.Panel value="summary" pt="sm">
             <SummaryPanel q={q} />
+          </Tabs.Panel>
+          <Tabs.Panel value="spec" pt="sm">
+            <ProfileSpecPanel q={q} />
           </Tabs.Panel>
           <Tabs.Panel value="info" pt="sm">
             <InfoPanel q={q} />

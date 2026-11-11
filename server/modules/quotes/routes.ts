@@ -127,6 +127,7 @@ async function createQuote(
   let basedOnLabel: string | null = null
   let source: 'profile' | 'previous' = 'previous'
   let info = {}
+  let profileSpec = {}
   if (v.basedOnId) {
     const base = await getQuoteRow(tx, v.basedOnId)
     assertKind(perms(c), base.kind, 'view')
@@ -135,6 +136,8 @@ async function createQuote(
     if (base.kind === 'profile') {
       source = 'profile'
       basedOnLabel = `Profil: ${base.name ?? ''}`
+      // Kopia profilu (zapisz jako profil) przejmuje parametry techniczne.
+      if (v.kind === 'profile') profileSpec = base.profileSpec ?? {}
     } else {
       const [o] = base.opportunityId ? await tx.select({ code: opportunities.code }).from(opportunities).where(eq(opportunities.id, base.opportunityId)) : []
       basedOnLabel = `Wycena ${o?.code ?? ''} rew. ${base.revision ?? ''}`.trim()
@@ -161,6 +164,7 @@ async function createQuote(
       basedOnLabel,
       params,
       info,
+      profileSpec,
       createdBy: user.id,
       updatedBy: user.id,
     })
@@ -187,6 +191,7 @@ quotesRouter.openapi(route({ method: 'patch', path: '/quotes/{id}', request: { p
   const { version, params, info, opportunityId, driveFolderUrl, ...rest } = c.req.valid('json')
   const db = c.get('deps').db
   const current = await assertEditable(db, perms(c), id)
+  if (rest.profileSpec && current.kind !== 'profile') throw new HttpProblem(422, 'not_a_profile')
   // Krok 1: przepięcie wyceny na inną szansę — nowa litera rewizji w obrębie docelowej szansy.
   let reassign: { opportunityId: string; revision: string } | null = null
   if (opportunityId && opportunityId !== current.opportunityId) {
