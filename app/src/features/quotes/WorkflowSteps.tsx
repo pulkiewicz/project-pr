@@ -30,7 +30,7 @@ import { format } from 'date-fns'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { OPPORTUNITY_INACTIVE, QUOTE_STEPS, type QuoteDto, type QuoteInfo, type QuoteStep, type RequiredDocDto, type RequiredDocStatus } from '#shared'
+import { OPPORTUNITY_INACTIVE, QUOTE_OPTIONAL_STEPS, QUOTE_STEP_LABELS, QUOTE_STEPS, type QuoteDto, type QuoteInfo, type QuoteStep, type RequiredDocDto, type RequiredDocStatus } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { daysUntil, formatDate, formatPLN } from '../../lib/format'
 import { useCompanies, useOpportunities, useOpportunity } from '../crm/api'
@@ -44,7 +44,9 @@ import { quoteOps, useQuoteMutation, useRequiredDocMutation, useRequiredDocs } f
 export type StepState = 'done' | 'progress' | 'todo' | 'warn'
 export interface StepInfo {
   step: QuoteStep
-  n: number
+  /** Oznaczenie kroku: „1”…„8”, krok opcjonalny „4a”. */
+  n: string
+  optional: boolean
   state: StepState
   caption: string
 }
@@ -63,7 +65,8 @@ export function stepInfos(q: QuoteDto, t: (k: string, o?: Record<string, unknown
   const cl = q.checklistProgress
   const sub = q.info.submissionDeadline
   const qd = q.info.questionsDeadline
-  const states: Record<QuoteStep, Omit<StepInfo, 'step' | 'n'>> = {
+  const comp = q.competition
+  const states: Record<QuoteStep, Omit<StepInfo, 'step' | 'n' | 'optional'>> = {
     identification: q.opportunityId ? { state: 'done', caption: [q.opportunityCode, q.companyName].filter(Boolean).join(' · ') } : { state: 'todo', caption: t('workflow.cap.noOpportunity') },
     inputs:
       w.inputs || q.driveFolderId
@@ -77,6 +80,9 @@ export function stepInfos(q: QuoteDto, t: (k: string, o?: Record<string, unknown
       state: cl && cl.total > 0 && cl.confirmed === cl.total ? 'done' : cl && cl.confirmed > 0 ? 'progress' : 'todo',
       caption: cl ? t('workflow.cap.confirmed', { confirmed: cl.confirmed, total: cl.total }) : '',
     },
+    competition: comp
+      ? { state: 'done', caption: t('workflow.cap.competition', { count: comp.products.length }) }
+      : { state: 'todo', caption: t('workflow.cap.optional') },
     questions: {
       state: w.questions.open > 0 && qd && daysUntil(qd) < 0 && q.status === 'draft' ? 'warn' : w.questions.open > 0 ? 'progress' : w.questions.total > 0 ? 'done' : 'todo',
       caption: w.questions.total ? t('workflow.cap.questions', { open: w.questions.open, total: w.questions.total }) : qd ? t('workflow.cap.questionsUntil', { date: formatDate(qd) }) : t('workflow.cap.noQuestions'),
@@ -88,7 +94,7 @@ export function stepInfos(q: QuoteDto, t: (k: string, o?: Record<string, unknown
     },
     summary: { state: q.status === 'draft' ? 'todo' : 'done', caption: t(`quotes.status.${q.status}`) },
   }
-  return QUOTE_STEPS.map((step, i) => ({ step, n: i + 1, ...states[step] }))
+  return QUOTE_STEPS.map((step) => ({ step, n: QUOTE_STEP_LABELS[step], optional: QUOTE_OPTIONAL_STEPS.includes(step), ...states[step] }))
 }
 
 const STATE_COLOR: Record<StepState, string> = { done: 'green', progress: 'blue', todo: 'gray', warn: 'orange' }
@@ -97,7 +103,7 @@ const STATE_COLOR: Record<StepState, string> = { done: 'green', progress: 'blue'
 export function StepNav({ steps, active, onSelect }: { steps: StepInfo[]; active: QuoteStep; onSelect: (s: QuoteStep) => void }) {
   const { t } = useTranslation()
   return (
-    <SimpleGrid cols={{ base: 2, xs: 4, xl: 8 }} spacing={6} data-testid="quote-steps">
+    <SimpleGrid cols={{ base: 2, xs: 3, md: 5, xl: 9 }} spacing={6} data-testid="quote-steps">
       {steps.map((s) => {
         const current = s.step === active
         const color = STATE_COLOR[s.state]
@@ -110,7 +116,7 @@ export function StepNav({ steps, active, onSelect }: { steps: StepInfo[]; active
             p={8}
             style={{
               borderRadius: 'var(--mantine-radius-md)',
-              border: `1px solid ${current ? 'var(--mantine-color-navy-6)' : 'var(--mantine-color-gray-3)'}`,
+              border: `1px ${s.optional && !current ? 'dashed' : 'solid'} ${current ? 'var(--mantine-color-navy-6)' : 'var(--mantine-color-gray-3)'}`,
               background: current ? 'var(--mantine-color-navy-0)' : 'var(--mantine-color-body)',
               boxShadow: current ? '0 0 0 1px var(--mantine-color-navy-6)' : undefined,
             }}
@@ -640,7 +646,7 @@ export function SummaryStep({ q, steps, onSelect, actions }: { q: QuoteDto; step
   const mutation = useQuoteMutation(q.id)
   const [notes, setNotes] = useState(q.notes)
   useEffect(() => setNotes(q.notes), [q.version]) // eslint-disable-line react-hooks/exhaustive-deps
-  const open = steps.filter((s) => s.step !== 'summary' && s.state !== 'done')
+  const open = steps.filter((s) => s.step !== 'summary' && !s.optional && s.state !== 'done')
   const price = finalPrice(q)
   return (
     <Stack>

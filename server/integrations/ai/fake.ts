@@ -83,6 +83,17 @@ const DEFAULTS: Record<string, Handler> = {
       notes: 'Atrapa AI.',
     }
   },
+  /** Analiza konkurencji: dwa produkty — spełniający kryteria z ceną i częściowo spełniający bez ceny. */
+  competition: (req) => {
+    const ctx = req.context as { criteria: string[] }
+    return {
+      summary: `Atrapa AI — ${ctx.criteria.length} kryteriów, 2 przykładowe produkty.`,
+      products: [
+        { manufacturer: 'Producent A', model: 'Komora KA-100', url: 'https://example.com/ka-100', match: 'full', specs: '−40…+180 °C, 100 l', deviations: null, price: 52000, currency: 'EUR', priceNet: true, priceNote: 'Cennik 2026 (atrapa)', priceUrl: 'https://example.com/cennik', confidence: 'medium' },
+        { manufacturer: 'Producent B', model: 'Climatic 150', url: null, match: 'partial', specs: '−20…+150 °C, 150 l', deviations: 'Zakres temperatur węższy', price: null, currency: null, priceNet: null, priceNote: null, priceUrl: null, confidence: 'low' },
+      ],
+    }
+  },
   questions: (req) => {
     const ctx = req.context as { gaps: { key: string; label: string }[] }
     return {

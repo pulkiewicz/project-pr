@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { CompetitionResult } from './competition.ts'
 
 /** Wycena (`quote`) albo profil wyceny z bazy wiedzy (`profile`) — ta sama struktura: urządzenia → sekcje → pozycje. */
 export const QUOTE_KINDS = ['quote', 'profile'] as const
@@ -351,8 +352,23 @@ export interface RequiredDocDto {
 
 // ---------------- Przepływ wyceny (8 kroków) ----------------
 
-export const QUOTE_STEPS = ['identification', 'inputs', 'formal', 'checklist', 'questions', 'calc', 'pricing', 'summary'] as const
+export const QUOTE_STEPS = ['identification', 'inputs', 'formal', 'checklist', 'competition', 'questions', 'calc', 'pricing', 'summary'] as const
 export type QuoteStep = (typeof QUOTE_STEPS)[number]
+/** Numer kroku w interfejsie i w `?krok=` — krok opcjonalny ma oznaczenie z literą (4a) i nie zmienia numeracji pozostałych. */
+export const QUOTE_STEP_LABELS: Record<QuoteStep, string> = {
+  identification: '1',
+  inputs: '2',
+  formal: '3',
+  checklist: '4',
+  competition: '4a',
+  questions: '5',
+  calc: '6',
+  pricing: '7',
+  summary: '8',
+}
+/** Kroki opcjonalne — nie liczą się do „otwartych kroków” i nie są celem wznowienia wyceny. */
+export const QUOTE_OPTIONAL_STEPS: readonly QuoteStep[] = ['competition']
+export const QUOTE_MAIN_STEP_COUNT = QUOTE_STEPS.length - QUOTE_OPTIONAL_STEPS.length
 
 /** Liczniki do stanu kroków (wyceny; null dla profili). */
 export interface QuoteWorkflowDto {
@@ -458,5 +474,7 @@ export interface QuoteDto extends QuoteListItemDto {
   rejectReason: string | null
   rejectedAt: string | null
   rejectedByName: string | null
+  /** Krok 4a — wynik ostatniej analizy konkurencji (null — nie wykonano). */
+  competition: CompetitionResult | null
   version: number
 }

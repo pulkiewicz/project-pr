@@ -16,17 +16,22 @@ export interface AiUsage {
   outputTokens: number
   cacheReadTokens: number
   cacheWriteTokens: number
+  /** Wyszukiwania w sieci (narzędzie web search) — $10 / 1000. */
+  webSearches?: number
 }
+
+/** Koszt wyszukiwania w sieci [USD za zapytanie]. */
+export const AI_WEB_SEARCH_USD = 0.01
 
 export function aiCostUsd(model: string, u: AiUsage): number | null {
   const p = AI_PRICING[model]
   if (!p) return null
-  const usd = (u.inputTokens * p.input + u.outputTokens * p.output + u.cacheReadTokens * p.cacheRead + u.cacheWriteTokens * p.cacheWrite) / 1_000_000
+  const usd = (u.inputTokens * p.input + u.outputTokens * p.output + u.cacheReadTokens * p.cacheRead + u.cacheWriteTokens * p.cacheWrite) / 1_000_000 + (u.webSearches ?? 0) * AI_WEB_SEARCH_USD
   return Math.round(usd * 10000) / 10000
 }
 
 /** Operacje AI na wycenie (zadania w tle). */
-export const AI_JOB_KINDS = ['extract_checklist', 'propose_lines', 'reestimate_line', 'questions', 'extract_formal', 'draft_doc'] as const
+export const AI_JOB_KINDS = ['extract_checklist', 'propose_lines', 'reestimate_line', 'questions', 'extract_formal', 'draft_doc', 'competition'] as const
 export type AiJobKind = (typeof AI_JOB_KINDS)[number]
 export const AI_JOB_STATUSES = ['queued', 'running', 'done', 'error'] as const
 export type AiJobStatus = (typeof AI_JOB_STATUSES)[number]
@@ -39,6 +44,8 @@ export const aiJobInput = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('extract_formal') }),
   /** Projekt wymaganego dokumentu (krok 3) jako Dokument Google w folderze wyceny. */
   z.object({ kind: z.literal('draft_doc'), docId: z.uuid(), hint: z.string().trim().max(5000).nullable().optional() }),
+  /** Krok 4a — analiza konkurencji: wyszukiwanie w sieci produktów spełniających parametry wyceny, z cenami. */
+  z.object({ kind: z.literal('competition'), hint: z.string().trim().max(5000).nullable().optional() }),
 ])
 export type AiJobInput = z.input<typeof aiJobInput>
 

@@ -9,6 +9,7 @@ import {
   DIRECT_UPLOAD_MAX_BYTES,
   aiJobInput,
   aiSettingsInput,
+  competitionGuidelinesInput,
   driveSettingsInput,
   lineCost,
   questionInput,
@@ -24,6 +25,7 @@ import {
   type QuestionDto,
   type QuoteInputDto,
 } from '#shared'
+import { loadGuidelines, saveGuidelines } from './competition.ts'
 import type { AppEnv } from '../../context.ts'
 import type { Database } from '../../db/client.ts'
 import {
@@ -547,4 +549,16 @@ aiRouter.openapi(route({ method: 'put', path: '/ai/settings', request: { body: b
     .onConflictDoUpdate({ target: appSettings.key, set: { value, updatedAt: sql`now()`, updatedBy: c.get('user').id } })
   await writeAudit(c, { action: 'settings.ai', entity: 'app_settings', entityId: AI_SETTINGS_KEY, changes: value })
   return c.json(value, 200)
+})
+
+// ---------------- Analiza konkurencji (krok 4a): wytyczne wspólne dla wszystkich wycen ----------------
+
+aiRouter.openapi(route({ method: 'get', path: '/competition-guidelines', responses: ok }, 'quotes', 'view'), async (c) => c.json(await loadGuidelines(c.get('deps').db), 200))
+
+aiRouter.openapi(route({ method: 'put', path: '/competition-guidelines', request: { body: body(competitionGuidelinesInput) }, responses: ok }, 'quotes', 'edit'), async (c) => {
+  const input = c.req.valid('json')
+  const db = c.get('deps').db
+  await saveGuidelines(db, input, c.get('user').id)
+  await writeAudit(c, { action: 'settings.competition_guidelines', entity: 'app_settings', entityId: 'quotes.competitionGuidelines', changes: { fileName: input.fileName, length: input.markdown.length } })
+  return c.json(await loadGuidelines(db), 200)
 })

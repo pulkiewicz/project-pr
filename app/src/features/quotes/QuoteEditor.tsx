@@ -32,6 +32,8 @@ import {
   COMPLEXITIES,
   CONFIDENCES,
   LINE_SOURCES,
+  QUOTE_MAIN_STEP_COUNT,
+  QUOTE_STEP_LABELS,
   QUOTE_STEPS,
   type Complexity,
   type Confidence,
@@ -55,6 +57,7 @@ import { useOpportunity } from '../crm/api'
 import { useStartAiJob } from './ai-api'
 import { CalcPanel } from './CalcPanel'
 import { ChecklistPanel } from './ChecklistPanel'
+import { CompetitionPanel } from './CompetitionPanel'
 import { ProfileSpecPanel } from './ProfileSpecPanel'
 import { RevisionModal } from './RevisionModal'
 import { ProfileSwitcher, RejectQuoteModal, RejectedBanner } from './QuoteReject'
@@ -604,13 +607,15 @@ export function QuoteEditor({ id }: { id: string }) {
   const [lineEdit, setLineEdit] = useState<{ line: QuoteLineDto | null; sectionId: string } | null>(null)
   const q = query.data
   const steps = useMemo(() => (q && q.kind === 'quote' ? stepInfos(q, t) : []), [q, t])
-  const stepParam = Number(params.get('krok'))
-  // Bez `?krok` — wznowienie od pierwszego nieukończonego kroku (zapisane w URL, by nie „skakało” przy zmianach danych).
+  // `?krok=` — oznaczenie kroku („1”…„8”, „4a”).
+  const stepParam = params.get('krok') ?? ''
+  const stepFromParam = QUOTE_STEPS.find((s) => QUOTE_STEP_LABELS[s] === stepParam.toLowerCase()) ?? null
+  // Bez `?krok` — wznowienie od pierwszego nieukończonego kroku obowiązkowego (zapisane w URL, by nie „skakało” przy zmianach danych).
   useEffect(() => {
-    if (!q || q.kind !== 'quote' || (stepParam >= 1 && stepParam <= QUOTE_STEPS.length)) return
-    const first = steps.find((s) => s.step !== 'summary' && s.state !== 'done')?.n ?? QUOTE_STEPS.length
+    if (!q || q.kind !== 'quote' || stepFromParam) return
+    const first = steps.find((s) => s.step !== 'summary' && !s.optional && s.state !== 'done')?.n ?? QUOTE_STEP_LABELS.summary
     setParams((p) => {
-      p.set('krok', String(first))
+      p.set('krok', first)
       return p
     }, { replace: true })
   }, [q?.id, stepParam]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -621,11 +626,11 @@ export function QuoteEditor({ id }: { id: string }) {
   const isProfile = q.kind === 'profile'
   const backTo = isProfile ? '/baza-wiedzy' : '/wyceny'
   const fail = (e: unknown) => notifications.show({ color: 'red', message: errorMessage(e) })
-  const activeN = stepParam >= 1 && stepParam <= QUOTE_STEPS.length ? stepParam : 1
-  const active = QUOTE_STEPS[activeN - 1]!
+  const active: QuoteStep = stepFromParam ?? 'identification'
+  const activeIdx = QUOTE_STEPS.indexOf(active)
   const goTo = (step: QuoteStep) => {
     setParams((p) => {
-      p.set('krok', String(QUOTE_STEPS.indexOf(step) + 1))
+      p.set('krok', QUOTE_STEP_LABELS[step])
       return p
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -673,6 +678,7 @@ export function QuoteEditor({ id }: { id: string }) {
     inputs: () => <InputsPanel q={q} />,
     formal: () => <FormalStep q={q} />,
     checklist: () => <ChecklistPanel q={q} />,
+    competition: () => <CompetitionPanel q={q} />,
     questions: () => (
       <Stack>
         <QuestionsDeadline q={q} />
@@ -696,8 +702,8 @@ export function QuoteEditor({ id }: { id: string }) {
       <SummaryStep q={q} steps={steps} onSelect={goTo} actions={<>{statusActions}{exportButton}</>} />
     ),
   }
-  const prev = activeN > 1 ? QUOTE_STEPS[activeN - 2]! : null
-  const next = activeN < QUOTE_STEPS.length ? QUOTE_STEPS[activeN] : null
+  const prev = activeIdx > 0 ? QUOTE_STEPS[activeIdx - 1]! : null
+  const next = activeIdx < QUOTE_STEPS.length - 1 ? QUOTE_STEPS[activeIdx + 1]! : null
 
   return (
     <Stack>
@@ -824,7 +830,7 @@ export function QuoteEditor({ id }: { id: string }) {
         <Stack gap="md" data-testid={`step-panel-${active}`}>
           <div>
             <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
-              {t('workflow.stepOf', { n: activeN, total: QUOTE_STEPS.length })}
+              {active === 'competition' ? t('workflow.stepOptional', { n: QUOTE_STEP_LABELS[active] }) : t('workflow.stepOf', { n: QUOTE_STEP_LABELS[active], total: QUOTE_MAIN_STEP_COUNT })}
             </Text>
             <Title order={3}>{t(`workflow.step.${active}`)}</Title>
             <Text size="sm" c="dimmed" maw={760}>

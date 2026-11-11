@@ -15,6 +15,8 @@ export interface AiRequest {
   schema: Record<string, unknown>
   maxTokens?: number
   effort?: 'low' | 'medium' | 'high' | 'xhigh'
+  /** Wyszukiwanie w sieci (narzędzie serwerowe web search) — limit zapytań. */
+  webSearch?: { maxUses: number }
   /** Dane wejściowe w postaci obiektu — używa ich tylko atrapa (prawdziwy model dostaje je w treści). */
   context?: unknown
 }

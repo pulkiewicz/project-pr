@@ -408,7 +408,8 @@
     "time": "Niepoprawna godzina (GG:MM)",
     "url": "Podaj adres zaczynający się od http:// lub https://",
     "rejectReasonRequired": "Podaj przyczynę (min. 3 znaki)",
-    "rangeMinMax": "Wartość maks. nie może być mniejsza niż min."
+    "rangeMinMax": "Wartość maks. nie może być mniejsza niż min.",
+    "markdownFile": "Plik wytycznych musi mieć rozszerzenie .md"
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -1982,6 +1983,7 @@
       "inputs": "Zapytanie i pliki",
       "formal": "Parametry formalne",
       "checklist": "Checklista parametrów",
+      "competition": "Analiza konkurencji",
       "questions": "Pytania do zamawiającego",
       "calc": "Kalkulator mocy",
       "pricing": "Wycena",
@@ -1992,6 +1994,7 @@
       "inputs": "Podepnij folder Google Drive z plikami zapytania (SIWZ, OPZ, rysunki) i/lub wklej treść maila — na tych materiałach pracuje AI w kolejnych krokach.",
       "formal": "Terminy złożenia oferty i zadawania pytań, warunki postępowania oraz lista dokumentów wymaganych przez SIWZ (AI + ręczne uzupełnienie).",
       "checklist": "Parametry techniczne z materiałów przypisane do standardowej listy specyfikacyjnej — każdy potwierdź.",
+      "competition": "Krok opcjonalny. AI szuka w sieci produktów konkurencji spełniających parametry wyceny (checklista z kroku 4 i parametry z kroku 8) i ustala ich ceny — według wytycznych wspólnych dla wszystkich wycen.",
       "questions": "Pytania do zamawiającego (do wysłania przed terminem) i pytania wewnętrzne.",
       "calc": "Bilans mocy chłodniczej / grzewczej dla urządzeń z wyceny.",
       "pricing": "Urządzenia, sekcje i pozycje kosztowe (z propozycjami AI), parametry marży i cena.",
@@ -2019,7 +2022,9 @@
       "calcs_other": "{{count}} kalkulacji",
       "noCalcs": "brak kalkulacji",
       "noLines": "brak pozycji",
-      "folder": "folder Drive"
+      "folder": "folder Drive",
+      "competition": "produkty: {{count}}",
+      "optional": "opcjonalny"
     },
     "identification": {
       "title": "Klient i szansa",
@@ -2095,7 +2100,8 @@
       "openSteps_few": "{{count}} kroki nie są jeszcze ukończone.",
       "openSteps_many": "{{count}} kroków nie jest jeszcze ukończonych.",
       "openSteps_other": "{{count}} kroków nie jest jeszcze ukończonych."
-    }
+    },
+    "stepOptional": "Krok {{n}} · opcjonalny"
   },
   "driveFolder": {
     "title": "Folder Google Drive wyceny",
@@ -2410,5 +2416,40 @@
     "gross": "Brutto (VAT {{vat}}%)",
     "badge": "wpisana ręcznie",
     "overrides": "Cena tej wyceny jest wpisana ręcznie w kroku 8 ({{value}} netto) — zastępuje wyliczoną poniżej i jest wartością szansy w CRM."
+  },
+  "competition": {
+    "guidelines": "Wytyczne analizy konkurencji",
+    "guidelinesShared": "Jeden plik Markdown wspólny dla wszystkich wycen — zmiana obowiązuje w każdej kolejnej analizie.",
+    "default": "wytyczne domyślne",
+    "upload": "Wczytaj plik .md",
+    "download": "Pobierz .md",
+    "expand": "Pokaż całość",
+    "collapse": "Zwiń",
+    "editTitle": "Wytyczne analizy konkurencji (Markdown)",
+    "uploaded": "Wczytano wytyczne z pliku {{name}}",
+    "mdOnly": "Wybierz plik Markdown (.md)",
+    "emptyFile": "Plik jest pusty",
+    "tooLong": "Plik jest za długi (maks. 50 000 znaków)",
+    "run": "Wyszukiwanie produktów konkurencji",
+    "runHint": "AI przeszukuje sieć według wytycznych i parametrów wyceny: checklisty z kroku 4 oraz parametrów technicznych z kroku 8. Dane klienta nie są wysyłane. Trwa zwykle kilka minut; kolejne uruchomienie zastępuje wynik.",
+    "hint": "Dodatkowe wskazówki (opcjonalnie)",
+    "hintPlaceholder": "np. szukaj tylko komór stojących; pomiń producentów z Chin",
+    "start": "Szukaj konkurencji (AI)",
+    "rerun": "Szukaj ponownie (AI)",
+    "result": "Produkty konkurencji",
+    "none": "Nie znaleziono produktów spełniających kryteria.",
+    "product": "Producent i model",
+    "match": "Zgodność",
+    "specs": "Parametry / odstępstwa",
+    "price": "Cena",
+    "net": "netto",
+    "gross": "brutto",
+    "priceSource": "źródło ceny",
+    "criteria": "Kryteria użyte w wyszukiwaniu",
+    "matchName": {
+      "full": "spełnia",
+      "partial": "częściowo",
+      "none": "nie spełnia"
+    }
   }
 }

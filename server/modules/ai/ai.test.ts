@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { and } from 'drizzle-orm'
+import { aiCostUsd, type CompetitionGuidelinesDto } from '#shared'
 import type { AiJobDto, AiStatusDto, AiSuggestionDto, ChecklistDto, DriveStatusDto, OpportunityDetailDto, QuestionDto, QuoteDto, QuoteInputDto, RequiredDocDto, DriveFolderDto } from '#shared'
 import { AiError } from '../../integrations/ai/types.ts'
 import { createUser, eq, req, schema, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
@@ -318,5 +319,53 @@ describe('wymagane dokumenty: link i projekt przez AI (krok 3)', () => {
     } finally {
       h.drive.uploadSmall = orig
     }
+  })
+})
+
+describe('AI: analiza konkurencji (krok 4a) i wspólne wytyczne', () => {
+  const guidelines = async (u: TestUser = kamil) => (await (await req(h, 'GET', '/api/competition-guidelines', u.headers)).json()) as CompetitionGuidelinesDto
+
+  it('wytyczne: domyślne, wczytanie pliku .md (wspólne dla wszystkich wycen), tylko pliki Markdown', async () => {
+    expect(await guidelines()).toMatchObject({ isDefault: true, fileName: 'wytyczne-konkurencja.md', updatedAt: null })
+    expect((await req(h, 'PUT', '/api/competition-guidelines', kamil.headers, { markdown: '# x', fileName: 'wytyczne.pdf' })).status).toBe(422)
+    const res = await req(h, 'PUT', '/api/competition-guidelines', kamil.headers, { markdown: '# Wytyczne\n- Tylko producenci z UE\n', fileName: 'konkurencja.md' })
+    expect(res.status).toBe(200)
+    const g = await guidelines(admin)
+    expect(g).toMatchObject({ isDefault: false, fileName: 'konkurencja.md', markdown: '# Wytyczne\n- Tylko producenci z UE' })
+    expect(g.updatedByName).toBeTruthy()
+  })
+
+  it('wyszukiwanie: kryteria z checklisty i parametrów wyceny, wytyczne w promptcie, web search; wynik w wycenie', async () => {
+    let q = (await (await req(h, 'GET', `/api/quotes/${quote.id}`, admin.headers)).json()) as QuoteDto
+    await req(h, 'PATCH', `/api/quotes/${quote.id}`, admin.headers, { profileSpec: { volume: 250, rate: 3 }, version: q.version })
+    const { status, job } = await runJob({ kind: 'competition', hint: 'tylko komory stojące' })
+    expect(status).toBe(200)
+    expect(job).toMatchObject({ kind: 'competition', status: 'done' })
+    expect(job.summary).toMatch(/Produkty konkurencji: 2 \(z ceną: 1\)/)
+    const call = h.ai.calls.at(-1)!
+    expect(call.webSearch).toEqual({ maxUses: 15 })
+    const prompt = call.content.map((b) => (b.type === 'text' ? b.text : '')).join('\n')
+    expect(prompt).toContain('Tylko producenci z UE')
+    expect(prompt).toContain('Zakres temperatur')
+    expect(prompt).toContain('250 l · 3 K/min')
+    expect(prompt).toContain('tylko komory stojące')
+    // Dane klienta nie trafiają do wyszukiwania.
+    expect(prompt).not.toContain(opp.name)
+    q = (await (await req(h, 'GET', `/api/quotes/${quote.id}`, admin.headers)).json()) as QuoteDto
+    expect(q.competition).toMatchObject({ guidelinesFile: 'konkurencja.md', products: [{ manufacturer: 'Producent A', price: 52000, currency: 'EUR', match: 'full' }, { match: 'partial', price: null }] })
+    expect(q.competition!.criteria.some((c) => c.includes('Zakres temperatur'))).toBe(true)
+  })
+
+  it('koszt wyszukiwań w sieci doliczany do kosztu wywołania', () => {
+    const base = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }
+    expect(aiCostUsd('claude-opus-5-5', { ...base, webSearches: 12 })).toBe(0.12)
+  })
+
+  it('wycena bez parametrów → czytelny błąd', async () => {
+    const empty = (await (await req(h, 'POST', '/api/quotes', kamil.headers, { opportunityId: opp.id })).json()) as QuoteDto
+    const res = await req(h, 'POST', `/api/quotes/${empty.id}/ai/jobs`, kamil.headers, { kind: 'competition' })
+    const job = (await res.json()) as AiJobDto
+    expect(job.status).toBe('error')
+    expect(job.error).toContain('Brak parametrów')
   })
 })

@@ -1,5 +1,12 @@
 # Changelog
 
+## Wyceny: krok 4a „Analiza konkurencji” (opcjonalny, AI z wyszukiwaniem w sieci) (11.11.2026)
+
+- **Nowy krok opcjonalny 4a** między checklistą a pytaniami (`?krok=4a`, przerywana ramka w pasku kroków; nie liczy się do „nieukończonych kroków” i nie jest celem wznowienia wyceny). Numeracja pozostałych kroków bez zmian.
+- **AI szuka w sieci produktów konkurencji** spełniających parametry wyceny — wartości checklisty (krok 4, bez grupy „Ogólne”) i parametry techniczne z kroku 8 — oraz ich cen. Wynik: podsumowanie rynku, tabela producent / model (link), zgodność (spełnia / częściowo / nie spełnia), parametry i odstępstwa, cena (waluta, netto/brutto, źródło), lista użytych kryteriów. Opcjonalne wskazówki do wyszukiwania. Kolejne uruchomienie zastępuje wynik. Dane klienta nie są wysyłane.
+- **Wytyczne jako plik Markdown, wspólne dla wszystkich wycen**: podgląd w kroku, „Wczytaj plik .md”, edycja w oknie, „Pobierz .md”; bez własnego pliku — wytyczne domyślne (producenci, źródła cen, zasady dopasowania). Zapis: uprawnienie edycji wycen.
+- Technicznie: zadanie AI `competition` (narzędzie serwerowe `web_search_20260209`, do 15 wyszukiwań, wznawianie `pause_turn`), koszt wyszukiwań ($0,01 / zapytanie) doliczany do kosztu wywołania. Kolumna `quotes.competition`, wartość `competition` w `ai_job_kind` (migracja `20261111134359_quote_competition`); wytyczne w `app_settings` (`quotes.competitionGuidelines`). API: `GET/PUT /api/competition-guidelines`.
+
 ## Wyceny: cena i parametry wpisane ręcznie w kroku 8 (11.11.2026)
 
 - **Krok 8 (Podsumowanie) — karta „Cena i parametry spoza kalkulatora”** dla wycen przygotowanych poza kalkulatorem (np. w arkuszu): przełącznik „Cena wpisana ręcznie”, kwota netto (brutto liczone z VAT wyceny, podpowiedź ceny z kalkulatora) oraz parametry techniczne jak w profilu (wymiary, objętość, zakresy temperatury i wilgotności, dynamika zmian).

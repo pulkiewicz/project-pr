@@ -179,6 +179,7 @@ export async function getQuote(db: Database, perms: Perms, id: string): Promise<
     rejectReason: r.q.rejectReason,
     rejectedAt: r.q.rejectedAt,
     rejectedByName: r.rejectedByName,
+    competition: r.q.kind === 'quote' ? (r.q.competition ?? null) : null,
     version: r.q.version,
   }
 }

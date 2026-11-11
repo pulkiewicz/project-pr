@@ -36,6 +36,8 @@ import { CUSTOM_PREFIX, getChecklist, pinSpecList, specListFor } from '../quotes
 import { GOOGLE_DOC_MIME, driveFileUrl, listDriveFolder } from '../quotes/drive-folder.ts'
 import { getQuote, loadSettings, touch } from '../quotes/service.ts'
 
+import { analyzeCompetition } from './competition.ts'
+
 export const AI_SETTINGS_KEY = 'ai.settings'
 export const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
 
@@ -127,7 +129,7 @@ export async function callAi(ctx: JobCtx, req: AiRequest): Promise<AiResult> {
       quoteId: ctx.quoteId,
       purpose: req.purpose,
       model,
-      ...(usage ?? {}),
+      ...(usage ? { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, cacheReadTokens: usage.cacheReadTokens, cacheWriteTokens: usage.cacheWriteTokens } : {}),
       costUsd: usage ? aiCostUsd(model, usage) : null,
       durationMs: extra.durationMs ?? null,
       stopReason: extra.stopReason ?? null,
@@ -752,6 +754,8 @@ export async function runAiJob(deps: AppDeps, jobId: string, token: string): Pro
           ? await draftDoc(ctx, params)
           : claimed.kind === 'questions'
           ? await generateQuestions(ctx)
+          : claimed.kind === 'competition'
+          ? await analyzeCompetition(ctx, params)
           : await proposeLines(ctx, params)
     await deps.db.update(aiJobs).set({ status: 'done', summary, finishedAt: sql`now()` }).where(eq(aiJobs.id, jobId))
     await deps.db.insert(auditLog).values({ userId: claimed.createdBy, action: `ai.${claimed.kind}`, entity: 'quotes', entityId: claimed.quoteId, changes: { jobId, summary } })
