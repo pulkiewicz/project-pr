@@ -253,11 +253,12 @@ describe('parametry techniczne profilu', () => {
     expect(copy.profileSpec).toEqual(saved.profileSpec)
   })
 
-  it('wycena nie przyjmuje parametrów profilu', async () => {
+  it('wycena też może mieć parametry techniczne (krok 8); nie są kopiowane z profilu', async () => {
     const created = (await (await req(h, 'POST', '/api/quotes', admin.headers, { opportunityId: oppId('OF029'), basedOnId: (await core()).id })).json()) as QuoteDto
     expect(created.profileSpec).toEqual({})
     const res = await req(h, 'PATCH', `/api/quotes/${created.id}`, admin.headers, { profileSpec: { tempMin: 0 }, version: created.version })
-    expect(res.status).toBe(422)
-    expect(await res.json()).toMatchObject({ code: 'not_a_profile' })
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as QuoteDto).profileSpec).toEqual({ tempMin: 0 })
   })
+
 })

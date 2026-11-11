@@ -191,7 +191,7 @@ quotesRouter.openapi(route({ method: 'patch', path: '/quotes/{id}', request: { p
   const { version, params, info, opportunityId, driveFolderUrl, ...rest } = c.req.valid('json')
   const db = c.get('deps').db
   const current = await assertEditable(db, perms(c), id)
-  if (rest.profileSpec && current.kind !== 'profile') throw new HttpProblem(422, 'not_a_profile')
+  if (rest.manualNet !== undefined && current.kind !== 'quote') throw new HttpProblem(422, 'not_a_quote')
   // Krok 1: przepięcie wyceny na inną szansę — nowa litera rewizji w obrębie docelowej szansy.
   let reassign: { opportunityId: string; revision: string } | null = null
   if (opportunityId && opportunityId !== current.opportunityId) {
@@ -202,7 +202,7 @@ quotesRouter.openapi(route({ method: 'patch', path: '/quotes/{id}', request: { p
     reassign = { opportunityId, revision: nextRevision(existing.map((r) => r.revision ?? '')) }
   }
   const pricingKeys = ['marginMultiplier', 'reservePctOverride', 'riskPct', 'vatPct'] as const
-  if (params && pricingKeys.some((k) => params[k] !== undefined) && !canPricing(c, 'edit')) throw forbidden('pricing_forbidden')
+  if (((params && pricingKeys.some((k) => params[k] !== undefined)) || rest.manualNet !== undefined) && !canPricing(c, 'edit')) throw forbidden('pricing_forbidden')
   const set = {
     ...rest,
     ...(params ? { params: { ...DEFAULT_PARAMS, ...current.params, ...params } } : {}),
@@ -279,7 +279,7 @@ quotesRouter.openapi(
         return nid
       }
       const nid = await createQuote(c, tx, { kind: 'quote', opportunityId: base.opportunityId, name: base.name, description: base.description, basedOnId: id })
-      await tx.update(quotes).set({ notes: base.notes, params: base.params, driveFolderId: base.driveFolderId }).where(eq(quotes.id, nid))
+      await tx.update(quotes).set({ notes: base.notes, params: base.params, driveFolderId: base.driveFolderId, profileSpec: base.profileSpec, manualNet: base.manualNet }).where(eq(quotes.id, nid))
       await copyChecklist(tx, id, nid)
       await copyCalcs(tx, id, nid)
       await copyRequiredDocs(tx, id, nid)

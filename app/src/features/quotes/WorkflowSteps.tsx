@@ -36,6 +36,7 @@ import { daysUntil, formatDate, formatPLN } from '../../lib/format'
 import { useCompanies, useOpportunities, useOpportunity } from '../crm/api'
 import { AiJobButton, FolderLink } from './AiPanels'
 import { useAiJobs, useAiStatus, useDriveFolder, useStartAiJob } from './ai-api'
+import { ManualPriceCard } from './ProfileSpecPanel'
 import { quoteOps, useQuoteMutation, useRequiredDocMutation, useRequiredDocs } from './api'
 
 // ---------------- Stan kroków ----------------
@@ -83,7 +84,7 @@ export function stepInfos(q: QuoteDto, t: (k: string, o?: Record<string, unknown
     calc: w.calcs ? { state: 'done', caption: t('workflow.cap.calcs', { count: w.calcs }) } : { state: 'todo', caption: t('workflow.cap.noCalcs') },
     pricing: {
       state: lines.length > 0 && approvedLines === lines.length ? 'done' : lines.length ? 'progress' : 'todo',
-      caption: q.summary ? `${formatPLN(q.summary.net)} ${t('quotes.net').toLowerCase()}` : lines.length ? t('quotes.approvedCount', { done: approvedLines, all: lines.length }) : t('workflow.cap.noLines'),
+      caption: q.net != null && q.summary ? `${formatPLN(q.net)} ${t('quotes.net').toLowerCase()}` : lines.length ? t('quotes.approvedCount', { done: approvedLines, all: lines.length }) : t('workflow.cap.noLines'),
     },
     summary: { state: q.status === 'draft' ? 'todo' : 'done', caption: t(`quotes.status.${q.status}`) },
   }
@@ -625,6 +626,14 @@ export function QuestionsDeadline({ q }: { q: QuoteDto }) {
 
 // ---------------- Krok 8: podsumowanie ----------------
 
+/** Cena końcowa: wpisana ręcznie (krok 8) albo z kalkulatora; null bez uprawnień do cen. */
+export function finalPrice(q: QuoteDto): { net: number; gross: number } | null {
+  if (!q.summary) return null
+  if (q.manualNet == null) return { net: q.summary.net, gross: q.summary.gross }
+  const vat = q.params.vatPct ?? 0.23
+  return { net: q.manualNet, gross: Math.round(q.manualNet * (1 + vat) * 100) / 100 }
+}
+
 export function SummaryStep({ q, steps, onSelect, actions }: { q: QuoteDto; steps: StepInfo[]; onSelect: (s: QuoteStep) => void; actions: ReactNode }) {
   const { t } = useTranslation()
   const { can } = useAuth()
@@ -632,7 +641,7 @@ export function SummaryStep({ q, steps, onSelect, actions }: { q: QuoteDto; step
   const [notes, setNotes] = useState(q.notes)
   useEffect(() => setNotes(q.notes), [q.version]) // eslint-disable-line react-hooks/exhaustive-deps
   const open = steps.filter((s) => s.step !== 'summary' && s.state !== 'done')
-  const s = q.summary
+  const price = finalPrice(q)
   return (
     <Stack>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
@@ -680,9 +689,23 @@ export function SummaryStep({ q, steps, onSelect, actions }: { q: QuoteDto; step
               <InfoRow label={t('workflow.formal.questions')} value={deadlineLabel(q.info.questionsDeadline, q.info.questionsTime)} />
               <InfoRow label={t('quotes.budget')} value={q.info.budget != null ? formatPLN(q.info.budget) : null} />
               {q.costSummary && <InfoRow label={t('quotes.cost')} value={formatPLN(q.costSummary.cost)} />}
-              {s && <InfoRow label={t('quotes.netTotal')} value={<b>{formatPLN(s.net)}</b>} />}
-              {s && <InfoRow label={t('quotes.grossTotal')} value={formatPLN(s.gross)} />}
-              {s && q.info.budget != null && <InfoRow label={t('quotes.budgetDiff')} value={<Text c={q.info.budget - s.gross < 0 ? 'red' : 'green'}>{formatPLN(q.info.budget - s.gross)}</Text>} />}
+              {price && (
+                <InfoRow
+                  label={t('quotes.netTotal')}
+                  value={
+                    <>
+                      <b>{formatPLN(price.net)}</b>
+                      {q.manualNet != null && (
+                        <Badge size="xs" variant="light" color="orange" ml={6}>
+                          {t('manualPrice.badge')}
+                        </Badge>
+                      )}
+                    </>
+                  }
+                />
+              )}
+              {price && <InfoRow label={t('quotes.grossTotal')} value={formatPLN(price.gross)} />}
+              {price && q.info.budget != null && <InfoRow label={t('quotes.budgetDiff')} value={<Text c={q.info.budget - price.gross < 0 ? 'red' : 'green'}>{formatPLN(q.info.budget - price.gross)}</Text>} />}
               <InfoRow label={t('quotes.statusLabel')} value={<Badge variant="light">{t(`quotes.status.${q.status}`)}</Badge>} />
             </Table.Tbody>
           </Table>
@@ -691,6 +714,7 @@ export function SummaryStep({ q, steps, onSelect, actions }: { q: QuoteDto; step
           </Group>
         </Card>
       </SimpleGrid>
+      <ManualPriceCard q={q} />
       <Card withBorder>
         <Textarea label={t('quotes.notes')} autosize minRows={3} disabled={!q.canEdit} value={notes ?? ''} onChange={(e) => setNotes(e.currentTarget.value || null)} />
         {q.canEdit && can('quotes', 'edit') && (

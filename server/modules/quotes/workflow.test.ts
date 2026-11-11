@@ -168,4 +168,33 @@ describe('szansa: liczba wycen, najnowsza wycena, wartość z wyceny', () => {
     expect(o.quotes.valueFrom).toBeNull()
     expect(o.value).toBe(12345)
   })
+
+  it('krok 8: cena wpisana ręcznie zastępuje wyliczoną i jest wartością szansy; parametry techniczne wyceny', async () => {
+    const opp = (await (await req(h, 'POST', '/api/crm/opportunities', admin.headers, { name: 'Wycena spoza kalkulatora', stage: 'new', value: 1000 })).json()) as OpportunityDto
+    const q = (await (await req(h, 'POST', '/api/quotes', staff.headers, { opportunityId: opp.id })).json()) as QuoteDto
+    expect(q.manualNet).toBeNull()
+    // Cena ręczna wymaga uprawnienia do cen (Envcheck wewnętrzny go nie ma).
+    expect((await req(h, 'PATCH', `/api/quotes/${q.id}`, staff.headers, { manualNet: 50000, version: q.version })).status).toBe(403)
+    const res = await req(h, 'PATCH', `/api/quotes/${q.id}`, admin.headers, { manualNet: 87500.5, profileSpec: { innerWidth: 600, tempMin: -70, tempMax: 180 }, version: q.version })
+    expect(res.status).toBe(200)
+    const saved = (await res.json()) as QuoteDto
+    expect(saved).toMatchObject({ manualNet: 87500.5, net: 87500.5, profileSpec: { innerWidth: 600, tempMin: -70, tempMax: 180 } })
+    expect(saved.summary!.net).toBe(0)
+    const o = (await (await req(h, 'GET', `/api/crm/opportunities/${opp.id}`, admin.headers)).json()) as OpportunityDto
+    expect(o.quotes.valueFrom).toMatchObject({ id: q.id, net: 87500.5 })
+    expect(o.value).toBe(87500.5)
+    // Bez uprawnień do cen kwota jest ukryta.
+    expect(((await (await req(h, 'GET', `/api/quotes/${q.id}`, staff.headers)).json()) as QuoteDto).manualNet).toBeNull()
+    // Nowa rewizja (kopia) przejmuje cenę i parametry.
+    const rev = (await (await req(h, 'POST', `/api/quotes/${q.id}/revision`, admin.headers)).json()) as QuoteDto
+    expect(rev).toMatchObject({ revision: 'B', manualNet: 87500.5, profileSpec: saved.profileSpec })
+    // Usunięcie ceny ręcznej — wartość wraca do wyliczonej (tu 0 zł → wartość ręczna szansy).
+    await req(h, 'PATCH', `/api/quotes/${rev.id}`, admin.headers, { manualNet: null, version: rev.version })
+    await req(h, 'PATCH', `/api/quotes/${q.id}`, admin.headers, { manualNet: null, version: saved.version })
+    expect(((await (await req(h, 'GET', `/api/crm/opportunities/${opp.id}`, admin.headers)).json()) as OpportunityDto).value).toBe(1000)
+    // Profil nie ma ceny ręcznej.
+    const profiles = (await (await req(h, 'GET', '/api/quotes?kind=profile', admin.headers)).json()) as QuoteDto[]
+    const p = (await (await req(h, 'GET', `/api/quotes/${profiles[0]!.id}`, admin.headers)).json()) as QuoteDto
+    expect((await req(h, 'PATCH', `/api/quotes/${p.id}`, admin.headers, { manualNet: 1, version: p.version })).status).toBe(422)
+  })
 })

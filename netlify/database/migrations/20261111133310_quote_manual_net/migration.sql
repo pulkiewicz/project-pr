@@ -1,0 +1,1 @@
+ALTER TABLE "quotes" ADD COLUMN "manual_net" numeric(14,2);

@@ -2399,5 +2399,16 @@
     "humidityMin": "Wilgotność min.",
     "humidityMax": "Wilgotność maks.",
     "rate": "Dynamika zmian temperatury"
+  },
+  "manualPrice": {
+    "title": "Cena i parametry spoza kalkulatora",
+    "hint": "Dla wyceny przygotowanej poza kalkulatorem (np. w arkuszu): wpisana kwota netto zastępuje cenę z kalkulatora i jest wartością szansy w CRM. Parametry techniczne opisują wycenione urządzenie.",
+    "toggle": "Cena wpisana ręcznie",
+    "net": "Cena netto",
+    "required": "Wpisz kwotę netto",
+    "fromCalc": "Z kalkulatora: {{value}} netto",
+    "gross": "Brutto (VAT {{vat}}%)",
+    "badge": "wpisana ręcznie",
+    "overrides": "Cena tej wyceny jest wpisana ręcznie w kroku 8 ({{value}} netto) — zastępuje wyliczoną poniżej i jest wartością szansy w CRM."
   }
 }

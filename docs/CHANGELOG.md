@@ -1,5 +1,11 @@
 # Changelog
 
+## Wyceny: cena i parametry wpisane ręcznie w kroku 8 (11.11.2026)
+
+- **Krok 8 (Podsumowanie) — karta „Cena i parametry spoza kalkulatora”** dla wycen przygotowanych poza kalkulatorem (np. w arkuszu): przełącznik „Cena wpisana ręcznie”, kwota netto (brutto liczone z VAT wyceny, podpowiedź ceny z kalkulatora) oraz parametry techniczne jak w profilu (wymiary, objętość, zakresy temperatury i wilgotności, dynamika zmian).
+- Wpisana kwota zastępuje cenę z kalkulatora: suma netto/brutto w kroku 8 (z oznaczeniem „wpisana ręcznie”), podpis kroku 7, lista wycen i **wartość szansy w CRM** (netto ostatniej nieodrzuconej wyceny). W kroku 7 komunikat, że cena jest wpisana ręcznie. Wyłączenie przełącznika przywraca cenę z kalkulatora. Nowa rewizja (kopia) przejmuje cenę i parametry.
+- Uprawnienia: kwotę widzi `quotesPricing:view`, wpisuje `quotesPricing:edit`; parametry techniczne — każdy z edycją wyceny. Nowa kolumna `quotes.manual_net` (migracja `20261111133310_quote_manual_net`); API: `PATCH /api/quotes/{id}` z `manualNet` (tylko wyceny) i `profileSpec` (teraz także wyceny).
+
 ## Wyceny: parametry techniczne profilu (11.11.2026)
 
 - **Zakładka „Parametry” w profilu wyceny** (Baza wiedzy): wymiary wewnętrzne i zewnętrzne (szerokość × wysokość × głębokość, mm), objętość robocza (l — z podpowiedzią wyliczoną z wymiarów wewnętrznych), zakres temperatur (min, maks, °C), zakres wilgotności (min, maks, %RH) i dynamika zmian temperatury (K/min). Puste pole = nieznane; maks. mniejsze niż min. jest odrzucane.

@@ -666,8 +666,10 @@ export const quotes = pgTable(
     basedOnLabel: text('based_on_label'),
     params: jsonb('params').$type<QuoteParams>().notNull(),
     info: jsonb('info').$type<QuoteInfo>().notNull().default({}),
-    /** Profil: parametry techniczne (wymiary, objętość, zakresy temperatury i wilgotności, dynamika). */
+    /** Parametry techniczne (wymiary, objętość, zakresy temperatury i wilgotności, dynamika) — profil lub wycena spoza kalkulatora. */
     profileSpec: jsonb('profile_spec').$type<ProfileSpec>().notNull().default({}),
+    /** Cena netto wpisana ręcznie (wycena przygotowana poza kalkulatorem) — zastępuje wyliczoną; null = z kalkulatora. */
+    manualNet: numeric('manual_net', { precision: 14, scale: 2, mode: 'number' }),
     notes: text('notes'),
     /** Folder Google Drive z materiałami wyceny (link wklejony w kroku 2). */
     driveFolderId: text('drive_folder_id'),

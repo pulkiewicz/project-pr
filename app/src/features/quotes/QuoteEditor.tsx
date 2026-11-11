@@ -682,6 +682,11 @@ export function QuoteEditor({ id }: { id: string }) {
     calc: () => <CalcPanel q={q} />,
     pricing: () => (
       <Stack gap="lg">
+        {q.manualNet != null && (
+          <Alert variant="light" color="orange">
+            {t('manualPrice.overrides', { value: formatPLN(q.manualNet) })}
+          </Alert>
+        )}
         <ProfileSwitcher q={q} />
         {itemsPanel}
         <SummaryPanel q={q} />

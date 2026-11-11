@@ -157,7 +157,7 @@ export const quoteInfoSchema = z.object({
 })
 export type QuoteInfo = z.infer<typeof quoteInfoSchema>
 
-/** Parametry techniczne profilu (Baza wiedzy) — do porównania z wymaganiami zapytania; puste = nieznane. */
+/** Parametry techniczne profilu (Baza wiedzy) albo wyceny spoza kalkulatora (krok 8); puste = nieznane. */
 const specNum = (min: number, max: number) => z.number().min(min).max(max).nullable().optional()
 const mm = specNum(0, 100_000)
 export const profileSpecSchema = z
@@ -242,8 +242,10 @@ export const quotePatch = z.object({
   notes: optText(20000),
   info: quoteInfoSchema.optional(),
   params: quoteParamsSchema.partial().optional(),
-  /** Tylko profil: parametry techniczne (zastępują poprzednie w całości). */
+  /** Parametry techniczne (zastępują poprzednie w całości) — profil albo wycena (krok 8). */
   profileSpec: profileSpecSchema.optional(),
+  /** Tylko wycena: cena netto wpisana ręcznie (wycena spoza kalkulatora); null = cena z kalkulatora. Wymaga `quotesPricing:edit`. */
+  manualNet: money.nullable().optional(),
   version: z.number().int(),
 })
 export type QuotePatch = z.input<typeof quotePatch>
@@ -421,8 +423,10 @@ export interface QuoteListItemDto {
   updatedByName: string | null
   /** Termin złożenia oferty (krok 3), `yyyy-MM-dd`. */
   submissionDeadline: string | null
-  /** Parametry techniczne — tylko profile (wyceny: pusty obiekt). */
+  /** Parametry techniczne — profil albo wycena spoza kalkulatora (krok 8). */
   profileSpec: ProfileSpec
+  /** Cena netto wpisana ręcznie (null = z kalkulatora); null również bez `quotesPricing:view`. Gdy ustawiona, `net` = ta kwota. */
+  manualNet: number | null
 }
 
 /** Parametry w DTO: pola cenowe (marża, rezerwa, ryzyko, VAT) są null bez `quotesPricing:view`. */

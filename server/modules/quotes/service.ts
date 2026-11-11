@@ -124,11 +124,13 @@ function listItem(r: BaseRow, perms: Perms, devices: QuoteDeviceDto[], settings:
     basedOnId: r.q.basedOnId,
     basedOnLabel: r.q.basedOnLabel,
     cost: has(perms, 'quotesCost', 'view') ? summary.cost : null,
-    net: has(perms, 'quotesPricing', 'view') ? summary.net : null,
+    // Cena wpisana ręcznie (wycena spoza kalkulatora) zastępuje wyliczoną — także jako wartość szansy w CRM.
+    net: has(perms, 'quotesPricing', 'view') ? (r.q.manualNet ?? summary.net) : null,
     updatedAt: r.q.updatedAt,
     updatedByName: r.updatedByName,
     submissionDeadline: r.q.info?.submissionDeadline ?? null,
-    profileSpec: r.q.kind === 'profile' ? (r.q.profileSpec ?? {}) : {},
+    profileSpec: r.q.profileSpec ?? {},
+    manualNet: r.q.kind === 'quote' && has(perms, 'quotesPricing', 'view') ? r.q.manualNet : null,
   }
 }
 
