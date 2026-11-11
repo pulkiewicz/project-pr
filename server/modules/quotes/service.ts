@@ -43,15 +43,17 @@ export async function loadSettings(db: Database): Promise<QuoteSettings> {
 
 const updaters = aliasedTable(users, 'updater')
 const approvers = aliasedTable(users, 'approver')
+const rejecters = aliasedTable(users, 'rejecter')
 
 async function baseRows(db: Database, where?: SQL) {
   return db
-    .select({ q: quotes, oppCode: opportunities.code, oppName: opportunities.name, companyId: opportunities.companyId, companyName: companies.name, updatedByName: updaters.name, approvedByName: approvers.name })
+    .select({ q: quotes, oppCode: opportunities.code, oppName: opportunities.name, companyId: opportunities.companyId, companyName: companies.name, updatedByName: updaters.name, approvedByName: approvers.name, rejectedByName: rejecters.name })
     .from(quotes)
     .leftJoin(opportunities, eq(opportunities.id, quotes.opportunityId))
     .leftJoin(companies, eq(companies.id, opportunities.companyId))
     .leftJoin(updaters, eq(updaters.id, quotes.updatedBy))
     .leftJoin(approvers, eq(approvers.id, quotes.approvedBy))
+    .leftJoin(rejecters, eq(rejecters.id, quotes.rejectedBy))
     .where(and(isNull(quotes.deletedAt), where))
     .orderBy(desc(quotes.updatedAt))
 }
@@ -117,6 +119,7 @@ function listItem(r: BaseRow, perms: Perms, devices: QuoteDeviceDto[], settings:
     companyName: r.companyName,
     revision: r.q.revision,
     status: r.q.status,
+    basedOnId: r.q.basedOnId,
     basedOnLabel: r.q.basedOnLabel,
     cost: has(perms, 'quotesCost', 'view') ? summary.cost : null,
     net: has(perms, 'quotesPricing', 'view') ? summary.net : null,
@@ -168,6 +171,9 @@ export async function getQuote(db: Database, perms: Perms, id: string): Promise<
     checklistProgress: r.q.kind === 'quote' ? (({ confirmed, total }) => ({ confirmed, total }))((await getChecklist(db, r.q)).progress) : null,
     approvedAt: r.q.approvedAt,
     approvedByName: r.approvedByName,
+    rejectReason: r.q.rejectReason,
+    rejectedAt: r.q.rejectedAt,
+    rejectedByName: r.rejectedByName,
     version: r.q.version,
   }
 }

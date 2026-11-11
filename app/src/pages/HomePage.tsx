@@ -2,6 +2,7 @@ import { Alert, Anchor, Badge, Button, Card, Group, SimpleGrid, Stack, Text, Tit
 import { IconArrowRight } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate } from 'react-router-dom'
+import { OPPORTUNITY_CLOSED } from '#shared'
 import { useAuth, useMe } from '../auth/AuthProvider'
 import { NoResponseBadge } from '../features/crm/stage'
 import { useOpportunities } from '../features/crm/api'
@@ -18,7 +19,7 @@ function CrmReminders() {
   const items = (q.data ?? []).filter(
     (o) =>
       (o.ownerId === me.user.id || !o.ownerId) &&
-      !['won', 'lost', 'on_hold'].includes(o.stage) &&
+      !OPPORTUNITY_CLOSED.includes(o.stage) &&
       (o.noResponse || (o.nextStepDate !== null && o.nextStepDate <= today)),
   )
   if (!items.length) return null

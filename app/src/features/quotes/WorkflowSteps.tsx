@@ -30,7 +30,7 @@ import { format } from 'date-fns'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { QUOTE_STEPS, type QuoteDto, type QuoteInfo, type QuoteStep, type RequiredDocDto, type RequiredDocStatus } from '#shared'
+import { OPPORTUNITY_INACTIVE, QUOTE_STEPS, type QuoteDto, type QuoteInfo, type QuoteStep, type RequiredDocDto, type RequiredDocStatus } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { daysUntil, formatDate, formatPLN } from '../../lib/format'
 import { useCompanies, useOpportunities, useOpportunity } from '../crm/api'
@@ -151,7 +151,7 @@ export function IdentificationStep({ q }: { q: QuoteDto }) {
   const oppData = useMemo(
     () =>
       (opps.data ?? [])
-        .filter((o) => (!companyId || o.companyId === companyId) && (!['lost', 'on_hold'].includes(o.stage) || o.id === oppId))
+        .filter((o) => (!companyId || o.companyId === companyId) && (!OPPORTUNITY_INACTIVE.includes(o.stage) || o.id === oppId))
         .map((o) => ({ value: o.id, label: `${o.code} · ${o.name}${o.companyName && !companyId ? ` (${o.companyName})` : ''}` })),
     [opps.data, companyId, oppId],
   )

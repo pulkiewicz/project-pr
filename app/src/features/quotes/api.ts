@@ -71,6 +71,9 @@ export function useQuoteMutation(id: string) {
 export const quoteOps = {
   patch: (v: QuotePatch) => ({ method: 'PATCH' as const, json: v }),
   status: (status: 'draft' | 'approved' | 'sent', version: number) => ({ method: 'POST' as const, path: '/status', json: { status, version } }),
+  reject: (reason: string, version: number) => ({ method: 'POST' as const, path: '/reject', json: { reason, version } }),
+  reopen: (version: number) => ({ method: 'POST' as const, path: '/reopen', json: { version } }),
+  applyProfile: (profileId: string, version: number) => ({ method: 'POST' as const, path: '/apply-profile', json: { profileId, version } }),
   addDevice: (json: { name: string; quantity?: number; isOption?: boolean; included?: boolean; withDefaultSections?: boolean }) => ({ method: 'POST' as const, path: '/devices', json }),
   patchDevice: (deviceId: string, json: Record<string, unknown>) => ({ method: 'PATCH' as const, path: `/devices/${deviceId}`, json }),
   deleteDevice: (deviceId: string) => ({ method: 'DELETE' as const, path: `/devices/${deviceId}` }),

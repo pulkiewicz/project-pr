@@ -56,9 +56,10 @@ import { useStartAiJob } from './ai-api'
 import { CalcPanel } from './CalcPanel'
 import { ChecklistPanel } from './ChecklistPanel'
 import { RevisionModal } from './RevisionModal'
+import { ProfileSwitcher, RejectQuoteModal, RejectedBanner } from './QuoteReject'
 import { FormalStep, IdentificationStep, QuestionsDeadline, StepNav, SummaryStep, deadlineLabel, stepInfos } from './WorkflowSteps'
 
-const STATUS_COLOR = { draft: 'gray', approved: 'green', sent: 'blue', imported: 'violet' } as const
+const STATUS_COLOR = { draft: 'gray', approved: 'green', sent: 'blue', imported: 'violet', rejected: 'red' } as const
 const SOURCE_COLOR: Record<LineSource, string> = { manual: 'gray', profile: 'blue', previous: 'cyan', calculator: 'teal', ai: 'grape', import: 'violet', catalog: 'orange' }
 const pct = (v: number | null | undefined) => (v == null ? '' : Math.round(v * 10000) / 100)
 const fromPct = (v: string | number) => (v === '' ? null : Number(v) / 100)
@@ -598,6 +599,7 @@ export function QuoteEditor({ id }: { id: string }) {
   const [params, setParams] = useSearchParams()
   const [tab, setTab] = useState<string | null>('items')
   const [revisionOpen, setRevisionOpen] = useState(false)
+  const [rejectOpen, setRejectOpen] = useState(false)
   const [lineEdit, setLineEdit] = useState<{ line: QuoteLineDto | null; sectionId: string } | null>(null)
   const q = query.data
   const steps = useMemo(() => (q && q.kind === 'quote' ? stepInfos(q, t) : []), [q, t])
@@ -679,6 +681,7 @@ export function QuoteEditor({ id }: { id: string }) {
     calc: () => <CalcPanel q={q} />,
     pricing: () => (
       <Stack gap="lg">
+        <ProfileSwitcher q={q} />
         {itemsPanel}
         <SummaryPanel q={q} />
       </Stack>
@@ -749,6 +752,11 @@ export function QuoteEditor({ id }: { id: string }) {
               {q.canEdit && (
                 <Menu.Item onClick={() => promptName(t('quotes.addDevice'), t('quotes.deviceName'), '', (name) => mutation.mutate(quoteOps.addDevice({ name })))}>{t('quotes.addDevice')}</Menu.Item>
               )}
+              {!isProfile && can('quotes', 'edit') && q.status !== 'rejected' && (
+                <Menu.Item color="red" onClick={() => setRejectOpen(true)}>
+                  {t('quotes.reject.action')}
+                </Menu.Item>
+              )}
               {can(isProfile ? 'quoteKnowledge' : 'quotes', 'delete') && !['sent', 'imported'].includes(q.status) && (
                 <Menu.Item
                   color="red"
@@ -770,9 +778,11 @@ export function QuoteEditor({ id }: { id: string }) {
       </Group>
 
       {!isProfile && <RevisionModal quote={q} opened={revisionOpen} onClose={() => setRevisionOpen(false)} />}
+      {!isProfile && <RejectQuoteModal q={q} opened={rejectOpen} onClose={() => setRejectOpen(false)} />}
+      {!isProfile && <RejectedBanner q={q} />}
       {!isProfile && <StepNav steps={steps} active={active} onSelect={goTo} />}
 
-      {!q.canEdit && q.status !== 'draft' && <Alert variant="light">{t('quotes.locked', { status: t(`quotes.status.${q.status}`).toLowerCase() })}</Alert>}
+      {!q.canEdit && q.status !== 'draft' && q.status !== 'rejected' && <Alert variant="light">{t('quotes.locked', { status: t(`quotes.status.${q.status}`).toLowerCase() })}</Alert>}
       {!q.canSeeCosts && <Alert variant="light" color="gray">{t('quotes.costsHidden')}</Alert>}
 
       {isProfile ? (

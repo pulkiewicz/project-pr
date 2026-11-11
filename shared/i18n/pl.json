@@ -379,7 +379,8 @@
     "bank_rule_needs_no_invoice": "Regułę tworzy się z operacji oznaczonej jako „Koszt bez faktury”",
     "drive_folder_invalid": "Nierozpoznany link do folderu Google Drive",
     "drive_folder_missing": "Najpierw podepnij folder Google Drive wyceny",
-    "required_doc_not_found": "Nie znaleziono dokumentu"
+    "required_doc_not_found": "Nie znaleziono dokumentu",
+    "not_a_profile": "Wybrana pozycja nie jest profilem wyceny"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -405,7 +406,8 @@
     "currency": "Kod waluty: 3 wielkie litery, np. PLN",
     "projectCode": "Kod: 2–30 znaków, litery, cyfry, - i _ (np. WEW-BIURO)",
     "time": "Niepoprawna godzina (GG:MM)",
-    "url": "Podaj adres zaczynający się od http:// lub https://"
+    "url": "Podaj adres zaczynający się od http:// lub https://",
+    "rejectReasonRequired": "Podaj przyczynę (min. 3 znaki)"
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -1038,6 +1040,7 @@
       "submitted": "Złożona oferta",
       "won": "Wygrane",
       "lost": "Przegrane",
+      "abandoned": "Porzucona wycena",
       "on_hold": "Zawieszone"
     },
     "type": {
@@ -1148,7 +1151,8 @@
       "draft": "Robocza",
       "approved": "Zatwierdzona",
       "sent": "Wysłana",
-      "imported": "Historyczna"
+      "imported": "Historyczna",
+      "rejected": "Odrzucona"
     },
     "statusLabel": "Status",
     "basedOn": "Baza",
@@ -1278,7 +1282,29 @@
     "forOpportunity": "Wyceny tej szansy",
     "none": "Brak wycen dla tej szansy",
     "costsHidden": "Koszty są widoczne tylko z uprawnieniem „Wyceny — koszty”.",
-    "submissionDeadline": "Termin złożenia"
+    "submissionDeadline": "Termin złożenia",
+    "reject": {
+      "action": "Odrzuć wycenę…",
+      "title": "Odrzucenie wyceny",
+      "reason": "Przyczyna odrzucenia",
+      "reasonPlaceholder": "np. klient wybrał tańszą ofertę, za krótki termin, brak możliwości technicznych",
+      "pipelineNote": "Szansa sprzedażowa zostanie przesunięta w lejku do etapu „Porzucona wycena”, a przyczyna trafi do jej historii.",
+      "confirm": "Odrzuć wycenę",
+      "banner": "Wycena odrzucona",
+      "by": "Odrzucił(a) {{name}}, {{date}}",
+      "reopen": "Przywróć do roboczej"
+    },
+    "profile": {
+      "current": "Profil wyceny:",
+      "none": "brak (pusta struktura)",
+      "change": "Zmień profil",
+      "pick": "Nowy profil wyceny",
+      "warning_one": "Urządzenia, sekcje i {{count}} pozycja zostaną zastąpione strukturą z profilu; parametry (marża, złożoność, gwarancja) — wartościami z profilu.",
+      "warning_few": "Urządzenia, sekcje i {{count}} pozycje zostaną zastąpione strukturą z profilu; parametry (marża, złożoność, gwarancja) — wartościami z profilu.",
+      "warning_many": "Urządzenia, sekcje i {{count}} pozycji zostanie zastąpionych strukturą z profilu; parametry (marża, złożoność, gwarancja) — wartościami z profilu.",
+      "warning_other": "Urządzenia, sekcje i {{count}} pozycji zostanie zastąpionych strukturą z profilu; parametry (marża, złożoność, gwarancja) — wartościami z profilu.",
+      "apply": "Zmień profil"
+    }
   },
   "knowledge": {
     "title": "Baza wiedzy wycen",

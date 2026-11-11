@@ -5,7 +5,7 @@ export const QUOTE_KINDS = ['quote', 'profile'] as const
 export type QuoteKind = (typeof QUOTE_KINDS)[number]
 
 /** Roboczy → zatwierdzony (uprawnienie approve) → wysłany; `imported` = historyczny arkusz (tylko do odczytu). */
-export const QUOTE_STATUSES = ['draft', 'approved', 'sent', 'imported'] as const
+export const QUOTE_STATUSES = ['draft', 'approved', 'sent', 'imported', 'rejected'] as const
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number]
 export const QUOTE_EDITABLE: readonly QuoteStatus[] = ['draft']
 
@@ -194,6 +194,10 @@ export const quotePatch = z.object({
 export type QuotePatch = z.input<typeof quotePatch>
 
 export const quoteStatusInput = z.object({ status: z.enum(['draft', 'approved', 'sent']), version: z.number().int() })
+/** Odrzucenie wyceny (na dowolnym etapie) — przyczyna wymagana; szansa przechodzi do „Porzucona wycena”. */
+export const quoteRejectInput = z.object({ reason: z.string().trim().min(3, 'validation.rejectReasonRequired').max(2000), version: z.number().int() })
+/** Zmiana profilu wyceny (krok 7): struktura i parametry z profilu zastępują bieżące. */
+export const quoteApplyProfileInput = z.object({ profileId: z.uuid(), version: z.number().int() })
 
 /** Nowa rewizja wyceny: kopia bieżącej albo pusta (ta sama szansa i folder Drive, reszta od zera). */
 export const QUOTE_REVISION_MODES = ['copy', 'empty'] as const
@@ -352,6 +356,7 @@ export interface QuoteListItemDto {
   companyName: string | null
   revision: string | null
   status: QuoteStatus
+  basedOnId: string | null
   basedOnLabel: string | null
   /** Null bez `quotesCost:view`. */
   cost: number | null
@@ -389,5 +394,8 @@ export interface QuoteDto extends QuoteListItemDto {
   driveFolderId: string | null
   approvedAt: string | null
   approvedByName: string | null
+  rejectReason: string | null
+  rejectedAt: string | null
+  rejectedByName: string | null
   version: number
 }

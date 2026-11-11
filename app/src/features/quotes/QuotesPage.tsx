@@ -7,7 +7,7 @@ import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mj
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import type { QuoteListItemDto } from '#shared'
+import { OPPORTUNITY_INACTIVE, type QuoteListItemDto } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { formatDate, formatDateTime, formatPLNWhole } from '../../lib/format'
@@ -15,7 +15,7 @@ import { useCompanies, useOpportunities } from '../crm/api'
 import { useCreateQuote, useDeleteQuote, useQuotes } from './api'
 import { QuoteEditor, quoteLabel } from './QuoteEditor'
 
-const STATUS_COLOR = { draft: 'gray', approved: 'green', sent: 'blue', imported: 'violet' } as const
+const STATUS_COLOR = { draft: 'gray', approved: 'green', sent: 'blue', imported: 'violet', rejected: 'red' } as const
 
 /** Nowa wycena: krok 1 przepływu (klient i szansa z CRM) oraz baza struktury (pusta, profil, poprzednia wycena). */
 export function NewQuoteModal({ opened, onClose, opportunityId }: { opened: boolean; onClose: () => void; opportunityId?: string | null }) {
@@ -38,7 +38,7 @@ export function NewQuoteModal({ opened, onClose, opportunityId }: { opened: bool
     }
   }, [opened, opportunityId])
 
-  const oppData = (opps.data ?? []).filter((o) => (!company || o.companyId === company) && (!['lost', 'on_hold'].includes(o.stage) || o.id === opp)).map((o) => ({ value: o.id, label: `${o.code} · ${o.name}${o.companyName ? ` (${o.companyName})` : ''}` }))
+  const oppData = (opps.data ?? []).filter((o) => (!company || o.companyId === company) && (!OPPORTUNITY_INACTIVE.includes(o.stage) || o.id === opp)).map((o) => ({ value: o.id, label: `${o.code} · ${o.name}${o.companyName ? ` (${o.companyName})` : ''}` }))
   const baseData =
     basis === 'profile'
       ? (profiles.data ?? []).map((p) => ({ value: p.id, label: p.name ?? '' }))

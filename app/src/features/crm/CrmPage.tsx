@@ -7,7 +7,7 @@ import { MRT_Localization_PL } from 'mantine-react-table/locales/pl/index.esm.mj
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, type CompanyDto, type OpportunityDto } from '#shared'
+import { OPPORTUNITY_INACTIVE, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, type CompanyDto, type OpportunityDto } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
@@ -98,7 +98,7 @@ function OpportunitiesTab({ onOpen }: { onOpen: (id: string | 'new') => void }) 
   })
 
   if (q.isLoading) return <Loader />
-  const total = items.filter((o) => !['lost', 'on_hold'].includes(o.stage)).reduce((s, o) => s + (o.value ?? 0), 0)
+  const total = items.filter((o) => !OPPORTUNITY_INACTIVE.includes(o.stage)).reduce((s, o) => s + (o.value ?? 0), 0)
 
   return (
     <Stack>

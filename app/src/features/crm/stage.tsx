@@ -12,6 +12,7 @@ export const STAGE_COLOR: Record<OpportunityStage, string> = {
   submitted: 'violet',
   won: 'green',
   lost: 'red',
+  abandoned: 'orange',
   on_hold: 'yellow',
 }
 

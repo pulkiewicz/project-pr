@@ -2,10 +2,12 @@ import { z } from 'zod'
 import { httpUrl } from './hrf.ts'
 
 /** Lejek sprzedaży (decyzja C1 planu Envcheck Hub): 6 etapów. */
-export const OPPORTUNITY_STAGES = ['new', 'quoting', 'submitted', 'won', 'lost', 'on_hold'] as const
+export const OPPORTUNITY_STAGES = ['new', 'quoting', 'submitted', 'won', 'lost', 'abandoned', 'on_hold'] as const
 export type OpportunityStage = (typeof OPPORTUNITY_STAGES)[number]
 /** Etapy zamknięte — wymagają powodu przy przejściu (przegrana) i nie podlegają przypomnieniom. */
-export const OPPORTUNITY_CLOSED: readonly OpportunityStage[] = ['won', 'lost', 'on_hold']
+export const OPPORTUNITY_CLOSED: readonly OpportunityStage[] = ['won', 'lost', 'abandoned', 'on_hold']
+/** Etapy bez szans na zamówienie — wyłączone z wartości lejka i z wyboru przy nowej wycenie. */
+export const OPPORTUNITY_INACTIVE: readonly OpportunityStage[] = ['lost', 'abandoned', 'on_hold']
 
 /** Typ postępowania (decyzja C2). */
 export const OPPORTUNITY_TYPES = ['public_tender', 'private_inquiry', 'modernization', 'service', 'other'] as const

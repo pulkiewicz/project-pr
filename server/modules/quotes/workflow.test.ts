@@ -90,3 +90,59 @@ describe('nowa rewizja — pusta albo kopia', () => {
     expect((await req(h, 'POST', `/api/quotes/${quote.id}/revision`, staff.headers, { mode: 'inna' })).status).toBe(422)
   })
 })
+
+describe('odrzucenie wyceny i zmiana profilu', () => {
+  let q: QuoteDto
+  let oppId: string
+  let stageBefore: string
+  const opp = async () => (await (await req(h, 'GET', `/api/crm/opportunities/${oppId}`, admin.headers)).json()) as OpportunityDto & { activities?: { kind: string; body: string }[] }
+  beforeAll(async () => {
+    const o = opps.find((x) => x.code !== 'OF36' && x.stage !== 'won')!
+    oppId = o.id
+    q = (await (await req(h, 'POST', '/api/quotes', staff.headers, { opportunityId: oppId })).json()) as QuoteDto
+    stageBefore = (await opp()).stage
+  })
+
+  it('odrzucenie wymaga przyczyny; status „rejected”, szansa → „abandoned” z wpisem w historii', async () => {
+    expect((await req(h, 'POST', `/api/quotes/${q.id}/reject`, staff.headers, { reason: ' ', version: q.version })).status).toBe(422)
+    const res = await req(h, 'POST', `/api/quotes/${q.id}/reject`, staff.headers, { reason: 'Klient wybrał tańszą ofertę', version: q.version })
+    expect(res.status).toBe(200)
+    q = (await res.json()) as QuoteDto
+    expect(q).toMatchObject({ status: 'rejected', rejectReason: 'Klient wybrał tańszą ofertę', canEdit: false })
+    expect(q.rejectedAt).toBeTruthy()
+    const o = await opp()
+    expect(o.stage).toBe('abandoned')
+    expect(JSON.stringify(o)).toContain('Klient wybrał tańszą ofertę')
+    expect((await req(h, 'POST', `/api/quotes/${q.id}/reject`, staff.headers, { reason: 'jeszcze raz', version: q.version })).status).toBe(422)
+  })
+
+  it('przywrócenie: wycena robocza, szansa wraca do etapu sprzed odrzucenia', async () => {
+    const res = await req(h, 'POST', `/api/quotes/${q.id}/reopen`, staff.headers, { version: q.version })
+    q = (await res.json()) as QuoteDto
+    expect(q).toMatchObject({ status: 'draft', rejectReason: null, canEdit: true })
+    expect((await opp()).stage).toBe(stageBefore)
+  })
+
+  it('zatwierdzoną wycenę też można odrzucić', async () => {
+    q = (await (await req(h, 'POST', `/api/quotes/${q.id}/status`, admin.headers, { status: 'approved', version: q.version })).json()) as QuoteDto
+    const res = await req(h, 'POST', `/api/quotes/${q.id}/reject`, staff.headers, { reason: 'Zmiana zakresu', version: q.version })
+    expect(((await res.json()) as QuoteDto).status).toBe('rejected')
+    q = (await (await req(h, 'POST', `/api/quotes/${q.id}/reopen`, staff.headers, { version: (await get(q.id)).version })).json()) as QuoteDto
+  })
+
+  it('zmiana profilu zastępuje strukturę i parametry; nie-profil → 422', async () => {
+    const profiles = (await (await req(h, 'GET', '/api/quotes?kind=profile', staff.headers)).json()) as { id: string; name: string }[]
+    expect(profiles.length).toBeGreaterThan(0)
+    const p = profiles[0]!
+    const profile = (await (await req(h, 'GET', `/api/quotes/${p.id}`, staff.headers)).json()) as QuoteDto
+    expect((await req(h, 'POST', `/api/quotes/${q.id}/apply-profile`, staff.headers, { profileId: quote.id, version: q.version })).status).toBe(422)
+    const res = await req(h, 'POST', `/api/quotes/${q.id}/apply-profile`, staff.headers, { profileId: p.id, version: q.version })
+    expect(res.status).toBe(200)
+    const after = (await res.json()) as QuoteDto
+    expect(after.basedOnLabel).toBe(`Profil: ${p.name}`)
+    expect(after.devices.map((d) => [d.name, d.sections.length])).toEqual(profile.devices.map((d) => [d.name, d.sections.length]))
+    expect(after.devices.flatMap((d) => d.sections.flatMap((s) => s.lines)).every((l) => l.source === 'profile')).toBe(true)
+    expect(after.params.marginMultiplier).toBe(profile.params.marginMultiplier)
+    expect((await req(h, 'POST', `/api/quotes/${q.id}/apply-profile`, staff.headers, { profileId: p.id, version: q.version })).status).toBe(409)
+  })
+})
