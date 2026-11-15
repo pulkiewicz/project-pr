@@ -1,5 +1,11 @@
 # Changelog
 
+## Wyceny: współczynnik jednoczesności gniazd w bilansie zasilania (15.11.2026)
+
+- Bilans zasilania (krok 3) liczy gniazda dodatkowe z SWZ jako prąd znamionowy × współczynnik jednoczesności. Wcześniej suma znamionowa była liczona w całości, co dla OF029 (96 A gniazd) dawało nierealne 160 A.
+- Domyślny współczynnik ustawia się w Bazie wiedzy → Ustawienia (0,3). Można go nadpisać w wycenie (pole „Współczynnik jednoczesności gniazd”; 0 = gniazda poza przydziałem maszyny).
+- Opis alertu i treść pytania do zamawiającego podają gniazda, współczynnik i wynik, np. „96 A × 0,3 = 28,8 A + maszyna 57,7 A = 86,5 A → przyłącze min. 100 A”.
+
 ## Wyceny v2: walidatory SWZ, technologia i wymiary, ryzyko PZP, pytania krytyczne (W1, W2, W4, W5) (15.11.2026)
 
 - **Alerty wyceny w krokach.** Walidatory są przypisane do kroków; na pasku kroków widać pomarańczowy stan i licznik „N alertów”.

@@ -51,7 +51,7 @@ export async function bomCheck(
   quote: typeof quotes.$inferSelect,
   devices: QuoteDeviceDto[],
   price: { net: number | null; gross: number | null },
-  settings: Pick<QuoteSettings, 'blockedCerts' | 'standardLeadDays' | 'customMarginMin'>,
+  settings: Pick<QuoteSettings, 'blockedCerts' | 'standardLeadDays' | 'customMarginMin' | 'socketsSimultaneity'>,
 ): Promise<BomCheckDto> {
   const rules = await listBomRules(db)
   const checklist = new Map<string, { label: string; value: SpecValue | null }>()

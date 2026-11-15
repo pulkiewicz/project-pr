@@ -52,7 +52,10 @@ export interface QuoteSettings {
   standardLeadDays: number | null
   /** W2 — minimalny mnożnik marży dla wyceny custom (inżynieryjnej). */
   customMarginMin: number
+  /** W1 — domyślny współczynnik jednoczesności gniazd dodatkowych w bilansie zasilania (0–1). */
+  socketsSimultaneity: number
 }
+export const DEFAULT_SOCKETS_SIMULTANEITY = 0.3
 export const DEFAULT_BLOCKED_CERTS = ['ATEX', 'FDA'] as const
 
 export interface QuoteParams {
@@ -214,6 +217,8 @@ export const quoteInfoSchema = z.object({
   powerLimitA: z.number().min(0).max(10000).nullable().optional(),
   /** Suma prądów gniazd dodatkowych wymaganych w SWZ [A]. */
   socketsCurrentA: z.number().min(0).max(10000).nullable().optional(),
+  /** Współczynnik jednoczesności gniazd (0–1); puste = domyślny z Ustawień. */
+  socketsFactor: z.number().min(0).max(1).nullable().optional(),
   /** Szacowana moc szczytowa maszyny [kW] (chłodzenie, chiller, grzałki, nawilżanie, automatyka). */
   machinePowerKw: z.number().min(0).max(10000).nullable().optional(),
   /** Kary umowne [ułamek za dzień, np. 0,002] i ich podstawa. */
@@ -416,6 +421,7 @@ export const quoteSettingsInput = z.object({
   blockedCerts: z.array(z.string().trim().min(1).max(60)).max(50).default([...DEFAULT_BLOCKED_CERTS]),
   standardLeadDays: z.number().int().min(0).max(3650).nullable().default(null),
   customMarginMin: z.number().min(1).max(20).default(2),
+  socketsSimultaneity: z.number().min(0).max(1).default(DEFAULT_SOCKETS_SIMULTANEITY),
 })
 
 // ---------------- Krok 3: wymagane dokumenty oferty ----------------

@@ -41,7 +41,7 @@ import { AiJobButton, FolderLink } from './AiPanels'
 import { StepChecks } from './BomPanel'
 import { useAiJobs, useAiStatus, useDriveFolder, useStartAiJob } from './ai-api'
 import { ManualPriceCard } from './ProfileSpecPanel'
-import { quoteOps, useQuoteMutation, useRequiredDocMutation, useRequiredDocs } from './api'
+import { quoteOps, useQuoteMutation, useQuoteSettings, useRequiredDocMutation, useRequiredDocs } from './api'
 
 // ---------------- Stan kroków ----------------
 
@@ -636,7 +636,9 @@ function SwzConditions({ info, set, editable, coolingKw, heatingKw }: { info: Qu
   const numField = (k: 'powerLimitA' | 'socketsCurrentA' | 'machinePowerKw' | 'minWarrantyMonths' | 'scoredWarrantyMonths' | 'priceWeight' | 'warrantyWeight' | 'deliveryDays', label: string, extra: Record<string, unknown> = {}) => (
     <NumberInput label={label} min={0} decimalSeparator="," disabled={!editable} value={info[k] ?? ''} onChange={(v) => set(k, v === '' ? null : Number(v))} data-testid={`swz-${k}`} {...extra} />
   )
-  const power = powerBalance(info)
+  const settings = useQuoteSettings()
+  const defaultFactor = settings.data?.socketsSimultaneity ?? 0.3
+  const power = powerBalance(info, defaultFactor)
   // Szacunek mocy szczytowej z kalkulatora: chłodzenie el. ≈ moc chłodnicza / 1,7 (COP) + grzanie + 15% (automatyka, wentylatory, nawilżanie).
   const hint = coolingKw || heatingKw ? Math.round(((coolingKw / 1.7 + heatingKw) * 1.15) * 10) / 10 : null
   const dim = (k: 'w' | 'h' | 'd') => (
@@ -672,12 +674,33 @@ function SwzConditions({ info, set, editable, coolingKw, heatingKw }: { info: Qu
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
         {numField('powerLimitA', t('swz.powerLimitA'), { suffix: ' A', description: info.powerLimitA != null ? `≈ ${ampsToKw(info.powerLimitA).toLocaleString('pl-PL')} kW (3 × 400 V)` : t('swz.powerLimitHint') })}
         {numField('socketsCurrentA', t('swz.socketsCurrentA'), { suffix: ' A', description: t('swz.socketsHint') })}
+        <NumberInput
+          label={t('swz.socketsFactor')}
+          description={t('swz.socketsFactorHint', { value: defaultFactor.toLocaleString('pl-PL') })}
+          placeholder={defaultFactor.toLocaleString('pl-PL')}
+          min={0}
+          max={1}
+          step={0.05}
+          decimalScale={2}
+          decimalSeparator=","
+          disabled={!editable}
+          value={info.socketsFactor ?? ''}
+          onChange={(v) => set('socketsFactor', v === '' ? null : Number(v))}
+          data-testid="swz-socketsFactor"
+        />
         {numField('machinePowerKw', t('swz.machinePowerKw'), { suffix: ' kW', description: hint ? t('swz.machineHint', { kw: hint.toLocaleString('pl-PL') }) : t('swz.machineHintNone') })}
         <Stack gap={2} justify="flex-end">
           {power ? (
             <Alert variant="light" color={power.ok ? 'green' : 'red'} p="xs" data-testid="power-balance">
               <Text size="xs">
-                {t('swz.balance', { need: power.needA.toLocaleString('pl-PL'), limit: power.limitA.toLocaleString('pl-PL') })}
+                {t('swz.balanceDetail', {
+                  sockets: power.socketsNominalA.toLocaleString('pl-PL'),
+                  factor: power.socketsFactor.toLocaleString('pl-PL'),
+                  socketsA: power.socketsA.toLocaleString('pl-PL'),
+                  machineA: power.machineA.toLocaleString('pl-PL'),
+                  need: power.needA.toLocaleString('pl-PL'),
+                  limit: power.limitA.toLocaleString('pl-PL'),
+                })}
                 {!power.ok ? ` — ${t('swz.balanceBad', { breaker: suggestedBreakerA(power.needA) })}` : ''}
               </Text>
             </Alert>

@@ -69,6 +69,7 @@ function SettingsCard() {
         <NumberInput label={t('knowledge.priceMaxAge')} min={1} max={120} disabled={!editable} value={s.priceMaxAgeMonths} onChange={(v) => setS({ ...s, priceMaxAgeMonths: Number(v) || 12 })} />
         <NumberInput label={t('knowledge.customMarginMin')} description={t('knowledge.customMarginMinHint')} min={1} step={0.1} decimalScale={2} decimalSeparator="," disabled={!editable} value={s.customMarginMin} onChange={(v) => setS({ ...s, customMarginMin: Number(v) || 1 })} />
         <NumberInput label={t('knowledge.standardLeadDays')} description={t('knowledge.standardLeadDaysHint')} min={0} suffix=" dni" disabled={!editable} value={s.standardLeadDays ?? ''} onChange={(v) => setS({ ...s, standardLeadDays: v === '' ? null : Number(v) })} />
+        <NumberInput label={t('knowledge.socketsSimultaneity')} description={t('knowledge.socketsSimultaneityHint')} min={0} max={1} step={0.05} decimalScale={2} decimalSeparator="," disabled={!editable} value={s.socketsSimultaneity} onChange={(v) => setS({ ...s, socketsSimultaneity: v === '' ? 0 : Number(v) })} />
         <TagsInput label={t('knowledge.blockedCerts')} description={t('knowledge.blockedCertsHint')} disabled={!editable} value={s.blockedCerts} onChange={(v) => setS({ ...s, blockedCerts: v })} />
       </SimpleGrid>
       {editable && (

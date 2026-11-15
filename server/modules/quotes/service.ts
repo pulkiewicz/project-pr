@@ -6,6 +6,7 @@ import {
   DEFAULT_PRICE_MAX_AGE_MONTHS,
   DEFAULT_RESERVE,
   DEFAULT_BLOCKED_CERTS,
+  DEFAULT_SOCKETS_SIMULTANEITY,
   type QuoteInfo,
   DEFAULT_SECTIONS,
   QUOTE_EDITABLE,
@@ -50,6 +51,7 @@ export async function loadSettings(db: Database): Promise<QuoteSettings> {
     blockedCerts: v.blockedCerts ?? [...DEFAULT_BLOCKED_CERTS],
     standardLeadDays: v.standardLeadDays ?? null,
     customMarginMin: v.customMarginMin ?? 2,
+    socketsSimultaneity: v.socketsSimultaneity ?? DEFAULT_SOCKETS_SIMULTANEITY,
   }
 }
 

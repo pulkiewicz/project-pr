@@ -5,7 +5,7 @@ import { ampsToKw, layoutCheck, powerBalance, quoteChecks, quoteMode, shellMassK
 const base = (over: Partial<QuoteChecksInput> = {}): QuoteChecksInput => ({
   info: {},
   params: { ...DEFAULT_PARAMS },
-  settings: { blockedCerts: ['ATEX'], standardLeadDays: 120, customMarginMin: 2 },
+  settings: { blockedCerts: ['ATEX'], standardLeadDays: 120, customMarginMin: 2, socketsSimultaneity: 1 },
   net: 1000,
   gross: 1230,
   checklist: new Map(),
@@ -29,8 +29,13 @@ describe('W1 — walidator SWZ', () => {
     expect(issue.question).toContain('63 A')
   })
 
-  it('gniazda dodatkowe liczą się do bilansu; brak mocy maszyny → ostrzeżenie', () => {
+  it('gniazda dodatkowe liczą się do bilansu ze współczynnikiem jednoczesności; brak mocy maszyny → ostrzeżenie', () => {
     expect(powerBalance({ powerLimitA: 100, socketsCurrentA: 96, machinePowerKw: 10 })!.ok).toBe(false)
+    // OF029: 96 A gniazd × 0,3 = 28,8 A + 40 kW (57,7 A) = 86,5 A → przyłącze 100 A; współczynnik z wyceny ma pierwszeństwo.
+    const p = powerBalance({ powerLimitA: 29, socketsCurrentA: 96, machinePowerKw: 40 }, 0.3)!
+    expect(p).toMatchObject({ socketsNominalA: 96, socketsFactor: 0.3, socketsA: 28.8, needA: 86.5 })
+    expect(powerBalance({ powerLimitA: 63, socketsCurrentA: 96, machinePowerKw: 40, socketsFactor: 0 }, 0.3)!.ok).toBe(true)
+    expect(quoteChecks(base({ info: { powerLimitA: 29, socketsCurrentA: 96, machinePowerKw: 40 }, settings: { blockedCerts: [], standardLeadDays: null, customMarginMin: 2, socketsSimultaneity: 0.3 } }))[0]!.question).toContain('100 A')
     expect(quoteChecks(base({ info: { powerLimitA: 63 } }))[0]).toMatchObject({ key: 'check:power_unknown', severity: 'warning' })
   })
 

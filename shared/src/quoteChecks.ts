@@ -26,6 +26,11 @@ export const kwToAmps = (kw: number) => r1((kw * 1000) / (SQRT3 * VOLTAGE))
 export interface PowerBalance {
   limitA: number
   limitKw: number
+  /** Suma prądów znamionowych gniazd z SWZ. */
+  socketsNominalA: number
+  /** Współczynnik jednoczesności zastosowany do gniazd. */
+  socketsFactor: number
+  /** Gniazda po współczynniku. */
   socketsA: number
   machineKw: number
   machineA: number
@@ -33,13 +38,18 @@ export interface PowerBalance {
   ok: boolean
 }
 
-/** Bilans zasilania: przydział ≥ gniazda dodatkowe + moc maszyny (W1). */
-export function powerBalance(info: QuoteInfo): PowerBalance | null {
+/**
+ * Bilans zasilania: przydział ≥ gniazda dodatkowe × współczynnik jednoczesności + moc maszyny (W1).
+ * Gniazda nie pracują jednocześnie z pełnym obciążeniem — współczynnik z wyceny albo domyślny z Ustawień.
+ */
+export function powerBalance(info: QuoteInfo, defaultFactor = 1): PowerBalance | null {
   if (info.powerLimitA == null || info.machinePowerKw == null) return null
-  const socketsA = info.socketsCurrentA ?? 0
+  const socketsNominalA = info.socketsCurrentA ?? 0
+  const socketsFactor = info.socketsFactor ?? defaultFactor
+  const socketsA = r1(socketsNominalA * socketsFactor)
   const machineA = kwToAmps(info.machinePowerKw)
   const needA = r1(socketsA + machineA)
-  return { limitA: info.powerLimitA, limitKw: ampsToKw(info.powerLimitA), socketsA, machineKw: info.machinePowerKw, machineA, needA, ok: info.powerLimitA >= needA }
+  return { limitA: info.powerLimitA, limitKw: ampsToKw(info.powerLimitA), socketsNominalA, socketsFactor, socketsA, machineKw: info.machinePowerKw, machineA, needA, ok: info.powerLimitA >= needA }
 }
 
 /** Wymagany przekrój przyłącza (najbliższe typowe zabezpieczenie ≥ potrzeba). */
@@ -114,7 +124,7 @@ export function shellMassKg(inner: Dims, wallMm = 150): number {
 export interface QuoteChecksInput {
   info: QuoteInfo
   params: QuoteParams
-  settings: Pick<QuoteSettings, 'blockedCerts' | 'standardLeadDays' | 'customMarginMin'>
+  settings: Pick<QuoteSettings, 'blockedCerts' | 'standardLeadDays' | 'customMarginMin' | 'socketsSimultaneity'>
   /** Cena końcowa (z ceną ręczną), null gdy brak pozycji. */
   net: number | null
   gross: number | null
@@ -140,7 +150,7 @@ export function quoteChecks(x: QuoteChecksInput): BomIssue[] {
   const { info, params } = x
 
   // ---- W1: zasilanie ----
-  const p = powerBalance(info)
+  const p = powerBalance(info, x.settings.socketsSimultaneity)
   if (p && !p.ok) {
     const breaker = suggestedBreakerA(p.needA)
     out.push(
@@ -149,8 +159,8 @@ export function quoteChecks(x: QuoteChecksInput): BomIssue[] {
         'formal',
         'error',
         'Zasilanie: przydział mocy za mały',
-        `Przydział ${fmt(p.limitA)} A (≈ ${fmt(p.limitKw)} kW) < gniazda ${fmt(p.socketsA)} A + maszyna ${fmt(p.machineKw)} kW (≈ ${fmt(p.machineA)} A) = ${fmt(p.needA)} A. Urządzenia nie da się uruchomić — potrzebne przyłącze min. ${breaker} A.`,
-        `Prosimy o wyjaśnienie treści SWZ w zakresie zasilania. Zamawiający wskazuje przydział mocy ${fmt(p.limitA)} A (ok. ${fmt(p.limitKw)} kW przy 3 × 400 V), a jednocześnie wymaga gniazd dodatkowych o łącznym prądzie ${fmt(p.socketsA)} A. Urządzenie spełniające wymagania OPZ (chłodzenie, grzanie, nawilżanie, automatyka) ma szczytowy pobór mocy ok. ${fmt(p.machineKw)} kW. Czy Zamawiający zapewni przyłącze o zabezpieczeniu min. ${breaker} A, czy dopuszcza ograniczenie mocy urządzenia kosztem parametrów dynamicznych?`,
+        `Przydział ${fmt(p.limitA)} A (≈ ${fmt(p.limitKw)} kW) < gniazda ${fmt(p.socketsNominalA)} A × ${fmt(p.socketsFactor)} = ${fmt(p.socketsA)} A + maszyna ${fmt(p.machineKw)} kW (≈ ${fmt(p.machineA)} A) = ${fmt(p.needA)} A. Urządzenia nie da się uruchomić — potrzebne przyłącze min. ${breaker} A.`,
+        `Prosimy o wyjaśnienie treści SWZ w zakresie zasilania. Zamawiający wskazuje przydział mocy ${fmt(p.limitA)} A (ok. ${fmt(p.limitKw)} kW przy 3 × 400 V), a jednocześnie wymaga gniazd dodatkowych o łącznym prądzie znamionowym ${fmt(p.socketsNominalA)} A (przyjęty współczynnik jednoczesności ${fmt(p.socketsFactor)}). Urządzenie spełniające wymagania OPZ (chłodzenie, grzanie, nawilżanie, automatyka) ma szczytowy pobór mocy ok. ${fmt(p.machineKw)} kW. Czy Zamawiający zapewni przyłącze o zabezpieczeniu min. ${breaker} A, czy dopuszcza ograniczenie mocy urządzenia kosztem parametrów dynamicznych?`,
       ),
     )
   } else if (info.powerLimitA != null && info.machinePowerKw == null) {

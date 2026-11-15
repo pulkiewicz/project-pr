@@ -1369,7 +1369,9 @@
     "standardLeadDays": "Standardowy czas realizacji",
     "standardLeadDaysHint": "krótszy termin z SWZ → ostrzeżenie",
     "blockedCerts": "Certyfikaty poza zakresem firmy",
-    "blockedCertsHint": "wymaganie w SWZ → alert „odrzuć lub zleć audyt”"
+    "blockedCertsHint": "wymaganie w SWZ → alert „odrzuć lub zleć audyt”",
+    "socketsSimultaneity": "Współczynnik jednoczesności gniazd",
+    "socketsSimultaneityHint": "domyślny w bilansie zasilania (gniazda dodatkowe z SWZ × współczynnik)"
   },
   "checklist": {
     "title": "Checklista specyfikacyjna",
@@ -2582,7 +2584,10 @@
       "w": "Szerokość",
       "h": "Wysokość",
       "d": "Głębokość"
-    }
+    },
+    "socketsFactor": "Współczynnik jednoczesności gniazd",
+    "socketsFactorHint": "0–1; puste = domyślny z Ustawień ({{value}})",
+    "balanceDetail": "Gniazda {{sockets}} A × {{factor}} = {{socketsA}} A + maszyna {{machineA}} A = {{need}} A przy przydziale {{limit}} A"
   },
   "tech": {
     "title": "Technologia i wymiary",
