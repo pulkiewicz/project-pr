@@ -23,6 +23,12 @@ beforeAll(async () => {
     { firstName: 'Bartek', lastName: 'Firmowy', contractType: 'b2b', payBasis: 'monthly', payAmount: 2_000_000 },
     { firstName: 'Stary', lastName: 'Nieaktywny', contractType: 'employment', payBasis: 'monthly', payAmount: 500_000, isActive: false },
   ])
+  // Migracja radwar_revenue_plan: przychody planowane OF14 = Kwota Envcheck (21 925 000 zł). Dalej testy na pustym planie.
+  const imported = await h.db.select().from(schema.financePlanItems)
+  expect(imported).toHaveLength(17)
+  expect(imported.every((i) => i.kind === 'revenue' && i.projectId === SEED_PROJECT_ID)).toBe(true)
+  expect(imported.reduce((s, i) => s + i.amount, 0)).toBe(2_192_500_000)
+  await h.db.delete(schema.financePlanItems)
 })
 afterAll(() => h.stop())
 
