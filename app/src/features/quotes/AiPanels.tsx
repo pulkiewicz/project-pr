@@ -1,5 +1,5 @@
 import { ActionIcon, Alert, Anchor, Badge, Button, Card, Code, CopyButton, FileButton, Group, Loader, Menu, Modal, Progress, Select, Stack, Table, Text, TextInput, Textarea, Tooltip } from '@mantine/core'
-import { IconBrandGoogleDrive, IconCheck, IconCopy, IconDots, IconExternalLink, IconFileText, IconPaperclip, IconRefresh, IconSparkles, IconTrash, IconX } from '@tabler/icons-react'
+import { IconAlertTriangle, IconBrandGoogleDrive, IconCheck, IconCopy, IconDots, IconExternalLink, IconFileText, IconPaperclip, IconRefresh, IconSparkles, IconTrash, IconX } from '@tabler/icons-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { parseDriveFolderId, type AiJobInput, type AiJobKind, type QuestionAudience, type QuestionDto, type QuoteDto } from '#shared'
@@ -480,7 +480,7 @@ function QuestionRow({ q, item }: { q: QuoteDto; item: QuestionDto }) {
   const m = useQuestionMutation(q.id)
   const [answer, setAnswer] = useState(item.answer ?? '')
   return (
-    <Card withBorder padding="xs" opacity={item.status === 'dismissed' ? 0.5 : 1} data-testid="question">
+    <Card withBorder padding="xs" opacity={item.status === 'dismissed' ? 0.5 : 1} data-testid="question" style={item.critical && item.status === 'open' ? { borderColor: 'var(--mantine-color-red-5)' } : undefined}>
       <Group justify="space-between" wrap="nowrap" align="flex-start">
         <Stack gap={2} style={{ flex: 1 }}>
           <Text size="sm" fw={500}>
@@ -498,6 +498,18 @@ function QuestionRow({ q, item }: { q: QuoteDto; item: QuestionDto }) {
           </Text>
         </Stack>
         <Group gap={4} wrap="nowrap">
+          {item.critical && (
+            <Badge size="sm" color="red" variant="filled">
+              {t('questions.critical')}
+            </Badge>
+          )}
+          {q.canEdit && item.status !== 'dismissed' && (
+            <Tooltip label={item.critical ? t('questions.unmarkCritical') : t('questions.markCritical')}>
+              <ActionIcon size="sm" variant={item.critical ? 'light' : 'subtle'} color="red" aria-label={t('questions.markCritical')} onClick={() => m.mutate({ id: item.id, json: { critical: !item.critical } })}>
+                <IconAlertTriangle size={14} />
+              </ActionIcon>
+            </Tooltip>
+          )}
           <Badge size="sm" variant="light" color={item.status === 'answered' ? 'green' : item.status === 'open' ? 'orange' : 'gray'}>
             {t(`questions.status.${item.status}`)}
           </Badge>
@@ -510,9 +522,9 @@ function QuestionRow({ q, item }: { q: QuoteDto; item: QuestionDto }) {
           )}
         </Group>
       </Group>
-      {item.audience === 'internal' && item.status !== 'dismissed' && (
+      {(item.audience === 'internal' || item.critical || item.answer) && item.status !== 'dismissed' && (
         <Group mt={6} align="flex-end" wrap="nowrap">
-          <Textarea size="xs" autosize minRows={1} placeholder={t('questions.answer')} style={{ flex: 1 }} value={answer} onChange={(e) => setAnswer(e.currentTarget.value)} />
+          <Textarea size="xs" autosize minRows={1} placeholder={item.audience === 'client' ? t('questions.clientAnswer') : t('questions.answer')} style={{ flex: 1 }} value={answer} onChange={(e) => setAnswer(e.currentTarget.value)} />
           <Button size="xs" disabled={!answer.trim() || answer === item.answer} loading={m.isPending} onClick={() => m.mutate({ id: item.id, json: { answer } })}>
             {t('questions.saveAnswer')}
           </Button>

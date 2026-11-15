@@ -969,6 +969,8 @@ export const quoteQuestions = pgTable(
     answeredBy: uuid('answered_by').references(() => users.id),
     answeredAt: ts('answered_at'),
     source: text('source').notNull().default('manual'),
+    /** W5 — pytanie krytyczne (showstopper). */
+    critical: boolean('critical').notNull().default(false),
     createdBy: uuid('created_by').references(() => users.id),
     createdAt: ts('created_at').notNull().defaultNow(),
   },

@@ -1,6 +1,6 @@
 # PLAN — Wyceny v2: kwalifikacja, walidatory SWZ, kompletność BOM, ryzyko PZP
 
-Status: **W3 zrealizowany** (15.11.2026), pozostałe etapy do akceptacji. Etapy W1–W5 realizujemy jak dotąd: po każdym etapie testy, changelog i pytania otwarte.
+Status: **W1–W5 zrealizowane** (15.11.2026). Otwarte decyzje z §4 mają ustawienia domyślne, które da się zmienić w Ustawieniach. Zestawienie poniżej. Etapy W1–W5 realizujemy jak dotąd: po każdym etapie testy, changelog i pytania otwarte.
 
 Źródła:
 - wytyczne Kamila „AI.pdf” (ocena wyceny OF029 + algorytm w blokach 1–7, wersja PZP, aktualizacja po pominięciu chillera),
@@ -38,7 +38,7 @@ Wniosek: przepływ 8 kroków zostaje. Dokładamy **dane strukturalne** (zamiast 
 
 Na pasku kroków przy kroku pojawia się czerwona kropka, gdy jest otwarty alert. „Zatwierdź” w kroku 8 pokazuje listę otwartych alertów: każdy trzeba rozwiązać albo zaakceptować z komentarzem, który trafia do audytu.
 
-### W1 — Kwalifikacja i walidator SWZ (krok 3)
+### W1 — Kwalifikacja i walidator SWZ (krok 3) — ✅ zrealizowane
 - Nowa karta **„Warunki techniczno-prawne”** w kroku 3:
   - tryb: przetarg PZP / zapytanie komercyjne,
   - przydział mocy u zamawiającego [A lub kW] i suma prądów gniazd dodatkowych [A],
@@ -56,7 +56,7 @@ Na pasku kroków przy kroku pojawia się czerwona kropka, gdy jest otwarty alert
   - **Budżet** zamawiającego < szacowanej ceny → żółty, po kroku 8.
 - Z czerwonego alertu przycisk **„Utwórz pytanie do zamawiającego”**: AI pisze projekt wniosku o wyjaśnienie treści SWZ do kroku 5, oznaczony jako *krytyczny*.
 
-### W2 — Tryb wyceny i dobór technologii (kroki 4 i 6)
+### W2 — Tryb wyceny i dobór technologii (kroki 4 i 6) — ✅ zrealizowane
 - **Tryb wyceny:** „standard” albo „custom (inżynieryjna)”, wyliczany z checklisty. Flagi custom: IPX/wykonanie zewnętrzne, stal 316, dynamika > 1 K/min, Tmin < −45°C, shelter. Tryb custom podpowiada marżę ×2,0, a standard marżę z profilu. Plakietka trybu jest w nagłówku wyceny.
 - **Dobór technologii** w kroku 6, jako reguła podpowiadająca, a nie blokująca:
   - Tmin > −20°C → jednostopniowy,
@@ -82,7 +82,7 @@ Na pasku kroków przy kroku pojawia się czerwona kropka, gdy jest otwarty alert
 - Brakująca pozycja daje alert z przyciskiem „Dodaj pozycję” (podpowiedź ceny z katalogu lub poprzednich wycen). Zatwierdzenie jest zablokowane do czasu rozwiązania albo akceptacji z uzasadnieniem.
 - AI w „Zaproponuj wycenę” dostaje reguły i listę braków, żeby proponował brakujące pozycje.
 
-### W4 — Cena z ryzykiem PZP (krok 8)
+### W4 — Cena z ryzykiem PZP (krok 8) — ✅ zrealizowane
 - **Rezerwa gwarancyjna** wg Kamila: baza za standardowe 2 lata + X% za każdy rok powyżej. Kwoty są w Ustawieniach, ręczne nadpisanie zostaje.
   Do rozstrzygnięcia z Kamilem (§4.1): podane przykłady się wykluczają (15/20/25% za 1/2/3 lata i jednocześnie 25% za 60 mies.).
 - **Kalkulator ryzyka PZP** zamiast samego „ryzyko %”:
@@ -92,7 +92,7 @@ Na pasku kroków przy kroku pojawia się czerwona kropka, gdy jest otwarty alert
 - **Formularz ofertowy:** karta z ceną netto, VAT, brutto, okresem gwarancji i terminem realizacji, gotowa do przepisania. „Utwórz przez AI” dla Formularza ofertowego (krok 3) bierze te wartości.
 - **Kontrola rynkowa:** porównanie ceny z widełkami z kroku 4a (konkurencja) i z budżetem zamawiającego.
 
-### W5 — Showstoppery i zamrożenie
+### W5 — Showstoppery i zamrożenie — ✅ zrealizowane
 - Pytania w kroku 5 dostają flagę **krytyczne** i termin. Krytyczne bez odpowiedzi są widoczne w podsumowaniu i na karcie szansy.
 - Zatwierdzenie wyceny = zamrożona rewizja (już jest). Do podsumowania dochodzi lista zaakceptowanych alertów, czyli kto, co i dlaczego.
 
@@ -124,3 +124,14 @@ Proponuję zacząć od **W3**, bo to on łapie błędy typu pominięty chiller, 
    - Czy to dodatkowy narzut ponad 1 750 500 zł, czy mieści się w rezerwie 25%?
 5. **Moc elektryczna maszyny:** czy wystarczy szacunek z kroku 6 (sprężarki + grzałki + nawilżacz + automatyka), czy Kamil poda tabelę mocy typowych zespołów?
 6. **Lista zablokowanych certyfikatów** i **standardowy czas realizacji** (do walidatora terminu).
+
+## 5. Przyjęte ustawienia domyślne (do potwierdzenia przez Kamila)
+
+| Pytanie z §4 | Przyjęte rozwiązanie |
+|---|---|
+| 1. Wzór rezerwy | Dwa wzory do wyboru w Ustawieniach. Domyślny to dotychczasowy, żeby ceny istniejących wycen się nie zmieniły. Wzór „za rok” (baza 20% za 2 lata ± 5% za rok) daje 15 / 20 / 25 / 35% dla 1 / 2 / 3 / 5 lat. Wartość 25% przy 60 mies. (OF029) wymaga ręcznego nadpisania albo bazy 10%. |
+| 3. Podstawa kar | Pole w kroku 3: brutto / netto / koszt budowy. Domyślnie brutto, zgodnie z oceną Kamila. Domyślnie 0 dni opóźnienia; przy karze z SWZ i braku dni pojawia się ostrzeżenie. |
+| 4. Bufor kar i serwisu | Osobne składniki ceny (bufor kar oraz gwarancja serwisowa: części, przeglądy, wyjazdy), liczone ponad rezerwę. Nie są wliczane automatycznie. |
+| 5. Moc maszyny | Pole „Moc szczytowa maszyny” z podpowiedzią z kalkulatora: chłodzenie / 1,7 + grzanie + 15%. |
+| 6. Certyfikaty i czas realizacji | W Ustawieniach: certyfikaty ATEX i FDA; standardowy czas realizacji nieustawiony, więc walidator terminu jest wyłączony do czasu jego wpisania. |
+

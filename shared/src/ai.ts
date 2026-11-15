@@ -189,8 +189,11 @@ export const questionInput = z.object({
   context: z.string().trim().max(5000).nullable().optional(),
   checklistKey: z.string().max(100).nullable().optional(),
   assigneeId: z.uuid().nullable().optional(),
+  /** W5 — pytanie krytyczne (showstopper): bez odpowiedzi blokuje zatwierdzenie wyceny. */
+  critical: z.boolean().optional(),
 })
 export const questionPatch = z.object({
+  critical: z.boolean().optional(),
   text: z.string().trim().min(1).max(5000).optional(),
   answer: z.string().trim().max(10000).nullable().optional(),
   status: z.enum(QUESTION_STATUSES).optional(),
@@ -212,6 +215,7 @@ export interface QuestionDto {
   answeredByName: string | null
   answeredAt: string | null
   source: 'ai' | 'manual'
+  critical: boolean
   createdAt: string
 }
 

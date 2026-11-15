@@ -250,3 +250,55 @@ describe('W3: kompletność kosztorysu', () => {
     expect(after.bom!.issues.find((i) => i.title.startsWith('Wzorcowanie'))).toMatchObject({ section: 'Koszty inne', triggers: [expect.stringContaining('Wzorcowanie akredytowane')] })
   })
 })
+
+describe('Wyceny v2: walidatory SWZ, ryzyko PZP, pytania krytyczne', () => {
+  it('zasilanie → alert w kroku 3; pytanie krytyczne blokuje zatwierdzenie do odpowiedzi; bufor kar i serwis w cenie', async () => {
+    const o = opps.find((x) => x.code !== 'OF36' && x.stage !== 'won')!
+    let q = (await (await req(h, 'POST', '/api/quotes', staff.headers, { opportunityId: o.id })).json()) as QuoteDto
+    const sec = q.devices[0]!.sections[0]!
+    q = (await (await req(h, 'POST', `/api/quotes/${q.id}/sections/${sec.id}/lines`, admin.headers, { name: 'Konstrukcja', unitCost: 100000 })).json()) as QuoteDto
+
+    q = (await (await req(h, 'PATCH', `/api/quotes/${q.id}`, staff.headers, { info: { powerLimitA: 29, machinePowerKw: 40, penaltyPctPerDay: 0.002, penaltyBase: 'gross', tenderMode: 'pzp' }, version: q.version })).json()) as QuoteDto
+    const power = q.bom!.issues.find((i) => i.key === 'check:power')!
+    expect(power).toMatchObject({ step: 'formal', severity: 'error' })
+    expect(q.bom!.issues.find((i) => i.key === 'check:penalty_buffer')).toMatchObject({ severity: 'warning' })
+
+    // Bufor kar i gwarancja serwisowa w cenie (uprawnienie do ceny — admin).
+    // Parametry ryzyka wymagają uprawnienia do ceny.
+    expect((await req(h, 'PATCH', `/api/quotes/${q.id}`, staff.headers, { params: { delayDays: 14 }, version: q.version })).status).toBe(403)
+    const priced = (await (await req(h, 'PATCH', `/api/quotes/${q.id}`, admin.headers, { params: { delayDays: 14, serviceInspections: 4, serviceInspectionCost: 5000 }, version: (await get(q.id)).version })).json()) as QuoteDto
+    expect(priced.summary).toMatchObject({ serviceValue: 20000 })
+    expect(priced.summary!.penaltyValue).toBeGreaterThan(0)
+    expect(priced.bom!.issues.some((i) => i.key === 'check:penalty_buffer')).toBe(false)
+
+    // Pytanie z alertu (krytyczne) → błąd w kroku 5; odpowiedź zamyka alert.
+    const qs = (await (await req(h, 'POST', `/api/quotes/${q.id}/questions`, staff.headers, { audience: 'client', text: power.question, critical: true })).json()) as { id: string; critical: boolean }[]
+    expect(qs[0]!.critical).toBe(true)
+    let cur = await get(q.id)
+    expect(cur.bom!.issues.find((i) => i.key === 'check:critical_questions')).toMatchObject({ step: 'questions', severity: 'error' })
+    // Akceptacja zasilania; krytyczne pytanie nadal blokuje.
+    cur = (await (await req(h, 'POST', `/api/quotes/${q.id}/bom/acks`, staff.headers, { issueKey: 'check:power', reason: 'Zamawiający potwierdził 63 A' })).json()) as QuoteDto
+    for (const i of cur.bom!.issues.filter((x) => !x.ack && x.severity === 'error' && x.key !== 'check:critical_questions'))
+      cur = (await (await req(h, 'POST', `/api/quotes/${q.id}/bom/acks`, staff.headers, { issueKey: i.key, reason: 'test' })).json()) as QuoteDto
+    expect(cur.bom!.open).toBe(1)
+    expect((await req(h, 'POST', `/api/quotes/${q.id}/status`, admin.headers, { status: 'approved', version: cur.version })).status).toBe(422)
+    await req(h, 'PATCH', `/api/questions/${qs[0]!.id}`, staff.headers, { answer: 'Tak, przyłącze 63 A' })
+    cur = await get(q.id)
+    expect(cur.bom!.open).toBe(0)
+    expect((await req(h, 'POST', `/api/quotes/${q.id}/status`, admin.headers, { status: 'approved', version: cur.version })).status).toBe(200)
+  })
+
+  it('ustawienia: wzór rezerwy „za rok”, zablokowane certyfikaty, termin standardowy', async () => {
+    const s = (await (await req(h, 'GET', '/api/quotes/settings', admin.headers)).json()) as { reserve: Record<string, unknown>; blockedCerts: string[] }
+    expect(s.blockedCerts).toEqual(['ATEX', 'FDA'])
+    const res = await req(h, 'PUT', '/api/quotes/settings', admin.headers, { ...s, reserve: { ...s.reserve, formula: 'perYear', baseYears: 2, perYear: 0.05 }, standardLeadDays: 150, customMarginMin: 2 })
+    expect(res.status).toBe(200)
+    const o = opps.find((x) => x.code !== 'OF36' && x.stage !== 'won')!
+    let q = (await (await req(h, 'POST', '/api/quotes', staff.headers, { opportunityId: o.id })).json()) as QuoteDto
+    q = (await (await req(h, 'PATCH', `/api/quotes/${q.id}`, staff.headers, { info: { requiredCerts: ['atex'], deliveryDays: 100 }, version: q.version })).json()) as QuoteDto
+    expect(q.bom!.issues.filter((i) => i.step === 'formal').map((i) => i.key)).toEqual(['check:certs', 'check:lead_time'])
+    q = (await (await req(h, 'PATCH', `/api/quotes/${q.id}`, admin.headers, { params: { warrantyMonths: 60, complexity: 'medium' }, version: q.version })).json()) as QuoteDto
+    expect(q.summary?.reservePct).toBe(0.35)
+    await req(h, 'PUT', '/api/quotes/settings', admin.headers, s)
+  })
+})

@@ -6,15 +6,18 @@ import {
   Button,
   Card,
   Checkbox,
+  CopyButton,
   Group,
   Loader,
   Menu,
   Modal,
   NumberInput,
+  SegmentedControl,
   Select,
   SimpleGrid,
   Stack,
   Table,
+  TagsInput,
   Text,
   TextInput,
   Textarea,
@@ -25,16 +28,17 @@ import {
 } from '@mantine/core'
 import { DateInput, TimeInput } from '@mantine/dates'
 import { modals } from '@mantine/modals'
-import { IconAlertTriangle, IconCheck, IconDots, IconExternalLink, IconLink, IconPlus, IconQuote, IconSparkles, IconTrash } from '@tabler/icons-react'
+import { IconAlertTriangle, IconCheck, IconCopy, IconDots, IconExternalLink, IconLink, IconPlus, IconQuote, IconSparkles, IconTrash } from '@tabler/icons-react'
 import { format } from 'date-fns'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { OPPORTUNITY_INACTIVE, QUOTE_OPTIONAL_STEPS, QUOTE_STEP_LABELS, QUOTE_STEPS, type QuoteDto, type QuoteInfo, type QuoteStep, type RequiredDocDto, type RequiredDocStatus } from '#shared'
+import { OPPORTUNITY_INACTIVE, PENALTY_BASES, ampsToKw, powerBalance, suggestedBreakerA, type PenaltyBase, QUOTE_OPTIONAL_STEPS, QUOTE_STEP_LABELS, QUOTE_STEPS, type QuoteDto, type QuoteInfo, type QuoteStep, type RequiredDocDto, type RequiredDocStatus } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { daysUntil, formatDate, formatPLN } from '../../lib/format'
 import { useCompanies, useOpportunities, useOpportunity } from '../crm/api'
 import { AiJobButton, FolderLink } from './AiPanels'
+import { StepChecks } from './BomPanel'
 import { useAiJobs, useAiStatus, useDriveFolder, useStartAiJob } from './ai-api'
 import { ManualPriceCard } from './ProfileSpecPanel'
 import { quoteOps, useQuoteMutation, useRequiredDocMutation, useRequiredDocs } from './api'
@@ -89,15 +93,15 @@ export function stepInfos(q: QuoteDto, t: (k: string, o?: Record<string, unknown
     },
     calc: w.calcs ? { state: 'done', caption: t('workflow.cap.calcs', { count: w.calcs }) } : { state: 'todo', caption: t('workflow.cap.noCalcs') },
     pricing: {
-      state: q.bom?.open ? 'warn' : lines.length > 0 && approvedLines === lines.length ? 'done' : lines.length ? 'progress' : 'todo',
-      caption: [
-        q.bom?.open ? t('workflow.cap.bomOpen', { count: q.bom.open }) : null,
-        q.net != null && q.summary ? `${formatPLN(q.net)} ${t('quotes.net').toLowerCase()}` : lines.length ? t('quotes.approvedCount', { done: approvedLines, all: lines.length }) : t('workflow.cap.noLines'),
-      ]
-        .filter(Boolean)
-        .join(' · '),
+      state: lines.length > 0 && approvedLines === lines.length ? 'done' : lines.length ? 'progress' : 'todo',
+      caption: q.net != null && q.summary ? `${formatPLN(q.net)} ${t('quotes.net').toLowerCase()}` : lines.length ? t('quotes.approvedCount', { done: approvedLines, all: lines.length }) : t('workflow.cap.noLines'),
     },
     summary: { state: q.status === 'draft' ? 'todo' : 'done', caption: t(`quotes.status.${q.status}`) },
+  }
+  // Otwarte alerty walidatorów i kompletności (W1–W5) — pomarańczowy stan kroku i licznik w podpisie.
+  for (const step of QUOTE_STEPS) {
+    const n = (q.bom?.issues ?? []).filter((i) => i.step === step && !i.ack).length
+    if (n) states[step] = { state: 'warn', caption: [t('workflow.cap.alerts', { count: n }), states[step].caption].filter(Boolean).join(' · ') }
   }
   return QUOTE_STEPS.map((step) => ({ step, n: QUOTE_STEP_LABELS[step], optional: QUOTE_OPTIONAL_STEPS.includes(step), ...states[step] }))
 }
@@ -610,6 +614,7 @@ export function FormalStep({ q }: { q: QuoteDto }) {
         {text('participationConditions', t('quotes.participationConditions'))}
         {text('evaluationCriteria', t('quotes.evaluationCriteria'))}
       </SimpleGrid>
+      <SwzConditions info={info} set={set} editable={editable} coolingKw={q.bom?.context?.coolingKw ?? 0} heatingKw={q.bom?.context?.heatingKw ?? 0} />
       {editable && (
         <Group justify="flex-end">
           <Button disabled={!changed} loading={mutation.isPending} onClick={save} data-testid="formal-save">
@@ -617,8 +622,108 @@ export function FormalStep({ q }: { q: QuoteDto }) {
           </Button>
         </Group>
       )}
+      <StepChecks q={q} step="formal" />
       <RequiredDocs q={q} />
     </Stack>
+  )
+}
+
+const pctIn = (v: number | null | undefined) => (v == null ? '' : Math.round(v * 100000) / 1000)
+
+/** W1 — warunki techniczno-prawne z SWZ (zasilanie, kary, gwarancja, wagi, termin, certyfikaty, limit wymiarów). */
+function SwzConditions({ info, set, editable, coolingKw, heatingKw }: { info: QuoteInfo; set: <K extends keyof QuoteInfo>(k: K, v: QuoteInfo[K]) => void; editable: boolean; coolingKw: number; heatingKw: number }) {
+  const { t } = useTranslation()
+  const numField = (k: 'powerLimitA' | 'socketsCurrentA' | 'machinePowerKw' | 'minWarrantyMonths' | 'scoredWarrantyMonths' | 'priceWeight' | 'warrantyWeight' | 'deliveryDays', label: string, extra: Record<string, unknown> = {}) => (
+    <NumberInput label={label} min={0} decimalSeparator="," disabled={!editable} value={info[k] ?? ''} onChange={(v) => set(k, v === '' ? null : Number(v))} data-testid={`swz-${k}`} {...extra} />
+  )
+  const power = powerBalance(info)
+  // Szacunek mocy szczytowej z kalkulatora: chłodzenie el. ≈ moc chłodnicza / 1,7 (COP) + grzanie + 15% (automatyka, wentylatory, nawilżanie).
+  const hint = coolingKw || heatingKw ? Math.round(((coolingKw / 1.7 + heatingKw) * 1.15) * 10) / 10 : null
+  const dim = (k: 'w' | 'h' | 'd') => (
+    <NumberInput
+      aria-label={`${t('swz.outerMax')} ${k}`}
+      placeholder={t(`swz.dim.${k}`)}
+      min={0}
+      thousandSeparator=" "
+      disabled={!editable}
+      value={info.outerMaxMm?.[k] ?? ''}
+      onChange={(v) => {
+        const cur = info.outerMaxMm ?? { w: 0, h: 0, d: 0 }
+        const next = { ...cur, [k]: v === '' ? 0 : Number(v) }
+        set('outerMaxMm', next.w || next.h || next.d ? next : null)
+      }}
+    />
+  )
+  return (
+    <Card withBorder data-testid="swz-conditions">
+      <Group justify="space-between" mb="sm" wrap="wrap">
+        <Title order={5}>{t('swz.title')}</Title>
+        <SegmentedControl
+          size="xs"
+          disabled={!editable}
+          data={[
+            { value: 'pzp', label: t('swz.mode.pzp') },
+            { value: 'commercial', label: t('swz.mode.commercial') },
+          ]}
+          value={info.tenderMode ?? ''}
+          onChange={(v) => set('tenderMode', v as 'pzp' | 'commercial')}
+        />
+      </Group>
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+        {numField('powerLimitA', t('swz.powerLimitA'), { suffix: ' A', description: info.powerLimitA != null ? `≈ ${ampsToKw(info.powerLimitA).toLocaleString('pl-PL')} kW (3 × 400 V)` : t('swz.powerLimitHint') })}
+        {numField('socketsCurrentA', t('swz.socketsCurrentA'), { suffix: ' A', description: t('swz.socketsHint') })}
+        {numField('machinePowerKw', t('swz.machinePowerKw'), { suffix: ' kW', description: hint ? t('swz.machineHint', { kw: hint.toLocaleString('pl-PL') }) : t('swz.machineHintNone') })}
+        <Stack gap={2} justify="flex-end">
+          {power ? (
+            <Alert variant="light" color={power.ok ? 'green' : 'red'} p="xs" data-testid="power-balance">
+              <Text size="xs">
+                {t('swz.balance', { need: power.needA.toLocaleString('pl-PL'), limit: power.limitA.toLocaleString('pl-PL') })}
+                {!power.ok ? ` — ${t('swz.balanceBad', { breaker: suggestedBreakerA(power.needA) })}` : ''}
+              </Text>
+            </Alert>
+          ) : (
+            <Text size="xs" c="dimmed">
+              {t('swz.balanceNone')}
+            </Text>
+          )}
+        </Stack>
+        <NumberInput
+          label={t('swz.penalty')}
+          min={0}
+          max={10}
+          decimalScale={3}
+          decimalSeparator=","
+          suffix=" % / dzień"
+          disabled={!editable}
+          value={pctIn(info.penaltyPctPerDay)}
+          onChange={(v) => set('penaltyPctPerDay', v === '' ? null : Number(v) / 100)}
+        />
+        <Select
+          label={t('swz.penaltyBase')}
+          disabled={!editable}
+          clearable
+          data={PENALTY_BASES.map((b) => ({ value: b, label: t(`swz.base.${b}`) }))}
+          value={info.penaltyBase ?? null}
+          onChange={(v) => set('penaltyBase', (v as PenaltyBase) ?? null)}
+        />
+        {numField('minWarrantyMonths', t('swz.minWarranty'), { suffix: ' mies.' })}
+        {numField('scoredWarrantyMonths', t('swz.scoredWarranty'), { suffix: ' mies.' })}
+        {numField('priceWeight', t('swz.priceWeight'), { suffix: ' %', max: 100 })}
+        {numField('warrantyWeight', t('swz.warrantyWeight'), { suffix: ' %', max: 100 })}
+        {numField('deliveryDays', t('swz.deliveryDays'), { suffix: ' dni' })}
+        <TagsInput label={t('swz.certs')} placeholder={t('swz.certsPlaceholder')} disabled={!editable} value={info.requiredCerts ?? []} onChange={(v) => set('requiredCerts', v)} />
+      </SimpleGrid>
+      <Stack gap={4} mt="sm">
+        <Text size="sm" fw={500}>
+          {t('swz.outerMax')}
+        </Text>
+        <Group gap="xs" grow maw={520}>
+          {dim('w')}
+          {dim('h')}
+          {dim('d')}
+        </Group>
+      </Stack>
+    </Card>
   )
 }
 
@@ -725,6 +830,8 @@ export function SummaryStep({ q, steps, onSelect, actions }: { q: QuoteDto; step
           </Group>
         </Card>
       </SimpleGrid>
+      <StepChecks q={q} step="summary" />
+      {price && <OfferFormCard q={q} price={price} />}
       <ManualPriceCard q={q} />
       <Card withBorder>
         <Textarea label={t('quotes.notes')} autosize minRows={3} disabled={!q.canEdit} value={notes ?? ''} onChange={(e) => setNotes(e.currentTarget.value || null)} />
@@ -737,5 +844,45 @@ export function SummaryStep({ q, steps, onSelect, actions }: { q: QuoteDto; step
         )}
       </Card>
     </Stack>
+  )
+}
+
+/** W4 — dane do Formularza ofertowego (Załącznik nr 1 do SWZ): cena netto, VAT, brutto, gwarancja, termin. */
+function OfferFormCard({ q, price }: { q: QuoteDto; price: { net: number; gross: number } }) {
+  const { t } = useTranslation()
+  const vat = Math.round((price.gross - price.net) * 100) / 100
+  const vatPct = q.params.vatPct != null ? Math.round(q.params.vatPct * 100) : null
+  const rows: [string, string][] = [
+    [t('offerForm.net'), formatPLN(price.net)],
+    [t('offerForm.vat', { pct: vatPct ?? '' }), formatPLN(vat)],
+    [t('offerForm.gross'), formatPLN(price.gross)],
+    [t('offerForm.warranty'), t('offerForm.months', { count: q.params.warrantyMonths })],
+    ...(q.info.deliveryDays != null ? ([[t('offerForm.delivery'), t('offerForm.days', { count: q.info.deliveryDays })]] as [string, string][]) : []),
+    ...(q.info.deliveryTerm ? ([[t('quotes.deliveryTerm'), q.info.deliveryTerm]] as [string, string][]) : []),
+  ]
+  const textToCopy = rows.map(([k, v]) => `${k}: ${v}`).join('\n')
+  return (
+    <Card withBorder data-testid="offer-form">
+      <Group justify="space-between" mb="xs" wrap="wrap">
+        <Title order={5}>{t('offerForm.title')}</Title>
+        <CopyButton value={textToCopy}>
+          {({ copied, copy }) => (
+            <Button size="xs" variant="light" color={copied ? 'green' : undefined} leftSection={<IconCopy size={14} />} onClick={copy}>
+              {copied ? t('offerForm.copied') : t('offerForm.copy')}
+            </Button>
+          )}
+        </CopyButton>
+      </Group>
+      <Text size="xs" c="dimmed" mb="xs">
+        {t('offerForm.hint')}
+      </Text>
+      <Table>
+        <Table.Tbody>
+          {rows.map(([k, v]) => (
+            <InfoRow key={k} label={k} value={<b>{v}</b>} />
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Card>
   )
 }

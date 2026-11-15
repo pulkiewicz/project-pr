@@ -23,14 +23,22 @@ export type Confidence = (typeof CONFIDENCES)[number]
 /** Domyślne sekcje (jak w arkuszach „Wstępna cena wykonania”); w wycenie i profilu edytowalne (decyzja D2). */
 export const DEFAULT_SECTIONS = ['Obudowa', 'Układ chłodzenia', 'Automatyka i sterowanie', 'Układy dodatkowe', 'Wyposażenie dodatkowe', 'Koszty inne'] as const
 
-/** Rezerwa gwarancyjna (decyzja F2): baza(złożoność) × (1 + perExtraYear × (lata gwarancji − 1)), liczona od kosztu (F3). */
+/**
+ * Rezerwa gwarancyjna, liczona od kosztu (F3). Wzór `multiplier` (decyzja F2): baza(złożoność) × (1 + perExtraYear × (lata − 1)).
+ * Wzór `perYear` (wytyczne Kamila, W4): baza(złożoność) za `baseYears` lat + `perYear` za każdy rok powyżej (i mniej za krótszą gwarancję).
+ */
+export const RESERVE_FORMULAS = ['multiplier', 'perYear'] as const
+export type ReserveFormula = (typeof RESERVE_FORMULAS)[number]
 export interface ReserveSettings {
   low: number
   medium: number
   high: number
   perExtraYear: number
+  formula?: ReserveFormula
+  baseYears?: number
+  perYear?: number
 }
-export const DEFAULT_RESERVE: ReserveSettings = { low: 0.15, medium: 0.2, high: 0.3, perExtraYear: 0.5 }
+export const DEFAULT_RESERVE: ReserveSettings = { low: 0.15, medium: 0.2, high: 0.3, perExtraYear: 0.5, formula: 'multiplier', baseYears: 2, perYear: 0.05 }
 
 export interface QuoteSettings {
   reserve: ReserveSettings
@@ -38,7 +46,14 @@ export interface QuoteSettings {
   laborRate: number | null
   /** Cena w katalogu starsza niż tyle miesięcy jest oznaczana jako nieaktualna. */
   priceMaxAgeMonths: number
+  /** W1 — certyfikaty, których firma nie zapewnia (alert „odrzuć lub zleć audyt”). */
+  blockedCerts: string[]
+  /** W1 — standardowy czas realizacji [dni]; krótszy termin z SWZ → ostrzeżenie. */
+  standardLeadDays: number | null
+  /** W2 — minimalny mnożnik marży dla wyceny custom (inżynieryjnej). */
+  customMarginMin: number
 }
+export const DEFAULT_BLOCKED_CERTS = ['ATEX', 'FDA'] as const
 
 export interface QuoteParams {
   /** Mnożnik kosztu (F1): 2 → wartość marży = koszt. */
@@ -50,12 +65,34 @@ export interface QuoteParams {
   /** Narzut na ryzyko / nieprzewidziane (F4), ułamek kosztu. */
   riskPct: number
   vatPct: number
+  /** W4 — szacowane dni opóźnienia do bufora kar umownych (kara %/dzień z kroku 3). */
+  delayDays?: number
+  /** W4 — koszt gwarancji serwisowej: części zamienne + przeglądy + wyjazdy serwisu [PLN]. */
+  serviceSpareParts?: number
+  serviceInspections?: number
+  serviceInspectionCost?: number
+  serviceVisits?: number
+  serviceVisitCost?: number
 }
 export const DEFAULT_PARAMS: QuoteParams = { marginMultiplier: 2, complexity: 'medium', warrantyMonths: 12, reservePctOverride: null, riskPct: 0, vatPct: 0.23 }
+
+/** W4 — kary umowne z SWZ (krok 3) do bufora w cenie. */
+export const PENALTY_BASES = ['gross', 'net', 'cost'] as const
+export type PenaltyBase = (typeof PENALTY_BASES)[number]
+export interface PenaltyTerms {
+  pctPerDay: number | null | undefined
+  base: PenaltyBase | null | undefined
+}
+
+/** Koszt gwarancji serwisowej [PLN] z parametrów wyceny. */
+export function serviceCost(p: Partial<QuoteParams>): number {
+  return round2((p.serviceSpareParts ?? 0) + (p.serviceInspections ?? 0) * (p.serviceInspectionCost ?? 0) + (p.serviceVisits ?? 0) * (p.serviceVisitCost ?? 0))
+}
 
 export function reservePct(params: Pick<QuoteParams, 'complexity' | 'warrantyMonths' | 'reservePctOverride'>, s: ReserveSettings = DEFAULT_RESERVE): number {
   if (params.reservePctOverride != null) return params.reservePctOverride
   const years = params.warrantyMonths / 12
+  if (s.formula === 'perYear') return round6(Math.max(0, s[params.complexity] + (s.perYear ?? 0.05) * (years - (s.baseYears ?? 2))))
   return round6(s[params.complexity] * (1 + s.perExtraYear * (years - 1)))
 }
 
@@ -73,17 +110,30 @@ export interface PriceBreakdown {
   reservePct: number
   reserveValue: number
   riskValue: number
+  /** W4 — bufor kar umownych: podstawa × kara %/dzień × dni opóźnienia. */
+  penaltyValue: number
+  /** W4 — koszt gwarancji serwisowej (tylko suma wyceny, nie ceny opcji). */
+  serviceValue: number
   net: number
   gross: number
 }
 
-export function priceFor(cost: number, params: QuoteParams, s: ReserveSettings = DEFAULT_RESERVE): PriceBreakdown {
+export function priceFor(cost: number, params: QuoteParams, s: ReserveSettings = DEFAULT_RESERVE, penalty?: PenaltyTerms, withService = true): PriceBreakdown {
   const pct = reservePct(params, s)
   const marginValue = round2(cost * (params.marginMultiplier - 1))
   const reserveValue = round2(cost * pct)
   const riskValue = round2(cost * params.riskPct)
-  const net = round2(cost + marginValue + reserveValue + riskValue)
-  return { cost: round2(cost), marginValue, reservePct: pct, reserveValue, riskValue, net, gross: round2(net * (1 + params.vatPct)) }
+  const serviceValue = withService && cost > 0 ? serviceCost(params) : 0
+  const base = cost + marginValue + reserveValue + riskValue + serviceValue
+  // Bufor kar od ceny netto/brutto zależy od samej ceny: netto = baza / (1 − k), k = kara × dni (× (1 + VAT) dla brutto).
+  const k = (penalty?.pctPerDay ?? 0) * (params.delayDays ?? 0)
+  let penaltyValue = 0
+  if (k > 0 && cost > 0) {
+    const kk = penalty?.base === 'cost' ? 0 : Math.min(0.9, penalty?.base === 'net' ? k : k * (1 + params.vatPct))
+    penaltyValue = round2(penalty?.base === 'cost' ? cost * k : base / (1 - kk) - base)
+  }
+  const net = round2(base + penaltyValue)
+  return { cost: round2(cost), marginValue, reservePct: pct, reserveValue, riskValue, penaltyValue, serviceValue, net, gross: round2(net * (1 + params.vatPct)) }
 }
 
 export interface QuoteSummary extends PriceBreakdown {
@@ -103,7 +153,7 @@ export function toCostSummary(s: QuoteSummary): QuoteCostSummary {
 }
 
 /** Podsumowanie: urządzenia włączone do ceny (× ilość) + osobne ceny opcji/wariantów (D6). */
-export function computeSummary(devices: QuoteDeviceDto[], params: QuoteParams, s: ReserveSettings = DEFAULT_RESERVE): QuoteSummary {
+export function computeSummary(devices: QuoteDeviceDto[], params: QuoteParams, s: ReserveSettings = DEFAULT_RESERVE, penalty?: PenaltyTerms): QuoteSummary {
   const sectionTotals = new Map<string, number>()
   let cost = 0
   const perDevice = devices.map((d) => {
@@ -116,9 +166,9 @@ export function computeSummary(devices: QuoteDeviceDto[], params: QuoteParams, s
         sectionTotals.set(sec.name, (sectionTotals.get(sec.name) ?? 0) + v)
       }
     }
-    return { id: d.id, name: d.name, quantity: d.quantity, isOption: d.isOption, included: d.included, price: priceFor(devCost, params, s) }
+    return { id: d.id, name: d.name, quantity: d.quantity, isOption: d.isOption, included: d.included, price: priceFor(devCost, params, s, penalty, false) }
   })
-  return { ...priceFor(cost, params, s), sections: [...sectionTotals].map(([name, c]) => ({ name, cost: round2(c) })), devices: perDevice }
+  return { ...priceFor(cost, params, s, penalty), sections: [...sectionTotals].map(([name, c]) => ({ name, cost: round2(c) })), devices: perDevice }
 }
 
 /** Kolejna litera rewizji: A → B …, Z → AA. */
@@ -143,6 +193,7 @@ const money = z.number().min(0).max(1e11)
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'validation.date')
 const timeStr = z.string().regex(/^\d{2}:\d{2}$/, 'validation.time')
 
+const dimsMm = z.object({ w: z.number().min(0).max(100_000), h: z.number().min(0).max(100_000), d: z.number().min(0).max(100_000) })
 export const quoteInfoSchema = z.object({
   /** Krok 3 — termin złożenia oferty (data `yyyy-MM-dd` i godzina `HH:mm`, czas warszawski). */
   submissionDeadline: dateStr.nullable().optional(),
@@ -156,6 +207,41 @@ export const quoteInfoSchema = z.object({
   deliveryTerm: optText(200),
   participationConditions: optText(2000),
   evaluationCriteria: optText(2000),
+  // ---- W1: warunki techniczno-prawne (SWZ) ----
+  /** Tryb: przetarg publiczny (PZP) / zapytanie komercyjne. */
+  tenderMode: z.enum(['pzp', 'commercial']).nullable().optional(),
+  /** Przydział mocy u zamawiającego [A, 3 × 400 V]. */
+  powerLimitA: z.number().min(0).max(10000).nullable().optional(),
+  /** Suma prądów gniazd dodatkowych wymaganych w SWZ [A]. */
+  socketsCurrentA: z.number().min(0).max(10000).nullable().optional(),
+  /** Szacowana moc szczytowa maszyny [kW] (chłodzenie, chiller, grzałki, nawilżanie, automatyka). */
+  machinePowerKw: z.number().min(0).max(10000).nullable().optional(),
+  /** Kary umowne [ułamek za dzień, np. 0,002] i ich podstawa. */
+  penaltyPctPerDay: z.number().min(0).max(0.1).nullable().optional(),
+  penaltyBase: z.enum(PENALTY_BASES).nullable().optional(),
+  /** Gwarancja: minimalna wymagana i punktowana maksymalnie [mies.]. */
+  minWarrantyMonths: z.number().int().min(0).max(240).nullable().optional(),
+  scoredWarrantyMonths: z.number().int().min(0).max(240).nullable().optional(),
+  /** Wagi kryteriów oceny [%]. */
+  priceWeight: z.number().min(0).max(100).nullable().optional(),
+  warrantyWeight: z.number().min(0).max(100).nullable().optional(),
+  /** Termin realizacji [dni od umowy]. */
+  deliveryDays: z.number().int().min(0).max(3650).nullable().optional(),
+  /** Wymagane certyfikaty (ATEX, FDA, PCA…). */
+  requiredCerts: z.array(z.string().trim().min(1).max(60)).max(20).optional(),
+  /** Maksymalne wymiary zewnętrzne (miejsce u klienta) [mm]. */
+  outerMaxMm: dimsMm.nullable().optional(),
+  // ---- W2: rozmieszczenie (clash detection) [mm] ----
+  layout: z
+    .object({
+      wallMm: z.number().min(0).max(2000).nullable().optional(),
+      serviceMm: z.number().min(0).max(5000).nullable().optional(),
+      machineRoomMm: z.number().min(0).max(20000).nullable().optional(),
+      frameMm: z.number().min(0).max(2000).nullable().optional(),
+      roofUnitMm: z.number().min(0).max(5000).nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 })
 export type QuoteInfo = z.infer<typeof quoteInfoSchema>
 
@@ -219,6 +305,12 @@ export const quoteParamsSchema = z.object({
   reservePctOverride: z.number().min(0).max(10).nullable(),
   riskPct: z.number().min(0).max(10),
   vatPct: z.number().min(0).max(1),
+  delayDays: z.number().int().min(0).max(365).optional(),
+  serviceSpareParts: money.optional(),
+  serviceInspections: z.number().int().min(0).max(100).optional(),
+  serviceInspectionCost: money.optional(),
+  serviceVisits: z.number().int().min(0).max(1000).optional(),
+  serviceVisitCost: money.optional(),
 })
 
 export const quoteCreateInput = z
@@ -310,9 +402,20 @@ export const linePatch = lineFields.partial().extend({ sortOrder: z.number().int
 export type LinePatch = z.input<typeof linePatch>
 
 export const quoteSettingsInput = z.object({
-  reserve: z.object({ low: z.number().min(0).max(10), medium: z.number().min(0).max(10), high: z.number().min(0).max(10), perExtraYear: z.number().min(0).max(10) }),
+  reserve: z.object({
+    low: z.number().min(0).max(10),
+    medium: z.number().min(0).max(10),
+    high: z.number().min(0).max(10),
+    perExtraYear: z.number().min(0).max(10),
+    formula: z.enum(RESERVE_FORMULAS).default('multiplier'),
+    baseYears: z.number().min(0).max(20).default(2),
+    perYear: z.number().min(0).max(10).default(0.05),
+  }),
   laborRate: money.nullable(),
   priceMaxAgeMonths: z.number().int().min(1).max(120).default(12),
+  blockedCerts: z.array(z.string().trim().min(1).max(60)).max(50).default([...DEFAULT_BLOCKED_CERTS]),
+  standardLeadDays: z.number().int().min(0).max(3650).nullable().default(null),
+  customMarginMin: z.number().min(1).max(20).default(2),
 })
 
 // ---------------- Krok 3: wymagane dokumenty oferty ----------------

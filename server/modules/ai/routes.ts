@@ -454,6 +454,7 @@ async function listQuestions(db: Database, where: ReturnType<typeof and>): Promi
     answeredByName,
     answeredAt: q.answeredAt,
     source: q.source === 'ai' ? 'ai' : 'manual',
+    critical: q.critical,
     createdAt: q.createdAt,
   }))
 }
@@ -484,6 +485,7 @@ aiRouter.openapi(route({ method: 'post', path: '/quotes/{id}/questions', request
       text: input.text,
       context: input.context ?? null,
       checklistKey: input.checklistKey ?? null,
+      critical: input.critical ?? false,
       assigneeId: input.assigneeId !== undefined ? input.assigneeId : input.audience === 'internal' ? settings.questionsAssigneeId : null,
       source: 'manual',
       createdBy: c.get('user').id,

@@ -1,5 +1,39 @@
 # Changelog
 
+## Wyceny v2: walidatory SWZ, technologia i wymiary, ryzyko PZP, pytania krytyczne (W1, W2, W4, W5) (15.11.2026)
+
+- **Alerty wyceny w krokach.** Walidatory są przypisane do kroków; na pasku kroków widać pomarańczowy stan i licznik „N alertów”.
+  - **Błąd** blokuje zatwierdzenie (422 `bom_incomplete`) do czasu rozwiązania albo akceptacji z uzasadnieniem, tak jak w W3.
+  - **Ostrzeżenie** tylko informuje.
+  - Alert może mieć przycisk **„Utwórz pytanie do zamawiającego”**: dodaje do kroku 5 krytyczne pytanie z gotową treścią, np. wniosek o wyjaśnienie zasilania.
+- **W1 — krok 3, karta „Warunki techniczno-prawne (SWZ)”**:
+  - Pola: tryb (przetarg PZP / zapytanie), przydział mocy [A] (z przeliczeniem na kW), gniazda dodatkowe [A], moc szczytowa maszyny [kW] (z podpowiedzią z kalkulatora), kara umowna %/dzień i jej podstawa, gwarancja minimalna i punktowana, wagi ceny i gwarancji, termin realizacji [dni], wymagane certyfikaty, maksymalne wymiary zewnętrzne.
+  - Bilans zasilania na żywo.
+  - „Wyodrębnij z SIWZ (AI)” wypełnia nowe pola.
+  - Alerty: zasilanie (np. OF029: 29 A ≈ 20 kW przy potrzebie ok. 40 kW → przyłącze min. 63 A), certyfikat spoza zakresu firmy, termin krótszy niż standardowy, brak szacunku mocy maszyny.
+- **W2 — krok 6, karta „Technologia i wymiary”**:
+  - tryb wyceny standard / custom (z powodami: IPX, shelter, stal 316, > 1 K/min, Tmin < −45 °C, kompensacja ciepła), także w kroku 7;
+  - podpowiedź technologii chłodniczej z Tmin;
+  - twarde wymogi SWZ z checklisty;
+  - szacunkowa masa blach komory;
+  - clash detection: ściany, przestrzeń serwisowa, rama, maszynownia, agregat na dachu → wymiary zewnętrzne vs limit z kroku 3 i wolne miejsce na chłodnictwo.
+  - Alerty: przekroczenie wymiarów (z pytaniem o posadowienie chillera obok komory), kompensacja ciepła próbki poza bilansem, dynamika bez normy (pytanie: powietrze w pustej komorze czy wsad), marża poniżej minimum dla wyceny custom.
+- **W4 — cena**:
+  - Nowy wzór rezerwy gwarancyjnej „za rok” (wytyczne Kamila): baza za 2 lata ± 5% za każdy rok, czyli 15 / 20 / 25 / 35% dla 1 / 2 / 3 / 5 lat. Wybór w Ustawieniach; domyślny jest dotychczasowy wzór, więc ceny istniejących wycen się nie zmieniają.
+  - Bufor kar umownych: kara %/dzień z SWZ × dni opóźnienia, od brutto / netto / kosztu. Wyliczenie od ceny jest dokładne mimo zależności zwrotnej.
+  - Koszt gwarancji serwisowej: części zamienne, przeglądy i wyjazdy.
+  - Oba składniki są osobnymi wierszami ceny.
+  - W kroku 8 karta **„Formularz ofertowy”**: netto, VAT, brutto, gwarancja, termin, przycisk „Kopiuj”.
+  - Alerty: gwarancja poniżej minimum SWZ (błąd) lub poniżej progu maksymalnych punktów, brak bufora przy karze z SWZ, cena powyżej budżetu, cena powyżej cen konkurencji z kroku 4a.
+- **W5 — pytania krytyczne**: oznaczenie „krytyczne” w kroku 5 (plakietka, przełącznik, odpowiedź także dla pytań do zamawiającego). Krytyczne pytanie bez odpowiedzi jest błędem blokującym zatwierdzenie.
+- **Ustawienia (Baza wiedzy → Ustawienia)**: wzór rezerwy, lata w bazie i % za rok, certyfikaty poza zakresem firmy (domyślnie ATEX, FDA), standardowy czas realizacji, minimalny mnożnik marży dla wyceny custom (2,0).
+- Technicznie:
+  - nowe pola `QuoteInfo` (JSON, bez migracji) i `QuoteParams` (`delayDays`, `service*` — wymagają `quotesPricing:edit`);
+  - `PriceBreakdown.penaltyValue/serviceValue`;
+  - kolumna `quote_questions.critical` (migracja `20261115181442_quote_checks`);
+  - `QuoteDto.bom` zawiera teraz też alerty walidatorów (`step`, `severity`, `question`) i kontekst (`context`);
+  - wspólny moduł `shared/src/quoteChecks.ts`.
+
 ## Wyceny: kompletność kosztorysu — reguły zależności BOM (W3) (15.11.2026)
 
 - **Reguły kompletności kosztorysu**: nowa zakładka „Reguły kosztorysu” w Bazie wiedzy.

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { QuoteStep } from './quotes.ts'
 import type { SpecValue } from './spec.ts'
 
 /**
@@ -60,9 +61,15 @@ export interface BomAckDto {
 }
 
 export interface BomIssue {
-  /** `rule:<id>` albo `zero_cost` (pozycje bez ceny). */
+  /** `rule:<id>`, `zero_cost` (pozycje bez ceny) albo `check:<walidator>` (W1/W2/W4/W5). */
   key: string
-  kind: 'rule' | 'zero_cost'
+  kind: 'rule' | 'zero_cost' | 'check'
+  /** Krok wyceny, w którym alert jest pokazywany. */
+  step: QuoteStep
+  /** Błąd blokuje zatwierdzenie (do akceptacji z uzasadnieniem); ostrzeżenie tylko informuje. */
+  severity: 'error' | 'warning'
+  /** Projekt pytania do zamawiającego (przycisk „Utwórz pytanie”). */
+  question: string | null
   ruleId: string | null
   title: string
   description: string | null
@@ -83,8 +90,29 @@ export interface BomCheckDto {
   /** Flagi używane przez aktywne reguły (do zaznaczenia w kroku 7). */
   availableFlags: string[]
   issues: BomIssue[]
-  /** Alerty bez akceptacji — blokują zatwierdzenie wyceny. */
+  /** Błędy bez akceptacji — blokują zatwierdzenie wyceny. */
   open: number
+  /** Ostrzeżenia bez akceptacji (nie blokują). */
+  warnings: number
+  /** Kontekst do kart kroków (W2): tryb wyceny, wnętrze, wymogi z checklisty, moce z kalkulatora. */
+  context?: QuoteCheckContext
+}
+
+export interface QuoteCheckContext {
+  mode: { custom: boolean; reasons: string[] }
+  inner: { w: number; h: number; d: number } | null
+  tMin: number | null
+  /** Wymogi z checklisty istotne dla bilansu i doboru (etykieta → wartość). */
+  requirements: { label: string; value: string }[]
+  /** Suma mocy wymaganych z kalkulacji [kW]. */
+  coolingKw: number
+  heatingKw: number
+}
+
+/** Liczniki otwartych alertów po akceptacjach. */
+export function finalizeChecks(flags: string[], availableFlags: string[], issues: BomIssue[]): BomCheckDto {
+  const open = issues.filter((i) => !i.ack)
+  return { flags, availableFlags, issues, open: open.filter((i) => i.severity === 'error').length, warnings: open.filter((i) => i.severity === 'warning').length }
 }
 
 export interface BomLine {
@@ -186,6 +214,9 @@ export function evaluateBom(rules: BomRuleDto[], ctx: BomContext, acks: Map<stri
     issues.push({
       key,
       kind: 'rule',
+      step: 'pricing',
+      severity: 'error',
+      question: null,
       ruleId: r.id,
       title: r.name,
       description: r.description ?? null,
@@ -203,6 +234,9 @@ export function evaluateBom(rules: BomRuleDto[], ctx: BomContext, acks: Map<stri
     issues.push({
       key: 'zero_cost',
       kind: 'zero_cost',
+      step: 'pricing',
+      severity: 'error',
+      question: null,
       ruleId: null,
       title: 'Pozycje bez ceny',
       description: 'Pozycje z kosztem 0 zł — uzupełnij cenę albo potwierdź, że są bezkosztowe.',
@@ -215,5 +249,5 @@ export function evaluateBom(rules: BomRuleDto[], ctx: BomContext, acks: Map<stri
       ack: acks.get('zero_cost') ?? null,
     })
   const availableFlags = [...new Set(rules.filter((r) => r.active).flatMap((r) => r.when.flatMap((c) => (c.kind === 'flag' ? [c.flag] : [])))).values()]
-  return { flags: ctx.flags, availableFlags, issues, open: issues.filter((i) => !i.ack).length }
+  return finalizeChecks(ctx.flags, availableFlags, issues)
 }

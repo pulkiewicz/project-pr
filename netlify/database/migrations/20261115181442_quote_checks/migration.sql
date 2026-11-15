@@ -1,0 +1,1 @@
+ALTER TABLE "quote_questions" ADD COLUMN "critical" boolean DEFAULT false NOT NULL;

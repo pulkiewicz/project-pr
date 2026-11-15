@@ -61,7 +61,8 @@ import { CompetitionPanel } from './CompetitionPanel'
 import { ProfileSpecPanel } from './ProfileSpecPanel'
 import { RevisionModal } from './RevisionModal'
 import { ProfileSwitcher, RejectQuoteModal, RejectedBanner } from './QuoteReject'
-import { BomCheckCard } from './BomPanel'
+import { BomCheckCard, StepChecks } from './BomPanel'
+import { TechLayoutCard } from './TechPanel'
 import { FormalStep, IdentificationStep, QuestionsDeadline, StepNav, SummaryStep, deadlineLabel, stepInfos } from './WorkflowSteps'
 
 const STATUS_COLOR = { draft: 'gray', approved: 'green', sent: 'blue', imported: 'violet', rejected: 'red' } as const
@@ -476,15 +477,37 @@ function SummaryPanel({ q }: { q: QuoteDto }) {
             </>
           )}
         </SimpleGrid>
+        {q.canSeePricing && (
+          <>
+            <Text size="sm" fw={500} mt="md">
+              {t('risk.title')}
+            </Text>
+            <Text size="xs" c="dimmed" mb={4}>
+              {q.info.penaltyPctPerDay
+                ? t('risk.penaltyFromSwz', { pct: formatNumber((q.info.penaltyPctPerDay ?? 0) * 100).replace(/0+$/, '').replace(/,$/, ''), base: t(`swz.base.${q.info.penaltyBase ?? 'gross'}`) })
+                : t('risk.noPenalty')}
+            </Text>
+            <SimpleGrid cols={2}>
+              <NumberInput label={t('risk.delayDays')} min={0} max={365} suffix=" dni" disabled={!price} value={p.delayDays ?? ''} onChange={(v) => setP({ ...p, delayDays: v === '' ? undefined : Number(v) })} />
+              <NumberInput label={t('risk.spareParts')} min={0} thousandSeparator=" " suffix=" zł" disabled={!price} value={p.serviceSpareParts ?? ''} onChange={(v) => setP({ ...p, serviceSpareParts: v === '' ? undefined : Number(v) })} />
+              <NumberInput label={t('risk.inspections')} min={0} disabled={!price} value={p.serviceInspections ?? ''} onChange={(v) => setP({ ...p, serviceInspections: v === '' ? undefined : Number(v) })} />
+              <NumberInput label={t('risk.inspectionCost')} min={0} thousandSeparator=" " suffix=" zł" disabled={!price} value={p.serviceInspectionCost ?? ''} onChange={(v) => setP({ ...p, serviceInspectionCost: v === '' ? undefined : Number(v) })} />
+              <NumberInput label={t('risk.visits')} description={t('risk.visitsHint')} min={0} disabled={!price} value={p.serviceVisits ?? ''} onChange={(v) => setP({ ...p, serviceVisits: v === '' ? undefined : Number(v) })} />
+              <NumberInput label={t('risk.visitCost')} min={0} thousandSeparator=" " suffix=" zł" disabled={!price} value={p.serviceVisitCost ?? ''} onChange={(v) => setP({ ...p, serviceVisitCost: v === '' ? undefined : Number(v) })} />
+            </SimpleGrid>
+          </>
+        )}
         {editable && (
           <Group justify="flex-end" mt="sm">
             <Button
               disabled={!changed}
               loading={mutation.isPending}
               onClick={() => {
-                const { marginMultiplier, reservePctOverride, riskPct, vatPct, ...rest } = p
+                const { marginMultiplier, reservePctOverride, riskPct, vatPct, delayDays, serviceSpareParts, serviceInspections, serviceInspectionCost, serviceVisits, serviceVisitCost, ...rest } = p
                 // Bez uprawnienia do ceny wysyłamy tylko złożoność i gwarancję.
-                const params = q.canEditPricing ? { ...rest, marginMultiplier: marginMultiplier ?? undefined, reservePctOverride, riskPct: riskPct ?? undefined, vatPct: vatPct ?? undefined } : rest
+                const params = q.canEditPricing
+                  ? { ...rest, marginMultiplier: marginMultiplier ?? undefined, reservePctOverride, riskPct: riskPct ?? undefined, vatPct: vatPct ?? undefined, delayDays: delayDays ?? 0, serviceSpareParts: serviceSpareParts ?? 0, serviceInspections: serviceInspections ?? 0, serviceInspectionCost: serviceInspectionCost ?? 0, serviceVisits: serviceVisits ?? 0, serviceVisitCost: serviceVisitCost ?? 0 }
+                  : rest
                 mutation.mutate(quoteOps.patch({ params, version: q.version }))
               }}
             >
@@ -524,6 +547,8 @@ function SummaryPanel({ q }: { q: QuoteDto }) {
                   {row(`${t('quotes.marginValue')} (× ${formatNumber(q.params.marginMultiplier ?? 0).replace(/,00$/, '')})`, formatPLN(s.marginValue))}
                   {row(`${t('quotes.reserveValue')} (${pct(s.reservePct)} %)`, formatPLN(s.reserveValue))}
                   {s.riskValue > 0 && row(`${t('quotes.riskValue')} (${pct(q.params.riskPct)} %)`, formatPLN(s.riskValue))}
+                  {s.serviceValue > 0 && row(t('risk.serviceRow'), formatPLN(s.serviceValue))}
+                  {s.penaltyValue > 0 && row(t('risk.penaltyRow', { days: q.params.delayDays ?? 0 }), formatPLN(s.penaltyValue))}
                   {row(t('quotes.netTotal'), formatPLN(s.net), true)}
                   {row(t('quotes.grossTotal'), formatPLN(s.gross), true)}
                   {q.info.budget != null && row(t('quotes.budgetDiff'), formatPLN(q.info.budget - s.gross))}
@@ -683,10 +708,17 @@ export function QuoteEditor({ id }: { id: string }) {
     questions: () => (
       <Stack>
         <QuestionsDeadline q={q} />
+        <StepChecks q={q} step="questions" />
         <QuestionsPanel q={q} />
       </Stack>
     ),
-    calc: () => <CalcPanel q={q} />,
+    calc: () => (
+      <Stack>
+        <TechLayoutCard q={q} />
+        <StepChecks q={q} step="calc" />
+        <CalcPanel q={q} />
+      </Stack>
+    ),
     pricing: () => (
       <Stack gap="lg">
         {q.manualNet != null && (

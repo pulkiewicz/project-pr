@@ -202,7 +202,7 @@ quotesRouter.openapi(route({ method: 'patch', path: '/quotes/{id}', request: { p
     const existing = await db.select({ revision: quotes.revision }).from(quotes).where(and(eq(quotes.opportunityId, opportunityId), eq(quotes.kind, 'quote')))
     reassign = { opportunityId, revision: nextRevision(existing.map((r) => r.revision ?? '')) }
   }
-  const pricingKeys = ['marginMultiplier', 'reservePctOverride', 'riskPct', 'vatPct'] as const
+  const pricingKeys = ['marginMultiplier', 'reservePctOverride', 'riskPct', 'vatPct', 'delayDays', 'serviceSpareParts', 'serviceInspections', 'serviceInspectionCost', 'serviceVisits', 'serviceVisitCost'] as const
   if (((params && pricingKeys.some((k) => params[k] !== undefined)) || rest.manualNet !== undefined) && !canPricing(c, 'edit')) throw forbidden('pricing_forbidden')
   const set = {
     ...rest,

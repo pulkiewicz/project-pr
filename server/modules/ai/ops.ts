@@ -326,6 +326,18 @@ const formalSchema = z.object({
   deliveryPlace: z.string().nullable(),
   participationConditions: z.string().nullable(),
   evaluationCriteria: z.string().nullable(),
+  tenderMode: z.enum(['pzp', 'commercial']).nullable().optional(),
+  powerLimitA: z.number().nullable().optional(),
+  socketsCurrentA: z.number().nullable().optional(),
+  penaltyPctPerDay: z.number().nullable().optional(),
+  penaltyBase: z.enum(['gross', 'net', 'cost']).nullable().optional(),
+  minWarrantyMonths: z.number().nullable().optional(),
+  scoredWarrantyMonths: z.number().nullable().optional(),
+  priceWeight: z.number().nullable().optional(),
+  warrantyWeight: z.number().nullable().optional(),
+  deliveryDays: z.number().nullable().optional(),
+  requiredCerts: z.array(z.string()).optional(),
+  outerMaxMm: z.object({ w: z.number(), h: z.number(), d: z.number() }).nullable().optional(),
   documents: z.array(z.object({ name: z.string().min(1), note: z.string().nullable(), sourceRef: z.string().nullable() })),
 })
 export type FormalOutput = z.infer<typeof formalSchema>
@@ -340,6 +352,18 @@ const formalJsonSchema = obj({
   deliveryPlace: nullable('string'),
   participationConditions: nullable('string'),
   evaluationCriteria: nullable('string'),
+  tenderMode: { anyOf: [{ type: 'string', enum: ['pzp', 'commercial'] }, { type: 'null' }] },
+  powerLimitA: nullable('number'),
+  socketsCurrentA: nullable('number'),
+  penaltyPctPerDay: nullable('number'),
+  penaltyBase: { anyOf: [{ type: 'string', enum: ['gross', 'net', 'cost'] }, { type: 'null' }] },
+  minWarrantyMonths: nullable('number'),
+  scoredWarrantyMonths: nullable('number'),
+  priceWeight: nullable('number'),
+  warrantyWeight: nullable('number'),
+  deliveryDays: nullable('number'),
+  requiredCerts: { type: 'array', items: { type: 'string' } },
+  outerMaxMm: { anyOf: [obj({ w: { type: 'number' }, h: { type: 'number' }, d: { type: 'number' } }), { type: 'null' }] },
   documents: { type: 'array', items: obj({ name: { type: 'string' }, note: nullable('string'), sourceRef: nullable('string') }) },
 })
 
@@ -365,6 +389,7 @@ Zasady:
 - "questionsDeadline" / "questionsTime": termin zadawania pytań / wniosków o wyjaśnienie treści SIWZ (null, gdy nie podano wprost; jeśli podano regułę względną, np. „najpóźniej 4 dni przed terminem składania ofert”, wylicz datę).
 - "budget": kwota, jaką zamawiający przeznaczył na realizację zamówienia [PLN], null gdy brak.
 - "deliveryTerm", "deliveryPlace", "participationConditions" (warunki udziału, wadium, doświadczenie), "evaluationCriteria" (kryteria oceny z wagami): zwięźle, po polsku; null gdy brak.
+- Warunki techniczno-prawne (null, gdy brak): "tenderMode" ("pzp" — przetarg wg ustawy Pzp, "commercial" — zapytanie); "powerLimitA" — przydział mocy / zabezpieczenie u zamawiającego [A, 3 × 400 V; kW przelicz: A = kW × 1000 / (√3 × 400)]; "socketsCurrentA" — suma prądów wymaganych gniazd dodatkowych [A] (np. 32 A + 4 × 16 A = 96); "penaltyPctPerDay" — kara umowna za dzień zwłoki jako ułamek (0,2% → 0.002) i "penaltyBase" (od wynagrodzenia brutto / netto); "minWarrantyMonths" — minimalna gwarancja; "scoredWarrantyMonths" — gwarancja dająca maksimum punktów; "priceWeight"/"warrantyWeight" — wagi kryteriów [%]; "deliveryDays" — termin realizacji w dniach (jeśli podano datę — dni od dziś do tej daty); "requiredCerts" — wymagane certyfikaty / akredytacje (ATEX, FDA, PCA, CE…); "outerMaxMm" — maksymalne wymiary zewnętrzne / miejsce na urządzenie [mm, szer. × wys. × głęb.].
 - "documents": KAŻDY dokument / oświadczenie / załącznik, który wykonawca musi złożyć z ofertą (formularz ofertowy, JEDZ/oświadczenia, pełnomocnictwo, wadium, karty katalogowe, opis techniczny, certyfikaty, harmonogram, polisa OC itp.). "name" — krótka nazwa dokumentu; "note" — istotne wymagania (forma, podpis, termin, numer załącznika); "sourceRef" — krótki cytat i miejsce w materiale (do 200 znaków).
 - Nie zgaduj — tylko to, co wynika z materiałów.`,
       },
@@ -392,6 +417,23 @@ Zasady:
   setIfEmpty('deliveryPlace', out.deliveryPlace?.slice(0, 500))
   setIfEmpty('participationConditions', out.participationConditions?.slice(0, 2000))
   setIfEmpty('evaluationCriteria', out.evaluationCriteria?.slice(0, 2000))
+  const pos = (v: number | null | undefined, max: number) => (v != null && Number.isFinite(v) && v >= 0 && v <= max ? v : null)
+  setIfEmpty('tenderMode', out.tenderMode ?? null)
+  setIfEmpty('powerLimitA', pos(out.powerLimitA, 10000))
+  setIfEmpty('socketsCurrentA', pos(out.socketsCurrentA, 10000))
+  setIfEmpty('penaltyPctPerDay', pos(out.penaltyPctPerDay, 0.1))
+  setIfEmpty('penaltyBase', out.penaltyBase ?? null)
+  setIfEmpty('minWarrantyMonths', pos(out.minWarrantyMonths, 240) != null ? Math.round(out.minWarrantyMonths!) : null)
+  setIfEmpty('scoredWarrantyMonths', pos(out.scoredWarrantyMonths, 240) != null ? Math.round(out.scoredWarrantyMonths!) : null)
+  setIfEmpty('priceWeight', pos(out.priceWeight, 100))
+  setIfEmpty('warrantyWeight', pos(out.warrantyWeight, 100))
+  setIfEmpty('deliveryDays', pos(out.deliveryDays, 3650) != null ? Math.round(out.deliveryDays!) : null)
+  if (!(info.requiredCerts ?? []).length && out.requiredCerts?.length) {
+    info.requiredCerts = out.requiredCerts.map((c) => c.trim().slice(0, 60)).filter(Boolean).slice(0, 20)
+    filled.push('requiredCerts')
+  }
+  const o = out.outerMaxMm
+  setIfEmpty('outerMaxMm', o && o.w > 0 && o.h > 0 && o.d > 0 && o.w <= 100000 && o.h <= 100000 && o.d <= 100000 ? o : null)
   let added = 0
   await deps.db.transaction(async (tx) => {
     const existing = await tx.select({ name: quoteRequiredDocs.name, sortOrder: quoteRequiredDocs.sortOrder }).from(quoteRequiredDocs).where(eq(quoteRequiredDocs.quoteId, quoteId))

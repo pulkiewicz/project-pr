@@ -1356,7 +1356,20 @@
       "choice": "wybór",
       "bool": "tak/nie"
     },
-    "priceMaxAge": "Cena w katalogu nieaktualna po (mies.)"
+    "priceMaxAge": "Cena w katalogu nieaktualna po (mies.)",
+    "reserveFormula": {
+      "multiplier": "Wzór: baza × (1 + współczynnik × lata)",
+      "perYear": "Wzór: baza + % za rok (wytyczne Kamila)"
+    },
+    "formulaPerYear": "Rezerwa = baza (złożoność) za {{years}} lata gwarancji + podany % za każdy rok powyżej (mniej za krótszą), liczona od kosztu.",
+    "baseYears": "Lata gwarancji w bazie",
+    "perYear": "Za każdy rok",
+    "customMarginMin": "Min. mnożnik marży (custom)",
+    "customMarginMinHint": "ostrzeżenie w kroku 7 dla wyceny custom",
+    "standardLeadDays": "Standardowy czas realizacji",
+    "standardLeadDaysHint": "krótszy termin z SWZ → ostrzeżenie",
+    "blockedCerts": "Certyfikaty poza zakresem firmy",
+    "blockedCertsHint": "wymaganie w SWZ → alert „odrzuć lub zleć audyt”"
   },
   "checklist": {
     "title": "Checklista specyfikacyjna",
@@ -1557,7 +1570,11 @@
     "assignee": "Adresat",
     "answeredBy": "Odpowiedź: {{name}}, {{date}}",
     "mine": "Pytania do mnie",
-    "mineEmpty": "Brak otwartych pytań."
+    "mineEmpty": "Brak otwartych pytań.",
+    "critical": "krytyczne",
+    "markCritical": "Oznacz jako krytyczne (blokuje zatwierdzenie bez odpowiedzi)",
+    "unmarkCritical": "Usuń oznaczenie „krytyczne”",
+    "clientAnswer": "Odpowiedź zamawiającego"
   },
   "drive": {
     "title": "Dysk Google (folder szans, materiały)",
@@ -2032,7 +2049,11 @@
       "bomOpen_one": "{{count}} brak w kosztorysie",
       "bomOpen_few": "{{count}} braki w kosztorysie",
       "bomOpen_many": "{{count}} braków w kosztorysie",
-      "bomOpen_other": "{{count}} braku w kosztorysie"
+      "bomOpen_other": "{{count}} braku w kosztorysie",
+      "alerts_one": "{{count}} alert",
+      "alerts_few": "{{count}} alerty",
+      "alerts_many": "{{count}} alertów",
+      "alerts_other": "{{count}} alertu"
     },
     "identification": {
       "title": "Klient i szansa",
@@ -2514,6 +2535,113 @@
     "inactive": "nieaktywna",
     "activate": "Włącz",
     "deactivate": "Wyłącz",
-    "deleteConfirm": "Usunąć regułę „{{name}}”?"
+    "deleteConfirm": "Usunąć regułę „{{name}}”?",
+    "checksTitle": "Alerty wyceny",
+    "warningHint": "Ostrzeżenie — nie blokuje zatwierdzenia.",
+    "createQuestion": "Utwórz pytanie do zamawiającego",
+    "questionCreated": "Dodano krytyczne pytanie do zamawiającego (krok „Pytania do zamawiającego”)",
+    "questionExists": "Pytanie już utworzone"
+  },
+  "quoteMode": {
+    "custom": "Wycena custom",
+    "standard": "Wycena standardowa",
+    "standardHint": "Parametry w standardzie rynkowym — można oprzeć się na profilu i cenach urządzeń seryjnych."
+  },
+  "swz": {
+    "title": "Warunki techniczno-prawne (SWZ)",
+    "mode": {
+      "pzp": "Przetarg PZP",
+      "commercial": "Zapytanie komercyjne"
+    },
+    "powerLimitA": "Przydział mocy",
+    "powerLimitHint": "zabezpieczenie u zamawiającego, 3 × 400 V",
+    "socketsCurrentA": "Gniazda dodatkowe (suma)",
+    "socketsHint": "np. 32 A + 4 × 16 A = 96 A",
+    "machinePowerKw": "Moc szczytowa maszyny",
+    "machineHint": "szacunek z kalkulatora: ok. {{kw}} kW",
+    "machineHintNone": "chłodzenie (z chillerem), grzanie, nawilżanie, automatyka",
+    "balance": "Potrzeba {{need}} A przy przydziale {{limit}} A",
+    "balanceBad": "za mało — wymagane przyłącze min. {{breaker}} A",
+    "balanceNone": "Podaj przydział i moc maszyny, aby sprawdzić bilans zasilania.",
+    "penalty": "Kara umowna",
+    "penaltyBase": "Podstawa kary",
+    "base": {
+      "gross": "wynagrodzenie brutto",
+      "net": "wynagrodzenie netto",
+      "cost": "koszt budowy"
+    },
+    "minWarranty": "Gwarancja minimalna",
+    "scoredWarranty": "Gwarancja za max punktów",
+    "priceWeight": "Waga ceny",
+    "warrantyWeight": "Waga gwarancji",
+    "deliveryDays": "Termin realizacji",
+    "certs": "Wymagane certyfikaty",
+    "certsPlaceholder": "np. PCA, CE, ATEX — Enter dodaje",
+    "outerMax": "Maksymalne wymiary zewnętrzne / miejsce u klienta [mm]",
+    "dim": {
+      "w": "Szerokość",
+      "h": "Wysokość",
+      "d": "Głębokość"
+    }
+  },
+  "tech": {
+    "title": "Technologia i wymiary",
+    "technology": "Dobór technologii chłodniczej",
+    "suggest": "Tmin {{tmin}} °C → {{tech}}.",
+    "alternative": "Alternatywa: {{tech}}.",
+    "kind": {
+      "single": "układ jednostopniowy",
+      "two_stage": "agregat dwustopniowy / mieszany (1st. + 2st.)",
+      "cascade": "układ kaskadowy (R23)"
+    },
+    "noTmin": "Uzupełnij zakres temperatur w checkliście (krok 4), aby dostać podpowiedź.",
+    "flagsHint": "Wybraną architekturę (np. skraplanie wodne, 2 sprężarki na jednym obiegu) zaznacz flagami w kroku 7 — uruchamiają reguły kompletności kosztorysu.",
+    "requirements": "Twarde wymogi z SWZ (checklista)",
+    "noRequirements": "Brak — uzupełnij checklistę (zakres temperatur, dynamika, kompensacja ciepła, wilgotność).",
+    "shellMass": "Szacowana masa blach komory: ok. {{kg}} kg (wnętrze 1,5 mm + poszycie 1,0 mm) — do mas w kalkulatorze.",
+    "layout": "Wymiary (clash detection)",
+    "noInner": "Brak wymiarów wewnętrznych — uzupełnij „Wymiary wewnętrzne (min.)” w checkliście.",
+    "wallMm": "Grubość ściany",
+    "serviceMm": "Przestrzeń serwisowa (szer.)",
+    "frameMm": "Rama / podstawa (wys.)",
+    "machineRoomMm": "Maszynownia / agregat (głęb.)",
+    "roofUnitMm": "Agregat / chiller na dachu (wys.)",
+    "outer": "Zewnętrzne",
+    "limit": "Limit SWZ",
+    "free": "Wolne na chłodnictwo",
+    "noLimit": "Brak limitu wymiarów w kroku 3 — porównanie niemożliwe."
+  },
+  "risk": {
+    "title": "Ryzyko PZP i gwarancja serwisowa",
+    "penaltyFromSwz": "SWZ: kara {{pct}}% dziennie od kwoty: {{base}} — bufor = podstawa × kara × dni opóźnienia.",
+    "noPenalty": "Brak kary umownej w kroku 3 — bufor kar nie jest liczony.",
+    "delayDays": "Dni opóźnienia (bufor kar)",
+    "spareParts": "Części zamienne",
+    "inspections": "Przeglądy (liczba w okresie gwarancji)",
+    "inspectionCost": "Koszt przeglądu",
+    "visits": "Wyjazdy serwisowe",
+    "visitsHint": "interwencje gwarancyjne (np. reakcja 72 h)",
+    "visitCost": "Koszt wyjazdu",
+    "serviceRow": "Gwarancja serwisowa (części, przeglądy, wyjazdy)",
+    "penaltyRow": "Bufor kar umownych ({{days}} dni)"
+  },
+  "offerForm": {
+    "title": "Formularz ofertowy",
+    "hint": "Dane do Formularza ofertowego (Załącznik nr 1 do SWZ) — bez kosztorysu.",
+    "net": "Cena ofertowa netto",
+    "vat": "VAT {{pct}}%",
+    "gross": "Cena ofertowa brutto",
+    "warranty": "Okres gwarancji",
+    "delivery": "Termin realizacji",
+    "months_one": "{{count}} miesiąc",
+    "months_few": "{{count}} miesiące",
+    "months_many": "{{count}} miesięcy",
+    "months_other": "{{count}} miesiąca",
+    "days_one": "{{count}} dzień",
+    "days_few": "{{count}} dni",
+    "days_many": "{{count}} dni",
+    "days_other": "{{count}} dnia",
+    "copy": "Kopiuj",
+    "copied": "Skopiowano"
   }
 }

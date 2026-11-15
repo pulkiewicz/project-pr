@@ -1,10 +1,10 @@
-import { Button, Card, Group, Loader, NumberInput, SimpleGrid, Stack, Tabs, Text, Title } from '@mantine/core'
+import { Button, Card, Group, Loader, NumberInput, SegmentedControl, SimpleGrid, Stack, Tabs, TagsInput, Text, Title } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconPlus } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { COMPLEXITIES, formatProfileSpec, type QuoteSettings } from '#shared'
+import { COMPLEXITIES, RESERVE_FORMULAS, formatProfileSpec, type QuoteSettings, type ReserveFormula } from '#shared'
 import { useAuth } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { formatDateTime } from '../../lib/format'
@@ -34,8 +34,15 @@ function SettingsCard() {
       <Title order={4} mb="xs">
         {t('knowledge.settings')}
       </Title>
+      <SegmentedControl
+        mb="xs"
+        disabled={!editable}
+        data={RESERVE_FORMULAS.map((f) => ({ value: f, label: t(`knowledge.reserveFormula.${f}`) }))}
+        value={s.reserve.formula ?? 'multiplier'}
+        onChange={(v) => setS({ ...s, reserve: { ...s.reserve, formula: v as ReserveFormula } })}
+      />
       <Text size="sm" c="dimmed" mb="sm">
-        {t('knowledge.formula')}
+        {(s.reserve.formula ?? 'multiplier') === 'perYear' ? t('knowledge.formulaPerYear', { years: s.reserve.baseYears ?? 2 }) : t('knowledge.formula')}
       </Text>
       <SimpleGrid cols={{ base: 1, sm: 3 }}>
         {COMPLEXITIES.map((c) => (
@@ -50,9 +57,19 @@ function SettingsCard() {
             onChange={(v) => setS({ ...s, reserve: { ...s.reserve, [c]: (Number(v) || 0) / 100 } })}
           />
         ))}
-        <NumberInput label={t('knowledge.perExtraYear')} min={0} step={0.1} decimalSeparator="," disabled={!editable} value={s.reserve.perExtraYear} onChange={(v) => setS({ ...s, reserve: { ...s.reserve, perExtraYear: Number(v) || 0 } })} />
+        {(s.reserve.formula ?? 'multiplier') === 'perYear' ? (
+          <>
+            <NumberInput label={t('knowledge.baseYears')} min={0} max={20} disabled={!editable} value={s.reserve.baseYears ?? 2} onChange={(v) => setS({ ...s, reserve: { ...s.reserve, baseYears: Number(v) || 0 } })} />
+            <NumberInput label={t('knowledge.perYear')} suffix=" %" min={0} decimalSeparator="," disabled={!editable} value={pct(s.reserve.perYear ?? 0.05)} onChange={(v) => setS({ ...s, reserve: { ...s.reserve, perYear: (Number(v) || 0) / 100 } })} />
+          </>
+        ) : (
+          <NumberInput label={t('knowledge.perExtraYear')} min={0} step={0.1} decimalSeparator="," disabled={!editable} value={s.reserve.perExtraYear} onChange={(v) => setS({ ...s, reserve: { ...s.reserve, perExtraYear: Number(v) || 0 } })} />
+        )}
         <NumberInput label={t('knowledge.laborRate')} description={t('knowledge.laborRateHint')} min={0} decimalSeparator="," disabled={!editable} value={s.laborRate ?? ''} onChange={(v) => setS({ ...s, laborRate: v === '' ? null : Number(v) })} />
         <NumberInput label={t('knowledge.priceMaxAge')} min={1} max={120} disabled={!editable} value={s.priceMaxAgeMonths} onChange={(v) => setS({ ...s, priceMaxAgeMonths: Number(v) || 12 })} />
+        <NumberInput label={t('knowledge.customMarginMin')} description={t('knowledge.customMarginMinHint')} min={1} step={0.1} decimalScale={2} decimalSeparator="," disabled={!editable} value={s.customMarginMin} onChange={(v) => setS({ ...s, customMarginMin: Number(v) || 1 })} />
+        <NumberInput label={t('knowledge.standardLeadDays')} description={t('knowledge.standardLeadDaysHint')} min={0} suffix=" dni" disabled={!editable} value={s.standardLeadDays ?? ''} onChange={(v) => setS({ ...s, standardLeadDays: v === '' ? null : Number(v) })} />
+        <TagsInput label={t('knowledge.blockedCerts')} description={t('knowledge.blockedCertsHint')} disabled={!editable} value={s.blockedCerts} onChange={(v) => setS({ ...s, blockedCerts: v })} />
       </SimpleGrid>
       {editable && (
         <Group justify="flex-end" mt="sm">

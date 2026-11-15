@@ -5,6 +5,8 @@ import {
   DEFAULT_PARAMS,
   DEFAULT_PRICE_MAX_AGE_MONTHS,
   DEFAULT_RESERVE,
+  DEFAULT_BLOCKED_CERTS,
+  type QuoteInfo,
   DEFAULT_SECTIONS,
   QUOTE_EDITABLE,
   computeSummary,
@@ -41,7 +43,14 @@ export function assertKind(perms: Perms, kind: QuoteKind, action: Action) {
 export async function loadSettings(db: Database): Promise<QuoteSettings> {
   const [row] = await db.select().from(appSettings).where(eq(appSettings.key, QUOTE_SETTINGS_KEY))
   const v = (row?.value ?? {}) as Partial<QuoteSettings>
-  return { reserve: { ...DEFAULT_RESERVE, ...(v.reserve ?? {}) }, laborRate: v.laborRate ?? null, priceMaxAgeMonths: v.priceMaxAgeMonths ?? DEFAULT_PRICE_MAX_AGE_MONTHS }
+  return {
+    reserve: { ...DEFAULT_RESERVE, ...(v.reserve ?? {}) },
+    laborRate: v.laborRate ?? null,
+    priceMaxAgeMonths: v.priceMaxAgeMonths ?? DEFAULT_PRICE_MAX_AGE_MONTHS,
+    blockedCerts: v.blockedCerts ?? [...DEFAULT_BLOCKED_CERTS],
+    standardLeadDays: v.standardLeadDays ?? null,
+    customMarginMin: v.customMarginMin ?? 2,
+  }
 }
 
 const updaters = aliasedTable(users, 'updater')
@@ -109,8 +118,11 @@ function maskDevices(devices: QuoteDeviceDto[]): QuoteDeviceDto[] {
   }))
 }
 
+/** Kary umowne z kroku 3 (domyślnie od ceny brutto). */
+const penaltyTerms = (info: QuoteInfo | null | undefined) => ({ pctPerDay: info?.penaltyPctPerDay ?? null, base: info?.penaltyBase ?? 'gross' })
+
 function listItem(r: BaseRow, perms: Perms, devices: QuoteDeviceDto[], settings: QuoteSettings): QuoteListItemDto {
-  const summary = computeSummary(devices, { ...DEFAULT_PARAMS, ...r.q.params }, settings.reserve)
+  const summary = computeSummary(devices, { ...DEFAULT_PARAMS, ...r.q.params }, settings.reserve, penaltyTerms(r.q.info))
   return {
     id: r.q.id,
     kind: r.q.kind,
@@ -157,7 +169,8 @@ export async function getQuote(db: Database, perms: Perms, id: string): Promise<
   const params = { ...DEFAULT_PARAMS, ...r.q.params }
   const canSeeCosts = has(perms, 'quotesCost', 'view')
   const canSeePricing = has(perms, 'quotesPricing', 'view')
-  const summary = computeSummary(devices, params, settings.reserve)
+  const summary = computeSummary(devices, params, settings.reserve, penaltyTerms(r.q.info))
+  const finalNet = r.q.manualNet ?? summary.net
   return {
     ...listItem(r, perms, devices, settings),
     params: canSeePricing ? params : { ...params, marginMultiplier: null, reservePctOverride: null, riskPct: null, vatPct: null },
@@ -181,7 +194,7 @@ export async function getQuote(db: Database, perms: Perms, id: string): Promise<
     rejectedAt: r.q.rejectedAt,
     rejectedByName: r.rejectedByName,
     competition: r.q.kind === 'quote' ? (r.q.competition ?? null) : null,
-    bom: r.q.kind === 'quote' ? await bomCheck(db, r.q, devices) : null,
+    bom: r.q.kind === 'quote' ? await bomCheck(db, r.q, devices, { net: summary.cost > 0 || r.q.manualNet != null ? finalNet : null, gross: summary.cost > 0 || r.q.manualNet != null ? Math.round(finalNet * (1 + params.vatPct) * 100) / 100 : null }, settings) : null,
     version: r.q.version,
   }
 }

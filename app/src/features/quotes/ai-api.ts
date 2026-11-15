@@ -63,7 +63,7 @@ export function useDecideSuggestions(quoteId: string) {
   })
 }
 
-export const useQuestions = (quoteId: string) => useQuery({ queryKey: ['questions', quoteId], queryFn: () => api<QuestionDto[]>(`/quotes/${quoteId}/questions`) })
+export const useQuestions = (quoteId: string, enabled = true) => useQuery({ queryKey: ['questions', quoteId], queryFn: () => api<QuestionDto[]>(`/quotes/${quoteId}/questions`), enabled })
 export const useMyQuestions = (enabled: boolean) => useQuery({ queryKey: ['questions', 'mine'], queryFn: () => api<QuestionDto[]>('/questions/mine'), enabled })
 
 export function useQuestionMutation(quoteId: string) {
@@ -74,6 +74,8 @@ export function useQuestionMutation(quoteId: string) {
     onSuccess: (list) => {
       qc.setQueryData(['questions', quoteId], list)
       void qc.invalidateQueries({ queryKey: ['questions', 'mine'] })
+      // Pytania krytyczne wpływają na alerty wyceny (W5).
+      void qc.invalidateQueries({ queryKey: ['quote', quoteId] })
     },
     onError: notifyError,
   })
