@@ -23,6 +23,7 @@ import {
 import type { Database } from '../../db/client.ts'
 import { appSettings, companies, opportunities, quoteCalcs, quoteDevices, quoteInputs, quoteLines, quoteQuestions, quoteRequiredDocs, quoteSections, quotes, users } from '../../db/schema.ts'
 import { HttpProblem, forbidden, notFound } from '../../lib/problem.ts'
+import { bomCheck } from './bom-check.ts'
 import { getChecklist } from './checklist.ts'
 
 export const QUOTE_SETTINGS_KEY = 'quotes.settings'
@@ -180,6 +181,7 @@ export async function getQuote(db: Database, perms: Perms, id: string): Promise<
     rejectedAt: r.q.rejectedAt,
     rejectedByName: r.rejectedByName,
     competition: r.q.kind === 'quote' ? (r.q.competition ?? null) : null,
+    bom: r.q.kind === 'quote' ? await bomCheck(db, r.q, devices) : null,
     version: r.q.version,
   }
 }

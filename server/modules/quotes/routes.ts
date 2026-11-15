@@ -48,6 +48,7 @@ import {
 import { copyChecklist } from './checklist.ts'
 import { copyCalcs } from './spec-routes.ts'
 import { copyRequiredDocs } from './formal-routes.ts'
+import { copyBom } from './bom-check.ts'
 
 export const quotesRouter = newRouter()
 
@@ -242,6 +243,11 @@ quotesRouter.openapi(
     if (q.kind !== 'quote' || q.status === 'imported') throw new HttpProblem(422, 'quote_status_not_allowed')
     const allowed: Record<string, string[]> = { draft: ['approved'], approved: ['draft', 'sent'], sent: [] }
     if (!allowed[q.status]?.includes(status)) throw new HttpProblem(422, 'quote_status_not_allowed', `${q.status} → ${status}`)
+    // W3: zatwierdzenie wymaga kompletnego kosztorysu (alerty rozwiązane albo zaakceptowane z uzasadnieniem).
+    if (status === 'approved') {
+      const full = await getQuote(db, new Set(['quotes:view']), id)
+      if (full.bom && full.bom.open > 0) throw new HttpProblem(422, 'bom_incomplete', full.bom.issues.filter((i) => !i.ack).map((i) => i.title).join('; '))
+    }
     const user = c.get('user')
     const updated = await db.transaction(async (tx) => {
       const [r] = await tx
@@ -283,6 +289,7 @@ quotesRouter.openapi(
       await copyChecklist(tx, id, nid)
       await copyCalcs(tx, id, nid)
       await copyRequiredDocs(tx, id, nid)
+      await copyBom(tx, id, nid)
       return nid
     })
     return respond(c, newId, 201)

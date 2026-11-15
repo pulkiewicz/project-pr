@@ -89,8 +89,13 @@ export function stepInfos(q: QuoteDto, t: (k: string, o?: Record<string, unknown
     },
     calc: w.calcs ? { state: 'done', caption: t('workflow.cap.calcs', { count: w.calcs }) } : { state: 'todo', caption: t('workflow.cap.noCalcs') },
     pricing: {
-      state: lines.length > 0 && approvedLines === lines.length ? 'done' : lines.length ? 'progress' : 'todo',
-      caption: q.net != null && q.summary ? `${formatPLN(q.net)} ${t('quotes.net').toLowerCase()}` : lines.length ? t('quotes.approvedCount', { done: approvedLines, all: lines.length }) : t('workflow.cap.noLines'),
+      state: q.bom?.open ? 'warn' : lines.length > 0 && approvedLines === lines.length ? 'done' : lines.length ? 'progress' : 'todo',
+      caption: [
+        q.bom?.open ? t('workflow.cap.bomOpen', { count: q.bom.open }) : null,
+        q.net != null && q.summary ? `${formatPLN(q.net)} ${t('quotes.net').toLowerCase()}` : lines.length ? t('quotes.approvedCount', { done: approvedLines, all: lines.length }) : t('workflow.cap.noLines'),
+      ]
+        .filter(Boolean)
+        .join(' · '),
     },
     summary: { state: q.status === 'draft' ? 'todo' : 'done', caption: t(`quotes.status.${q.status}`) },
   }

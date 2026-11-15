@@ -192,6 +192,12 @@ describe('nowa wycena', () => {
   it('zatwierdzenie blokuje edycję; nowa rewizja to kopia robocza', async () => {
     let q = await get(admin, quote.id)
     expect((await req(h, 'POST', `/api/quotes/${q.id}/status`, staff.headers, { status: 'approved', version: q.version })).status).toBe(403)
+    // W3: otwarte alerty kompletności blokują zatwierdzenie — akceptacja z uzasadnieniem.
+    if (q.bom!.open > 0) {
+      expect((await req(h, 'POST', `/api/quotes/${q.id}/status`, admin.headers, { status: 'approved', version: q.version })).status).toBe(422)
+      for (const i of q.bom!.issues.filter((x) => !x.ack)) await req(h, 'POST', `/api/quotes/${q.id}/bom/acks`, admin.headers, { issueKey: i.key, reason: 'test — świadomie' })
+      q = await get(admin, quote.id)
+    }
     q = (await (await req(h, 'POST', `/api/quotes/${q.id}/status`, admin.headers, { status: 'approved', version: q.version })).json()) as QuoteDto
     expect(q).toMatchObject({ status: 'approved', canEdit: false })
     expect((await req(h, 'PATCH', `/api/quotes/${q.id}/lines/${firstLine(q).id}`, admin.headers, { name: 'x' })).status).toBe(409)

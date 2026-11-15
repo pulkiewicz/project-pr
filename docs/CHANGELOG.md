@@ -1,5 +1,28 @@
 # Changelog
 
+## Wyceny: kompletność kosztorysu — reguły zależności BOM (W3) (15.11.2026)
+
+- **Reguły kompletności kosztorysu**: nowa zakładka „Reguły kosztorysu” w Bazie wiedzy.
+  - Warunek, czyli którykolwiek z: flaga architektury zaznaczona w wycenie, wartość z checklisty (`=`, `zawiera`, `= tak`, `≥`, `≤`, `wypełnione`) albo „zawsze”.
+  - Wymaganie: w kosztorysie (opcjonalnie we wskazanej sekcji) musi być pozycja z kwotą > 0, której nazwa lub grupa zawiera słowo kluczowe. Porównanie nie rozróżnia wielkości liter ani polskich znaków.
+  - Do reguły można dodać podpowiedź pozycji i wyjątek akceptowany jednym kliknięciem.
+- **11 reguł startowych**:
+  - 4 z wytycznych Kamila (OF029): skraplanie wodne → chiller / dry-cooler (wyjątek: woda lodowa po stronie klienta), układ asymetryczny / 2 sprężarki na jednym obiegu → TraxOil + separator, shelter → kwota w Wyposażeniu dodatkowym, wykonanie zewnętrzne → zabezpieczenia IPX;
+  - z checklisty: wzorcowanie PCA, nawilżanie i uzdatnianie wody przy wymaganej wilgotności, transport, instalacja, uruchomienie, szkolenie.
+- **Krok 7 — karta „Kompletność kosztorysu”**:
+  - flagi architektury do zaznaczenia;
+  - alerty z przyczyną i oczekiwaną pozycją oraz przyciskami „Dodaj pozycję” (okno pozycji z podpowiedzianą nazwą we właściwej sekcji), wyjątek i „Zaakceptuj z uzasadnieniem”;
+  - zaakceptowane braki są wyświetlane z uzasadnieniem, autorem i datą i można je cofnąć;
+  - wbudowany alert „Pozycje bez ceny” (kwota 0 zł);
+  - krok 7 dostaje pomarańczowy stan „N braki w kosztorysie”.
+- **Zatwierdzenie wyceny jest zablokowane** (422 `bom_incomplete`), dopóki istnieje alert bez akceptacji. Nowa rewizja (kopia) przejmuje flagi i akceptacje.
+- **AI „Zaproponuj wycenę”** dostaje listę otwartych braków i ma dodać brakujące pozycje.
+- Technicznie:
+  - tabele `quote_bom_rules`, `quote_bom_acks`, kolumna `quotes.bom_flags` (migracja `20261115175609_quote_bom_rules` z regułami startowymi);
+  - `QuoteDto.bom`;
+  - API: `GET/POST /api/quote-bom-rules`, `PATCH/DELETE /api/quote-bom-rules/{id}` (`quoteKnowledge`), `PUT /api/quotes/{id}/bom/flags`, `POST /api/quotes/{id}/bom/acks`, `DELETE /api/quotes/{id}/bom/acks/{issueKey}` (`quotes:edit`, tylko wycena robocza).
+- Plan dalszych etapów (W1, W2, W4, W5) i pytania do Kamila: `docs/PLAN_WYCENY_V2.md`.
+
 ## Wyceny: krok 4a „Analiza konkurencji” (opcjonalny, AI z wyszukiwaniem w sieci) (11.11.2026)
 
 - **Nowy krok opcjonalny 4a** między checklistą a pytaniami (`?krok=4a`, przerywana ramka w pasku kroków; nie liczy się do „nieukończonych kroków” i nie jest celem wznowienia wyceny). Numeracja pozostałych kroków bez zmian.

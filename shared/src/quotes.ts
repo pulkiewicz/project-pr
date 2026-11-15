@@ -1,3 +1,4 @@
+import type { BomCheckDto } from './bom.ts'
 import { z } from 'zod'
 import type { CompetitionResult } from './competition.ts'
 
@@ -476,5 +477,7 @@ export interface QuoteDto extends QuoteListItemDto {
   rejectedByName: string | null
   /** Krok 4a — wynik ostatniej analizy konkurencji (null — nie wykonano). */
   competition: CompetitionResult | null
+  /** W3 — kompletność kosztorysu (tylko wyceny). */
+  bom: BomCheckDto | null
   version: number
 }

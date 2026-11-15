@@ -19,7 +19,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { ACTIVITY_KINDS, AI_JOB_KINDS, AI_JOB_STATUSES, INPUT_KINDS, QUESTION_AUDIENCES, QUESTION_STATUSES, SUGGESTION_STATUSES, type SuggestionPayload, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type CompetitionResult, type ProfileSpec, type QuoteInfo, type QuoteParams, type RequiredDocStatus, HRF_STATUSES, ID_DOC_TYPES, INVOICE_EVENT_KINDS, INVOICE_STATUSES, type InvoiceManual, type BankTxKind, type BankTxCostStatus, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
+import { ACTIVITY_KINDS, AI_JOB_KINDS, AI_JOB_STATUSES, INPUT_KINDS, QUESTION_AUDIENCES, QUESTION_STATUSES, SUGGESTION_STATUSES, type SuggestionPayload, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type BomCondition, type CompetitionResult, type ProfileSpec, type QuoteInfo, type QuoteParams, type RequiredDocStatus, HRF_STATUSES, ID_DOC_TYPES, INVOICE_EVENT_KINDS, INVOICE_STATUSES, type InvoiceManual, type BankTxKind, type BankTxCostStatus, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -672,6 +672,8 @@ export const quotes = pgTable(
     manualNet: numeric('manual_net', { precision: 14, scale: 2, mode: 'number' }),
     /** Krok 4a — wynik ostatniej analizy konkurencji (AI z wyszukiwaniem w sieci). */
     competition: jsonb('competition').$type<CompetitionResult>(),
+    /** W3 — flagi architektury (np. „Skraplanie wodne”) uruchamiające reguły kompletności kosztorysu. */
+    bomFlags: jsonb('bom_flags').$type<string[]>().notNull().default([]),
     notes: text('notes'),
     /** Folder Google Drive z materiałami wyceny (link wklejony w kroku 2). */
     driveFolderId: text('drive_folder_id'),
@@ -813,6 +815,36 @@ export const components = pgTable(
 )
 
 /** Krok 3: dokumenty wymagane do złożenia oferty (z SIWZ przez AI albo dodane ręcznie). */
+/** W3 — reguły kompletności kosztorysu (Baza wiedzy): warunek → wymagana pozycja w kosztorysie. */
+export const quoteBomRules = pgTable('quote_bom_rules', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  name: text('name').notNull(),
+  description: text('description'),
+  active: boolean('active').notNull().default(true),
+  when: jsonb('when').$type<BomCondition[]>().notNull(),
+  require: jsonb('require').$type<{ section?: string | null; keywords: string[]; positiveCost: boolean }>().notNull(),
+  suggestion: jsonb('suggestion').$type<{ name: string; section?: string | null } | null>(),
+  exceptionLabel: text('exception_label'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+  updatedBy: uuid('updated_by').references(() => users.id),
+})
+
+/** W3 — akceptacja alertu kompletności w wycenie (z uzasadnieniem); klucz `rule:<id>` albo `zero_cost`. */
+export const quoteBomAcks = pgTable(
+  'quote_bom_acks',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    quoteId: uuid('quote_id').notNull().references(() => quotes.id, { onDelete: 'cascade' }),
+    issueKey: text('issue_key').notNull(),
+    reason: text('reason').notNull(),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('quote_bom_acks_uq').on(t.quoteId, t.issueKey)],
+)
+
 export const quoteRequiredDocs = pgTable(
   'quote_required_docs',
   {

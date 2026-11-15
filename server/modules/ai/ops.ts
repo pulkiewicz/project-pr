@@ -571,6 +571,13 @@ async function quoteContext(deps: AppDeps, quoteId: string) {
   return { quote: q, checklist, structure, calcs, catalog, history, answers, laborRate }
 }
 
+/** W3: otwarte braki kompletności kosztorysu jako zadanie dla modelu (pozycje do dodania). */
+function bomGaps(q: { bom: { issues: { kind: string; title: string; ack: unknown; section: string | null; suggestion: { name: string; section: string | null } | null; triggers: string[] }[] } | null }) {
+  const open = (q.bom?.issues ?? []).filter((i) => i.kind === 'rule' && !i.ack)
+  if (!open.length) return ''
+  return `- Kontrola kompletności kosztorysu wykryła BRAKI — dla każdego dodaj pozycję (action="add") z realną kwotą i uzasadnieniem:\n${open.map((i) => `  • ${i.title}${i.suggestion ? ` → „${i.suggestion.name}”${i.suggestion.section ?? i.section ? ` (sekcja: ${i.suggestion.section ?? i.section})` : ''}` : ''}; powód: ${i.triggers.join(', ')}`).join('\n')}\n`
+}
+
 async function proposeLines(ctx: JobCtx, params: { hint?: string | null; lineId?: string; comment?: string }) {
   const { deps, quoteId } = ctx
   const c = await quoteContext(deps, quoteId)
@@ -595,7 +602,7 @@ Zasady:
 - Każda propozycja ma "justification": jak policzono — z czego wynika kwota (profil/poprzednia wycena z nazwą, pozycja katalogu z ceną i datą, wynik kalkulatora mocy, parametr z checklisty) i ilość.
 - Opieraj się na: checkliście, kalkulacjach mocy, katalogu komponentów i podobnych wycenach. Gdy brak danych, zaproponuj ostrożny szacunek i ustaw confidence="low".
 - "notes": najważniejsze założenia i ryzyka (krótko).
-
+${bomGaps(c.quote)}
 Wycena (JSON):
 ${JSON.stringify({ checklista: c.checklist, struktura: c.structure, kalkulacje: c.calcs, odpowiedziNaPytania: c.answers })}
 

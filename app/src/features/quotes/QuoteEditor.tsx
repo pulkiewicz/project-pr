@@ -61,6 +61,7 @@ import { CompetitionPanel } from './CompetitionPanel'
 import { ProfileSpecPanel } from './ProfileSpecPanel'
 import { RevisionModal } from './RevisionModal'
 import { ProfileSwitcher, RejectQuoteModal, RejectedBanner } from './QuoteReject'
+import { BomCheckCard } from './BomPanel'
 import { FormalStep, IdentificationStep, QuestionsDeadline, StepNav, SummaryStep, deadlineLabel, stepInfos } from './WorkflowSteps'
 
 const STATUS_COLOR = { draft: 'gray', approved: 'green', sent: 'blue', imported: 'violet', rejected: 'red' } as const
@@ -75,7 +76,7 @@ export function quoteLabel(q: Pick<QuoteDto, 'kind' | 'name' | 'opportunityCode'
 
 const EMPTY_LINE: LineInput = { name: '', quantity: 1, source: 'manual', approved: false }
 
-function LineModal({ q, line, sectionId, onClose }: { q: QuoteDto; line: QuoteLineDto | null; sectionId: string | null; onClose: () => void }) {
+function LineModal({ q, line, sectionId, draftName, onClose }: { q: QuoteDto; line: QuoteLineDto | null; sectionId: string | null; draftName?: string; onClose: () => void }) {
   const { t } = useTranslation()
   const settings = useQuoteSettings()
   const mutation = useQuoteMutation(q.id)
@@ -90,9 +91,9 @@ function LineModal({ q, line, sectionId, onClose }: { q: QuoteDto; line: QuoteLi
     if (line) {
       const { name, group, quantity, unit, unitCost, laborHours, laborRate, justification, source, confidence, approved, componentId } = line
       setF({ name, group, quantity, unit, unitCost: q.canSeeCosts ? unitCost : undefined, laborHours, laborRate: q.canSeeCosts ? laborRate : undefined, justification, source, confidence, approved, componentId, sectionId })
-    } else setF({ ...EMPTY_LINE, laborRate: q.canEditCosts ? (settings.data?.laborRate ?? null) : undefined })
+    } else setF({ ...EMPTY_LINE, name: draftName ?? EMPTY_LINE.name, laborRate: q.canEditCosts ? (settings.data?.laborRate ?? null) : undefined })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sectionId, line?.id])
+  }, [sectionId, line?.id, draftName])
 
   const sections = q.devices.flatMap((d) => d.sections.map((s) => ({ value: s.id, label: q.devices.length > 1 ? `${d.name} · ${s.name}` : s.name })))
   const editable = q.canEdit
@@ -604,7 +605,7 @@ export function QuoteEditor({ id }: { id: string }) {
   const [tab, setTab] = useState<string | null>('items')
   const [revisionOpen, setRevisionOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
-  const [lineEdit, setLineEdit] = useState<{ line: QuoteLineDto | null; sectionId: string } | null>(null)
+  const [lineEdit, setLineEdit] = useState<{ line: QuoteLineDto | null; sectionId: string; draftName?: string } | null>(null)
   const q = query.data
   const steps = useMemo(() => (q && q.kind === 'quote' ? stepInfos(q, t) : []), [q, t])
   // `?krok=` — oznaczenie kroku („1”…„8”, „4a”).
@@ -694,6 +695,7 @@ export function QuoteEditor({ id }: { id: string }) {
           </Alert>
         )}
         <ProfileSwitcher q={q} />
+        <BomCheckCard q={q} onAddLine={(sectionId, name) => setLineEdit({ line: null, sectionId, draftName: name })} />
         {itemsPanel}
         <SummaryPanel q={q} />
       </Stack>
@@ -854,7 +856,7 @@ export function QuoteEditor({ id }: { id: string }) {
           </Group>
         </Stack>
       )}
-      <LineModal q={q} line={lineEdit?.line ?? null} sectionId={lineEdit?.sectionId ?? null} onClose={() => setLineEdit(null)} />
+      <LineModal q={q} line={lineEdit?.line ?? null} sectionId={lineEdit?.sectionId ?? null} draftName={lineEdit?.draftName} onClose={() => setLineEdit(null)} />
     </Stack>
   )
 }

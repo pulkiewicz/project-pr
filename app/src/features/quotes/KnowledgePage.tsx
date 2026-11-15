@@ -11,6 +11,7 @@ import { formatDateTime } from '../../lib/format'
 import { useCreateQuote, useQuoteSettings, useQuotes, useSaveQuoteSettings } from './api'
 import { QuoteEditor } from './QuoteEditor'
 import { StandaloneCalc } from './CalcPanel'
+import { BomRulesTab } from './BomPanel'
 import { CatalogTab } from './CatalogTab'
 import { SpecListTab } from './SpecListTab'
 import { AiSettingsCard, DriveSettingsCard } from './AiSettingsCards'
@@ -95,6 +96,7 @@ function Profiles() {
           <Tabs.Tab value="profiles">{t('knowledge.tabs.profiles')}</Tabs.Tab>
           <Tabs.Tab value="catalog">{t('knowledge.tabs.catalog')}</Tabs.Tab>
           <Tabs.Tab value="spec">{t('knowledge.tabs.spec')}</Tabs.Tab>
+          <Tabs.Tab value="bom">{t('knowledge.tabs.bom')}</Tabs.Tab>
           <Tabs.Tab value="calc">{t('knowledge.tabs.calc')}</Tabs.Tab>
           <Tabs.Tab value="settings">{t('knowledge.tabs.settings')}</Tabs.Tab>
         </Tabs.List>
@@ -140,6 +142,9 @@ function Profiles() {
         </Tabs.Panel>
         <Tabs.Panel value="spec" pt="sm">
           <SpecListTab />
+        </Tabs.Panel>
+        <Tabs.Panel value="bom" pt="sm">
+          <BomRulesTab />
         </Tabs.Panel>
         <Tabs.Panel value="calc" pt="sm">
           <StandaloneCalc />

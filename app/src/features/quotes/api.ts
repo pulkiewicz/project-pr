@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
 import type {
+  BomRuleDto,
+  BomRuleInput,
   ChecklistDto,
   ComponentDto,
   ComponentInput,
@@ -56,7 +58,7 @@ export function useCreateQuote() {
 export function useQuoteMutation(id: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (v: { method: 'POST' | 'PATCH' | 'DELETE'; path?: string; json?: unknown }) => api<QuoteDto>(`/quotes/${id}${v.path ?? ''}`, { method: v.method, json: v.json }),
+    mutationFn: (v: { method: 'POST' | 'PUT' | 'PATCH' | 'DELETE'; path?: string; json?: unknown }) => api<QuoteDto>(`/quotes/${id}${v.path ?? ''}`, { method: v.method, json: v.json }),
     onSuccess: (q) => {
       qc.setQueryData(['quote', id], q)
       void qc.invalidateQueries({ queryKey: ['quotes'] })
@@ -74,6 +76,9 @@ export const quoteOps = {
   reject: (reason: string, version: number) => ({ method: 'POST' as const, path: '/reject', json: { reason, version } }),
   reopen: (version: number) => ({ method: 'POST' as const, path: '/reopen', json: { version } }),
   applyProfile: (profileId: string, version: number) => ({ method: 'POST' as const, path: '/apply-profile', json: { profileId, version } }),
+  bomFlags: (flags: string[]) => ({ method: 'PUT' as const, path: '/bom/flags', json: { flags } }),
+  bomAck: (issueKey: string, reason: string) => ({ method: 'POST' as const, path: '/bom/acks', json: { issueKey, reason } }),
+  bomUnack: (issueKey: string) => ({ method: 'DELETE' as const, path: `/bom/acks/${encodeURIComponent(issueKey)}` }),
   addDevice: (json: { name: string; quantity?: number; isOption?: boolean; included?: boolean; withDefaultSections?: boolean }) => ({ method: 'POST' as const, path: '/devices', json }),
   patchDevice: (deviceId: string, json: Record<string, unknown>) => ({ method: 'PATCH' as const, path: `/devices/${deviceId}`, json }),
   deleteDevice: (deviceId: string) => ({ method: 'DELETE' as const, path: `/devices/${deviceId}` }),
@@ -167,6 +172,23 @@ export function useRequiredDocMutation(quoteId: string) {
     onSuccess: (docs) => {
       qc.setQueryData(['required-docs', quoteId], docs)
       void qc.invalidateQueries({ queryKey: ['quote', quoteId] })
+    },
+    onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+  })
+}
+
+// ---------------- W3: reguły kompletności kosztorysu ----------------
+
+export const useBomRules = () => useQuery({ queryKey: ['bom-rules'], queryFn: () => api<BomRuleDto[]>('/quote-bom-rules') })
+
+export function useBomRuleMutation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { method: 'POST' | 'PATCH' | 'DELETE'; id?: string; json?: Partial<BomRuleInput> & { sortOrder?: number } }) =>
+      api<BomRuleDto[]>(`/quote-bom-rules${v.id ? `/${v.id}` : ''}`, { method: v.method, json: v.json }),
+    onSuccess: (list) => {
+      qc.setQueryData(['bom-rules'], list)
+      void qc.invalidateQueries({ queryKey: ['quote'] })
     },
     onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
   })

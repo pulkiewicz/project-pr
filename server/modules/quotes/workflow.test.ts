@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { OpportunityDto, QuoteDto, RequiredDocDto } from '#shared'
+import type { BomRuleDto, OpportunityDto, QuoteDto, RequiredDocDto } from '#shared'
 import { createUser, req, startHarness, type Harness, type TestUser } from '../../test/harness.ts'
 
 /** Przepływ wyceny: krok 1 (przepięcie szansy), krok 3 (terminy, wymagane dokumenty), liczniki kroków. */
@@ -196,5 +196,57 @@ describe('szansa: liczba wycen, najnowsza wycena, wartość z wyceny', () => {
     const profiles = (await (await req(h, 'GET', '/api/quotes?kind=profile', admin.headers)).json()) as QuoteDto[]
     const p = (await (await req(h, 'GET', `/api/quotes/${profiles[0]!.id}`, admin.headers)).json()) as QuoteDto
     expect((await req(h, 'PATCH', `/api/quotes/${p.id}`, admin.headers, { manualNet: 1, version: p.version })).status).toBe(422)
+  })
+})
+
+describe('W3: kompletność kosztorysu', () => {
+  it('reguły startowe w Bazie wiedzy; edycja tylko z uprawnieniem', async () => {
+    const rules = (await (await req(h, 'GET', '/api/quote-bom-rules', staff.headers)).json()) as BomRuleDto[]
+    expect(rules.map((r) => r.name)).toEqual(expect.arrayContaining(['Skraplanie wodne → chiller / dry-cooler', 'Shelter / przestrzeń robocza zewnętrzna → moduł sheltera']))
+    const created = await req(h, 'POST', '/api/quote-bom-rules', admin.headers, { name: 'Test reguły', when: [{ kind: 'flag', flag: 'Flaga testowa' }], require: { keywords: ['pozycja testowa'] } })
+    expect(created.status).toBe(200)
+    const id = ((await created.json()) as BomRuleDto[]).find((r) => r.name === 'Test reguły')!.id
+    expect((await req(h, 'PATCH', `/api/quote-bom-rules/${id}`, admin.headers, { active: false })).status).toBe(200)
+    expect((await req(h, 'DELETE', `/api/quote-bom-rules/${id}`, admin.headers)).status).toBe(200)
+  })
+
+  it('flaga → alert blokuje zatwierdzenie; pozycja albo akceptacja go zamyka; rewizja kopiuje flagi i akceptacje', async () => {
+    const o = opps.find((x) => x.code !== 'OF36' && x.stage !== 'won')!
+    let q = (await (await req(h, 'POST', '/api/quotes', staff.headers, { opportunityId: o.id })).json()) as QuoteDto
+    const sec = q.devices[0]!.sections.find((s) => s.name === 'Wyposażenie dodatkowe')!
+    q = (await (await req(h, 'POST', `/api/quotes/${q.id}/sections/${sec.id}/lines`, staff.headers, { name: 'Podstawa', unitCost: 20000 })).json()) as QuoteDto
+    expect(q.bom).toMatchObject({ open: 0 })
+    expect(q.bom!.availableFlags).toEqual(expect.arrayContaining(['Skraplanie wodne', 'Shelter / przestrzeń robocza zewnętrzna']))
+
+    q = (await (await req(h, 'PUT', `/api/quotes/${q.id}/bom/flags`, staff.headers, { flags: ['Skraplanie wodne', 'Shelter / przestrzeń robocza zewnętrzna'] })).json()) as QuoteDto
+    expect(q.bom!.issues.map((i) => i.title)).toEqual(['Skraplanie wodne → chiller / dry-cooler', 'Shelter / przestrzeń robocza zewnętrzna → moduł sheltera'])
+    const res = await req(h, 'POST', `/api/quotes/${q.id}/status`, admin.headers, { status: 'approved', version: q.version })
+    expect(res.status).toBe(422)
+    expect(JSON.stringify(await res.json())).toContain('bom_incomplete')
+
+    // Chiller w kosztorysie spełnia regułę 1; shelter — akceptacja z uzasadnieniem.
+    q = (await (await req(h, 'POST', `/api/quotes/${q.id}/sections/${sec.id}/lines`, staff.headers, { name: 'Chiller (praca do +45°C)', unitCost: 85000 })).json()) as QuoteDto
+    const shelter = q.bom!.issues.find((i) => i.title.startsWith('Shelter'))!
+    expect(q.bom!.open).toBe(1)
+    expect((await req(h, 'POST', `/api/quotes/${q.id}/bom/acks`, staff.headers, { issueKey: shelter.key, reason: '' })).status).toBe(422)
+    q = (await (await req(h, 'POST', `/api/quotes/${q.id}/bom/acks`, staff.headers, { issueKey: shelter.key, reason: 'Shelter dostarcza zamawiający' })).json()) as QuoteDto
+    expect(q.bom!.open).toBe(0)
+    expect(q.bom!.issues[0]!.ack).toMatchObject({ reason: 'Shelter dostarcza zamawiający' })
+
+    const rev = (await (await req(h, 'POST', `/api/quotes/${q.id}/revision`, staff.headers, { mode: 'copy' })).json()) as QuoteDto
+    expect(rev.bom).toMatchObject({ flags: ['Skraplanie wodne', 'Shelter / przestrzeń robocza zewnętrzna'], open: 0 })
+
+    q = (await (await req(h, 'DELETE', `/api/quotes/${q.id}/bom/acks/${encodeURIComponent(shelter.key)}`, staff.headers)).json()) as QuoteDto
+    expect(q.bom!.open).toBe(1)
+    q = (await (await req(h, 'POST', `/api/quotes/${q.id}/bom/acks`, staff.headers, { issueKey: shelter.key, reason: 'Shelter dostarcza zamawiający' })).json()) as QuoteDto
+    expect((await req(h, 'POST', `/api/quotes/${q.id}/status`, admin.headers, { status: 'approved', version: q.version })).status).toBe(200)
+  })
+
+  it('warunek z checklisty: wzorcowanie akredytowane → pozycja wzorcowania', async () => {
+    const o = opps.find((x) => x.code !== 'OF36' && x.stage !== 'won')!
+    const q = (await (await req(h, 'POST', '/api/quotes', staff.headers, { opportunityId: o.id })).json()) as QuoteDto
+    expect((await req(h, 'PUT', `/api/quotes/${q.id}/checklist/accredited_calibration`, staff.headers, { value: { b: true }, status: 'confirmed' })).status).toBe(200)
+    const after = await get(q.id)
+    expect(after.bom!.issues.find((i) => i.title.startsWith('Wzorcowanie'))).toMatchObject({ section: 'Koszty inne', triggers: [expect.stringContaining('Wzorcowanie akredytowane')] })
   })
 })

@@ -380,7 +380,9 @@
     "drive_folder_invalid": "Nierozpoznany link do folderu Google Drive",
     "drive_folder_missing": "Najpierw podepnij folder Google Drive wyceny",
     "required_doc_not_found": "Nie znaleziono dokumentu",
-    "not_a_profile": "Wybrana pozycja nie jest profilem wyceny"
+    "not_a_profile": "Wybrana pozycja nie jest profilem wyceny",
+    "bom_incomplete": "Kosztorys niekompletny — w kroku 7 dodaj brakujące pozycje albo zaakceptuj alerty z uzasadnieniem",
+    "bom_rule_not_found": "Nie znaleziono reguły"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -409,7 +411,8 @@
     "url": "Podaj adres zaczynający się od http:// lub https://",
     "rejectReasonRequired": "Podaj przyczynę (min. 3 znaki)",
     "rangeMinMax": "Wartość maks. nie może być mniejsza niż min.",
-    "markdownFile": "Plik wytycznych musi mieć rozszerzenie .md"
+    "markdownFile": "Plik wytycznych musi mieć rozszerzenie .md",
+    "ackReasonRequired": "Podaj uzasadnienie (min. 3 znaki)"
   },
   "parties": {
     "Envcheck": "Envcheck",
@@ -1332,7 +1335,8 @@
       "catalog": "Katalog komponentów",
       "spec": "Lista specyfikacyjna",
       "calc": "Kalkulator",
-      "settings": "Ustawienia"
+      "settings": "Ustawienia",
+      "bom": "Reguły kosztorysu"
     },
     "specHint": "Zapis tworzy nową wersję listy. Wyceny z rozpoczętą checklistą zostają przy swojej wersji.",
     "specSave": "Zapisz jako nową wersję",
@@ -2024,7 +2028,11 @@
       "noLines": "brak pozycji",
       "folder": "folder Drive",
       "competition": "produkty: {{count}}",
-      "optional": "opcjonalny"
+      "optional": "opcjonalny",
+      "bomOpen_one": "{{count}} brak w kosztorysie",
+      "bomOpen_few": "{{count}} braki w kosztorysie",
+      "bomOpen_many": "{{count}} braków w kosztorysie",
+      "bomOpen_other": "{{count}} braku w kosztorysie"
     },
     "identification": {
       "title": "Klient i szansa",
@@ -2451,5 +2459,61 @@
       "partial": "częściowo",
       "none": "nie spełnia"
     }
+  },
+  "bom": {
+    "title": "Kompletność kosztorysu",
+    "open_one": "{{count}} alert",
+    "open_few": "{{count}} alerty",
+    "open_many": "{{count}} alertów",
+    "open_other": "{{count}} alertu",
+    "complete": "kompletny",
+    "flagsHint": "Architektura i zakres urządzenia — zaznacz, co dotyczy tej wyceny (uruchamia reguły kompletności):",
+    "because": "Dlaczego",
+    "expected": "Oczekiwana pozycja — sekcja: {{section}}; słowa: {{keywords}}",
+    "anySection": "dowolna sekcja",
+    "addLine": "Dodaj pozycję „{{name}}”",
+    "ackAction": "Zaakceptuj z uzasadnieniem…",
+    "ack": "Zaakceptuj",
+    "ackTitle": "Akceptacja braku: {{title}}",
+    "ackReason": "Uzasadnienie",
+    "ackPlaceholder": "np. chiller dostarcza zamawiający; pozycja ujęta w innej sekcji",
+    "unack": "Cofnij akceptację",
+    "allGood": "Brak alertów — kosztorys spełnia reguły kompletności.",
+    "rulesHint": "Reguły pilnują kompletności kosztorysu: gdy warunek jest spełniony (flaga architektury zaznaczona w wycenie albo wartość z checklisty), w kosztorysie musi być pozycja z kwotą pasująca do słów kluczowych. Brak blokuje zatwierdzenie wyceny, dopóki ktoś nie doda pozycji albo nie zaakceptuje braku z uzasadnieniem.",
+    "newRule": "Nowa reguła",
+    "editRule": "Edycja reguły",
+    "ruleName": "Reguła",
+    "ruleDescription": "Opis (widoczny w alercie)",
+    "when": "Gdy (którykolwiek warunek)",
+    "then": "Wymagana pozycja",
+    "or": "lub",
+    "cond": {
+      "flag": "Flaga",
+      "checklist": "Checklista",
+      "always": "Zawsze"
+    },
+    "op": {
+      "eq": "=",
+      "contains": "zawiera",
+      "true": "= tak",
+      "gte": "≥",
+      "lte": "≤",
+      "filled": "wypełnione"
+    },
+    "flagPlaceholder": "np. Skraplanie wodne",
+    "pickItem": "Pozycja checklisty",
+    "addCondition": "Dodaj warunek",
+    "section": "Sekcja",
+    "keywords": "Słowa kluczowe",
+    "keywordsHint": "Nazwa lub grupa pozycji zawiera którekolwiek (bez wielkości liter i polskich znaków); Enter dodaje słowo",
+    "positiveCost": "Pozycja musi mieć kwotę > 0",
+    "suggestion": "Podpowiedź pozycji („Dodaj pozycję”)",
+    "exception": "Wyjątek",
+    "exceptionHint": "Akceptacja jednym kliknięciem, np. „Woda lodowa po stronie klienta”",
+    "active": "Aktywna",
+    "inactive": "nieaktywna",
+    "activate": "Włącz",
+    "deactivate": "Wyłącz",
+    "deleteConfirm": "Usunąć regułę „{{name}}”?"
   }
 }
