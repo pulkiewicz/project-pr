@@ -2,11 +2,13 @@ import { z } from 'zod'
 import { httpUrl } from './hrf.ts'
 import type { QuoteStatus } from './quotes.ts'
 
-/** Lejek sprzedaży (decyzja C1 planu Envcheck Hub): 6 etapów. */
-export const OPPORTUNITY_STAGES = ['new', 'quoting', 'submitted', 'won', 'lost', 'abandoned', 'on_hold'] as const
+/** Lejek sprzedaży (decyzja C1 planu Envcheck Hub); „settled” = wygrana zamknięta i rozliczona. */
+export const OPPORTUNITY_STAGES = ['new', 'quoting', 'submitted', 'won', 'settled', 'lost', 'abandoned', 'on_hold'] as const
 export type OpportunityStage = (typeof OPPORTUNITY_STAGES)[number]
 /** Etapy zamknięte — wymagają powodu przy przejściu (przegrana) i nie podlegają przypomnieniom. */
-export const OPPORTUNITY_CLOSED: readonly OpportunityStage[] = ['won', 'lost', 'abandoned', 'on_hold']
+export const OPPORTUNITY_CLOSED: readonly OpportunityStage[] = ['won', 'settled', 'lost', 'abandoned', 'on_hold']
+/** Etapy wygranej — można z nich założyć projekt. */
+export const OPPORTUNITY_WON: readonly OpportunityStage[] = ['won', 'settled']
 /** Etapy bez szans na zamówienie — wyłączone z wartości lejka i z wyboru przy nowej wycenie. */
 export const OPPORTUNITY_INACTIVE: readonly OpportunityStage[] = ['lost', 'abandoned', 'on_hold']
 

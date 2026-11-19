@@ -29,6 +29,7 @@ import { Link } from 'react-router-dom'
 import {
   MANUAL_ACTIVITY_KINDS,
   OPPORTUNITY_STAGES,
+  OPPORTUNITY_WON,
   OPPORTUNITY_TYPES,
   type ActivityDto,
   type OpportunityInput,
@@ -282,7 +283,7 @@ export function OpportunityDrawer({ id, opened, onClose, onCreated }: { id: stri
                   {t('crm.openProject')} {o.projectCode}
                 </Button>
               ) : (
-                o.stage === 'won' &&
+                OPPORTUNITY_WON.includes(o.stage) &&
                 can('crm', 'approve') && (
                   <Button variant="light" color="green" onClick={() => setProjectOpen(true)}>
                     {t('crm.createProject')}

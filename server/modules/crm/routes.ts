@@ -3,6 +3,7 @@ import { and, asc, count, eq, inArray, isNull, sql } from 'drizzle-orm'
 import ExcelJS from 'exceljs'
 import type { Context } from 'hono'
 import {
+  OPPORTUNITY_WON,
   ENVCHECK_ROLES,
   activityInput,
   companyInput,
@@ -427,7 +428,7 @@ crmRouter.openapi(
     const deps = c.get('deps')
     const user = c.get('user')
     const opp = await opportunityOr404(c, id)
-    if (opp.stage !== 'won') throw new HttpProblem(422, 'opportunity_not_won')
+    if (!OPPORTUNITY_WON.includes(opp.stage)) throw new HttpProblem(422, 'opportunity_not_won')
     if (opp.projectId) throw new HttpProblem(409, 'opportunity_has_project')
     const [dup] = await deps.db.select({ id: projects.id }).from(projects).where(sql`lower(${projects.code}) = lower(${opp.code})`)
     if (dup) throw new HttpProblem(409, 'project_code_exists', opp.code)

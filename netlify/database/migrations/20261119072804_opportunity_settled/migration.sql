@@ -1,0 +1,1 @@
+ALTER TYPE "opportunity_stage" ADD VALUE 'settled' BEFORE 'lost';
