@@ -199,6 +199,24 @@ export function UsersPage() {
     projectIds: u.projectIds,
   })
 
+  const remove = useMutation({
+    mutationFn: (u: UserDto) => api(`/admin/users/${u.id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      notifications.show({ color: 'green', message: t('users.deleted') })
+      void qc.invalidateQueries({ queryKey: ['admin', 'users'] })
+    },
+    onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+  })
+
+  const confirmDelete = (u: UserDto) =>
+    modals.openConfirmModal({
+      title: t('users.delete'),
+      children: <Text size="sm">{t('users.deleteConfirm', { name: u.name, email: u.email })}</Text>,
+      labels: { confirm: t('users.delete'), cancel: t('app.cancel') },
+      confirmProps: { color: 'red' },
+      onConfirm: () => remove.mutate(u),
+    })
+
   const confirmReset = (u: UserDto) =>
     modals.openConfirmModal({
       title: t('users.resetMfa'),
@@ -282,6 +300,14 @@ export function UsersPage() {
                       <Menu.Item disabled={u.identityLinked} onClick={() => action.mutate({ id: u.id, kind: 'resend-invite' })}>
                         {t('users.resendInvite')}
                       </Menu.Item>
+                      {can('admin', 'delete') && u.id !== me.user.id && (
+                        <>
+                          <Menu.Divider />
+                          <Menu.Item color="red" onClick={() => confirmDelete(u)}>
+                            {t('users.delete')}
+                          </Menu.Item>
+                        </>
+                      )}
                     </Menu.Dropdown>
                   </Menu>
                 </Table.Td>

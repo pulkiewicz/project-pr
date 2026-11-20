@@ -121,6 +121,33 @@ describe('zarządzanie użytkownikami', () => {
     const res = await req(h, 'PATCH', `/api/admin/users/${admin.id}`, admin.headers, { isActive: false, version: 1 })
     expect(res.status).toBe(422)
   })
+
+  it('usunięcie: znika z listy, traci dostęp, audyt; ponowne dodanie przywraca rekord', async () => {
+    const res = await req(h, 'POST', '/api/admin/users', admin.headers, { email: 'del@envcheck.test', name: 'Do Usunięcia', role: 'EnvcheckInternal', access: 'none' })
+    const target = (await res.json()) as UserDto
+
+    expect((await req(h, 'DELETE', `/api/admin/users/${admin.id}`, admin.headers)).status).toBe(422)
+    expect((await req(h, 'DELETE', `/api/admin/users/${target.id}`, admin.headers)).status).toBe(200)
+    expect((await req(h, 'DELETE', `/api/admin/users/${target.id}`, admin.headers)).status).toBe(404)
+
+    const list = (await (await req(h, 'GET', '/api/admin/users', admin.headers)).json()) as UserDto[]
+    expect(list.map((u) => u.id)).not.toContain(target.id)
+    const [row] = await h.db.select().from(schema.users).where(eq(schema.users.id, target.id))
+    expect(row).toMatchObject({ isActive: false, deletedBy: admin.id })
+    expect(row!.deletedAt).not.toBeNull()
+    const audit = await h.db.select().from(schema.auditLog).where(eq(schema.auditLog.action, 'user.delete'))
+    expect(audit.map((a) => a.entityId)).toContain(target.id)
+
+    const again = await req(h, 'POST', '/api/admin/users', admin.headers, { email: 'DEL@envcheck.test', name: 'Wrócił', role: 'Arsanit', access: 'none' })
+    expect(again.status).toBe(201)
+    expect((await again.json()) as UserDto).toMatchObject({ id: target.id, name: 'Wrócił', role: 'Arsanit', isActive: true })
+  })
+
+  it('usuwanie wymaga uprawnienia admin/delete', async () => {
+    const other = await createUser(h, 'EnvcheckInternal')
+    const victim = await createUser(h, 'Arsanit')
+    expect((await req(h, 'DELETE', `/api/admin/users/${victim.id}`, other.headers)).status).toBe(403)
+  })
 })
 
 describe('macierz uprawnień', () => {

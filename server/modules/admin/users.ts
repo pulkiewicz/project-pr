@@ -135,23 +135,37 @@ adminUsersRouter.openapi(
       .from(users)
       .where(and(sql`lower(${users.email}) = lower(${input.email})`, isNull(users.deletedAt)))
     if (existing) throw new HttpProblem(409, 'user_exists')
+    // Indeks e-maila nie pomija usuniętych — ponowne dodanie tej samej osoby przywraca jej dawny rekord.
+    const [deleted] = await deps.db
+      .select({ id: users.id })
+      .from(users)
+      .where(sql`lower(${users.email}) = lower(${input.email}) and ${users.deletedAt} is not null`)
 
     const created = await deps.db.transaction(async (tx) => {
-      const [row] = await tx
-        .insert(users)
-        .values({
-          email: input.email,
-          name: input.name,
-          role: input.role,
-          party: defaultPartyForRole(input.role, input.subcontractorId),
-          subcontractorId: input.subcontractorId ?? null,
-          invitedAt: sql`now()`,
-          createdBy: c.get('user').id,
-          updatedBy: c.get('user').id,
-        })
-        .returning()
+      const fields = {
+        name: input.name,
+        role: input.role,
+        party: defaultPartyForRole(input.role, input.subcontractorId),
+        subcontractorId: input.subcontractorId ?? null,
+        invitedAt: sql`now()`,
+        updatedBy: c.get('user').id,
+      }
+      const [row] = deleted
+        ? await tx
+            .update(users)
+            .set({ ...fields, isActive: true, deletedAt: null, deletedBy: null, updatedAt: sql`now()`, version: sql`${users.version} + 1` })
+            .where(eq(users.id, deleted.id))
+            .returning()
+        : await tx
+            .insert(users)
+            .values({ ...fields, email: input.email, createdBy: c.get('user').id })
+            .returning()
       const projectsChange = await setMemberships(tx, row!.id, input.role, input.projectIds, c.get('user').id)
-      await writeAudit(c, { action: 'user.invite', entity: 'users', entityId: row!.id, changes: { email: input.email, role: input.role, ...projectsChange } }, tx)
+      await writeAudit(
+        c,
+        { action: 'user.invite', entity: 'users', entityId: row!.id, changes: { email: input.email, role: input.role, ...(deleted ? { restored: true } : {}), ...projectsChange } },
+        tx,
+      )
       return row!
     })
     // Rekord w aplikacji powstaje niezależnie od Identity — konto wiąże się po e-mailu przy pierwszym logowaniu.
@@ -224,6 +238,35 @@ adminUsersRouter.openapi(
       throw conflict(fresh ? await userDto(deps.db, fresh) : null)
     }
     return c.json(await userDto(deps.db, updated), 200)
+  },
+)
+
+/**
+ * Usunięcie (miękkie): rekord zostaje dla historii (audyt, przypisania zadań, wpisy czasu), ale znika z list
+ * i nie może się zalogować (`resolveUser` pomija usuniętych). Konto Netlify Identity pozostaje nietknięte.
+ */
+adminUsersRouter.openapi(
+  secureRoute(
+    '/admin',
+    { method: 'delete', path: '/users/{id}', request: { params: idParam }, responses: ok },
+    { permission: { module: 'admin', action: 'delete' } },
+  ),
+  async (c) => {
+    const { id } = c.req.valid('param')
+    const deps = c.get('deps')
+    const me = c.get('user')
+    if (id === me.id) throw new HttpProblem(422, 'cannot_delete_self')
+    const deleted = await deps.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(users)
+        .set({ isActive: false, deletedAt: sql`now()`, deletedBy: me.id, updatedAt: sql`now()`, updatedBy: me.id, version: sql`${users.version} + 1` })
+        .where(and(eq(users.id, id), isNull(users.deletedAt)))
+        .returning()
+      if (row) await writeAudit(c, { action: 'user.delete', entity: 'users', entityId: id, changes: { email: row.email, name: row.name } }, tx)
+      return row
+    })
+    if (!deleted) throw notFound()
+    return c.json({ ok: true }, 200)
   },
 )
 
