@@ -376,7 +376,7 @@ export function CostEstimatePage() {
             {!data.items.length ? (
               <Text c="dimmed">{t('costEstimate.empty')}</Text>
             ) : (
-              <Table.ScrollContainer minWidth={1000} mah="calc(100vh - 360px)">
+              <Table.ScrollContainer minWidth={1000} maxHeight="calc(100vh - 360px)">
                 <Table stickyHeader highlightOnHover verticalSpacing={4} fz="sm">
                   <Table.Thead>
                     <Table.Tr>
