@@ -34,6 +34,7 @@ const ManagementHelpPage = lazy(() => import('./features/help/ManagementHelpPage
 const EmployeesPage = lazy(() => import('./features/management/EmployeesPage').then((m) => ({ default: m.EmployeesPage })))
 const TimesheetsPage = lazy(() => import('./features/timesheets/TimesheetsPage').then((m) => ({ default: m.TimesheetsPage })))
 const FleetPage = lazy(() => import('./features/management/FleetPage').then((m) => ({ default: m.FleetPage })))
+const CostEstimatePage = lazy(() => import('./features/costEstimate/CostEstimatePage').then((m) => ({ default: m.CostEstimatePage })))
 const PurchasesPage = lazy(() => import('./features/purchases/PurchasesPage').then((m) => ({ default: m.PurchasesPage })))
 
 /** Ukrywa trasę w UI; właściwa autoryzacja zawsze po stronie API. */
@@ -93,6 +94,7 @@ export function App() {
           <Route path="plan-tygodniowy" element={<Guard module="weeklyPlan"><Suspense fallback={<Loader />}><WeeklyPlanPage /></Suspense></Guard>} />
           <Route path="awizacje" element={<Guard module="avizations"><Suspense fallback={<Loader />}><AvizationsPage /></Suspense></Guard>} />
           <Route path="zakupy" element={<Guard module="purchases"><Suspense fallback={<Loader />}><PurchasesPage /></Suspense></Guard>} />
+          <Route path="kosztorys" element={<Guard module="costEstimate"><Suspense fallback={<Loader />}><CostEstimatePage /></Suspense></Guard>} />
           {PROJECT_NAV.filter((n) => !n.ready).map((n) => (
             <Route key={n.module} path={n.path} element={<Guard module={n.module}><ModulePlaceholder item={n} /></Guard>} />
           ))}

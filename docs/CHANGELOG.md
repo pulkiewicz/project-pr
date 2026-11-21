@@ -1,5 +1,15 @@
 # Changelog
 
+## Projekt: Kosztorys [W] (z arkusza „PIT-RADWAR – koszty szacunek, wyceny, wykonanie”); Plan zakupów poza menu (21.11.2026)
+
+- Nowy moduł projektu **Kosztorys** (`/projekty/{kod}/kosztorys`), tylko dla Envcheck: moduł `costEstimate` (staffOnly), Admin i Envcheck wewnętrzny pełny dostęp, role zewnętrzne i Księgowość bez dostępu.
+- Pozycje: kategoria, budżet (Envcheck / Arsanit), szacowane, wycena dostawcy (EUR lub PLN, przeliczana kursem z ustawień), faktyczne, prognoza (auto: faktyczne → wycena → szacunek; „na szacunku” dla wycen częściowych; ręczna), dostawca, uwagi. Kolejność zmienia się strzałkami w menu wiersza.
+- **Podpozycje (doszczegółowienie)** tylko w pozycjach budżetu Envcheck, jeden poziom. Dziedziczą kategorię i budżet. Wycena i faktyczne pozycji to sumy podpozycji. Szacunek pozycji (OF14) się nie zmienia: podpozycje bez własnego szacunku dzielą go po równo, a nierozpisana reszta zostaje w prognozie.
+- Podsumowanie jak w arkuszu: koszty Envcheck wg kategorii, koszty wg budżetu, zakres Arsanit a aneks, podział wynagrodzenia i wynik Envcheck. Parametry konsorcjum i kurs EUR ustawia się w „Ustawieniach” kosztorysu. Eksport XLSX (Podsumowanie + Pozycje).
+- Migracja importuje dla OF14 57 pozycji arkusza, kurs 4,4 i parametry z projektu Aneksu nr 1 (pomijana bez OF14 lub gdy kosztorys już jest).
+- Druga migracja przypisuje **pozycje planu zakupów** (w tym komponenty krytyczne) jako podpozycje właściwych pozycji kosztorysu, z powiązaniem do pozycji planu. W tabeli widać status zamówienia i znacznik „krytyczny”, a kwota netto zamówienia staje się wyceną. Wycena z arkusza przechodzi z pozycji na jej jedyną podpozycję. Pozycje „Bramy, drzwi komór i śluzy” i „Obróbki nierdzewne i prefabrykacja komór” przechodzą z budżetu Arsanit do Envcheck, bo te zakupy robi Envcheck. Budżet Arsanit w kosztorysie spada o 575 000 zł, a różnica wobec aneksu rośnie do 942 000 zł. Pominięte pozycje (Arsanit, bez dopasowania) trafiają do audit logu `purchases.cost_estimate_link`.
+- **Plan zakupów** usunięty z menu projektu. Strona `/projekty/{kod}/zakupy` nadal działa.
+
 ## Wyceny: współczynnik jednoczesności gniazd w bilansie zasilania (15.11.2026)
 
 - Bilans zasilania (krok 3) liczy gniazda dodatkowe z SWZ jako prąd znamionowy × współczynnik jednoczesności. Wcześniej suma znamionowa była liczona w całości, co dla OF029 (96 A gniazd) dawało nierealne 160 A.

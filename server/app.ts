@@ -24,6 +24,7 @@ import { dashboardRouter } from './modules/dashboard/routes.ts'
 import { hrfInternalRouter } from './modules/hrf/internal.ts'
 import { hrfRouter } from './modules/hrf/routes.ts'
 import { purchasesRouter } from './modules/purchases/routes.ts'
+import { costEstimateRouter } from './modules/costEstimate/routes.ts'
 import { avizationsRouter } from './modules/avizations/routes.ts'
 import { peopleRouter } from './modules/avizations/people.ts'
 import { weeklyRouter } from './modules/weekly/routes.ts'
@@ -66,6 +67,7 @@ export function createApp(deps: AppDeps) {
   app.route('/', dashboardRouter)
   app.route('/', weeklyRouter)
   app.route('/', purchasesRouter)
+  app.route('/', costEstimateRouter)
   app.route('/', peopleRouter)
   app.route('/', avizationsRouter)
   app.route('/', crmRouter)

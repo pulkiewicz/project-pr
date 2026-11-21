@@ -39,6 +39,8 @@ export const MODULES = {
   purchases: { internal: false },
   /** Kwota netto zamówienia w planie zakupów. */
   purchasesCost: { internal: true, staffOnly: true },
+  /** Kosztorys projektu: szacunek, wyceny, faktyczne i prognoza kosztów, wynik w konsorcjum — tylko Envcheck. */
+  costEstimate: { internal: true, staffOnly: true },
   avizations: { internal: false },
   subcontractors: { internal: false },
   acceptances: { internal: false },
@@ -120,6 +122,7 @@ export const DEFAULT_LEVELS: Record<ModuleKey, Row> = {
   weeklyPlan: row('P', 'E', 'E', 'O', 'O'),
   purchases: row('P', 'E', 'E', '-', '-'),
   purchasesCost: row('P', 'E', '-', '-', '-'),
+  costEstimate: row('P', 'P', '-', '-', '-'),
   avizations: row('P', 'E', 'E', 'A', 'E'),
   subcontractors: row('P', 'E', 'E', 'O', 'O'),
   acceptances: row('P', 'E', 'O', 'A', '-'),

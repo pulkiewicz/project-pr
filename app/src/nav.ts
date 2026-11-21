@@ -18,7 +18,9 @@ export const PROJECT_NAV: NavItem[] = [
   { module: 'dashboard', path: '', stage: 'E1', ready: true },
   { module: 'hrf', path: 'hrf', stage: 'E1', ready: true },
   { module: 'weeklyPlan', path: 'plan-tygodniowy', stage: 'E3', ready: true },
-  { module: 'purchases', path: 'zakupy', stage: 'E3', ready: true },
+  // Plan zakupów usunięty z menu (decyzja 21.11.2026) — strona pod /zakupy nadal działa; zakupy Envcheck doszczegóławia się w Kosztorysie.
+  // [W] Kosztorys — tylko Envcheck.
+  { module: 'costEstimate', path: 'kosztorys', stage: '—', ready: true },
   { module: 'avizations', path: 'awizacje', stage: 'E3', ready: true },
   { module: 'subcontractors', path: 'podwykonawcy', stage: 'E4', ready: false },
   { module: 'acceptances', path: 'odbiory', stage: 'E4', ready: false },
@@ -63,7 +65,7 @@ export const MANAGEMENT_NAV: NavItem[] = [
 ]
 
 /** Dawne adresy sprzed Envcheck Hub (jeden projekt) → moduł projektu. */
-export const LEGACY_PROJECT_PATHS = PROJECT_NAV.filter((n) => n.path).map((n) => n.path)
+export const LEGACY_PROJECT_PATHS = [...PROJECT_NAV.filter((n) => n.path).map((n) => n.path), 'zakupy']
 
 /** Strona startowa projektu: dashboard, a bez dostępu do niego — pierwszy dostępny moduł (np. podwykonawca). */
 export function projectHomePath(code: string, can: (m: ModuleKey, a: Action) => boolean) {

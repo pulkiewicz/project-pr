@@ -19,7 +19,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
-import { ACTIVITY_KINDS, AI_JOB_KINDS, AI_JOB_STATUSES, INPUT_KINDS, QUESTION_AUDIENCES, QUESTION_STATUSES, SUGGESTION_STATUSES, type SuggestionPayload, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type BomCondition, type CompetitionResult, type ProfileSpec, type QuoteInfo, type QuoteParams, type RequiredDocStatus, HRF_STATUSES, ID_DOC_TYPES, INVOICE_EVENT_KINDS, INVOICE_STATUSES, type InvoiceManual, type BankTxKind, type BankTxCostStatus, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
+import { ACTIVITY_KINDS, AI_JOB_KINDS, AI_JOB_STATUSES, INPUT_KINDS, QUESTION_AUDIENCES, QUESTION_STATUSES, SUGGESTION_STATUSES, type SuggestionPayload, AVIZATION_STATUSES, CHECKLIST_STATUSES, COMPONENT_CATEGORIES, CONFIDENCES, type CalcInput, type SpecItemDef, type SpecValue, DEPENDENCY_TYPES, LINE_SOURCES, OPPORTUNITY_STAGES, OPPORTUNITY_TYPES, QUOTE_KINDS, QUOTE_STATUSES, type BomCondition, type CostContract, type CompetitionResult, type ProfileSpec, type QuoteInfo, type QuoteParams, type RequiredDocStatus, HRF_STATUSES, ID_DOC_TYPES, INVOICE_EVENT_KINDS, INVOICE_STATUSES, type InvoiceManual, type BankTxKind, type BankTxCostStatus, PURCHASE_STATUSES, ROLES, VEHICLE_TYPES, WEEKLY_STATUSES, type ImportMapping } from '#shared'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'string' })
 
@@ -326,6 +326,48 @@ export const purchaseItems = pgTable(
     ...auditColumns,
   },
   (t) => [index('purchase_items_project_idx').on(t.projectId), index('purchase_items_task_idx').on(t.hrfTaskId)],
+)
+
+// ---------------- Kosztorys projektu [W] (tylko Envcheck) ----------------
+/** Ustawienia kosztorysu projektu: kurs EUR, źródła, podział wynagrodzenia w konsorcjum. */
+export const costEstimates = pgTable('cost_estimates', {
+  projectId: uuid('project_id').primaryKey().references(() => projects.id),
+  eurRate: numeric('eur_rate', { precision: 10, scale: 4, mode: 'number' }).notNull(),
+  eurRateNote: text('eur_rate_note'),
+  sources: text('sources'),
+  /** `CostContract` (shared) albo null — sekcja wyniku w konsorcjum ukryta. */
+  contract: jsonb('contract').$type<CostContract | null>(),
+  version: integer('version').notNull().default(1),
+  ...auditColumns,
+})
+
+/** Pozycje kosztorysu; `parent_id` — podpozycja (doszczegółowienie) pozycji budżetu Envcheck, jeden poziom. */
+export const costEstimateItems = pgTable(
+  'cost_estimate_items',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    parentId: uuid('parent_id'),
+    position: integer('position').notNull().default(0),
+    category: text('category').notNull(),
+    name: text('name').notNull(),
+    /** `Envcheck` | `Arsanit`. */
+    budget: text('budget').notNull(),
+    estimate: numeric('estimate', { precision: 14, scale: 2, mode: 'number' }),
+    quoteAmount: numeric('quote_amount', { precision: 14, scale: 2, mode: 'number' }),
+    quoteCurrency: text('quote_currency').notNull().default('EUR'),
+    actual: numeric('actual', { precision: 14, scale: 2, mode: 'number' }),
+    /** `auto` | `estimate` | `manual`. */
+    forecastMode: text('forecast_mode').notNull().default('auto'),
+    forecastManual: numeric('forecast_manual', { precision: 14, scale: 2, mode: 'number' }),
+    supplier: text('supplier'),
+    notes: text('notes'),
+    /** Powiązana pozycja planu zakupów (status, komponent krytyczny). */
+    purchaseItemId: uuid('purchase_item_id').references(() => purchaseItems.id),
+    version: integer('version').notNull().default(1),
+    ...auditColumns,
+  },
+  (t) => [index('cost_estimate_items_project_idx').on(t.projectId), index('cost_estimate_items_parent_idx').on(t.parentId)],
 )
 
 // ---------------- E3: Awizacje (M5) — dane osobowe ----------------

@@ -90,6 +90,7 @@
     "hrf": "HRF",
     "weeklyPlan": "Plan tygodniowy",
     "purchases": "Plan zakupów",
+    "costEstimate": "Kosztorys",
     "avizations": "Awizacje",
     "subcontractors": "Podwykonawcy",
     "acceptances": "Odbiory",
@@ -386,7 +387,9 @@
     "required_doc_not_found": "Nie znaleziono dokumentu",
     "not_a_profile": "Wybrana pozycja nie jest profilem wyceny",
     "bom_incomplete": "Kosztorys niekompletny — w kroku 7 dodaj brakujące pozycje albo zaakceptuj alerty z uzasadnieniem",
-    "bom_rule_not_found": "Nie znaleziono reguły"
+    "bom_rule_not_found": "Nie znaleziono reguły",
+    "cost_children_envcheck_only": "Podpozycje można dodawać tylko w pozycjach budżetu Envcheck",
+    "cost_nested_too_deep": "Podpozycja nie może mieć własnych podpozycji"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -2653,5 +2656,141 @@
     "days_other": "{{count}} dnia",
     "copy": "Kopiuj",
     "copied": "Skopiowano"
+  },
+  "costEstimate": {
+    "title": "Kosztorys",
+    "internalHint": "Widoczny tylko dla Envcheck. Kwoty netto w zł.",
+    "add": "Dodaj pozycję",
+    "addChild": "Dodaj podpozycję",
+    "settings": "Ustawienia",
+    "export": "Eksport XLSX",
+    "empty": "Kosztorys nie ma jeszcze pozycji.",
+    "tabs": {
+      "items": "Pozycje",
+      "summary": "Podsumowanie"
+    },
+    "filter": {
+      "all": "Wszystkie",
+      "category": "Kategoria",
+      "search": "Szukaj pozycji",
+      "expandAll": "Rozwiń podpozycje",
+      "collapseAll": "Zwiń podpozycje"
+    },
+    "budget": {
+      "Envcheck": "Envcheck",
+      "Arsanit": "Arsanit"
+    },
+    "col": {
+      "category": "Kategoria",
+      "name": "Pozycja",
+      "budget": "Budżet",
+      "estimate": "Szacowane",
+      "share": "% kosztu",
+      "quote": "Wycena",
+      "quotePln": "Wycena (zł)",
+      "actual": "Faktyczne",
+      "forecast": "Prognoza",
+      "diff": "Prognoza − szacunek",
+      "supplier": "Dostawca",
+      "notes": "Uwagi",
+      "total": "Razem"
+    },
+    "cards": {
+      "estimate": "Szacowane Envcheck",
+      "quote": "Wycenione",
+      "quoteHint": "pozycji z wyceną: {{count}}",
+      "actual": "Faktyczne",
+      "forecast": "Prognoza Envcheck",
+      "diff": "{{sign}}{{amount}} wobec szacunku",
+      "result": "Wynik Envcheck (prognoza)",
+      "resultHint": "szacunkowo {{amount}}"
+    },
+    "forecastMode": {
+      "label": "Prognoza",
+      "auto": "Automatycznie: faktyczne → wycena → szacunek",
+      "estimate": "Faktyczne → szacunek (wycena częściowa)",
+      "manual": "Kwota ręczna",
+      "autoParent": "Suma podpozycji + nierozpisany szacunek",
+      "badgeEstimate": "prognoza na szacunku",
+      "badgeManual": "prognoza ręczna"
+    },
+    "children": {
+      "count_one": "{{count}} podpozycja",
+      "count_few": "{{count}} podpozycje",
+      "count_many": "{{count}} podpozycji",
+      "allocated": "Rozpisano {{allocated}} z {{estimate}} szacunku (podpozycje z własnym szacunkiem)",
+      "unallocated": "nierozpisane {{amount}} — liczone w prognozie jako szacunek",
+      "over": "Podpozycje przekraczają szacunek pozycji o {{amount}}",
+      "rollupHint": "Wycena i faktyczne tej pozycji to sumy podpozycji — wpisuj je w podpozycjach.",
+      "inherit": "Kategoria i budżet jak w pozycji nadrzędnej: {{parent}}",
+      "onlyEnvcheck": "Podpozycje (doszczegółowienie zakupów) są dostępne w pozycjach budżetu Envcheck.",
+      "implicit": "Bez własnego szacunku — równa część nierozpisanego szacunku pozycji"
+    },
+    "drawer": {
+      "new": "Nowa pozycja",
+      "newChild": "Nowa podpozycja",
+      "edit": "Pozycja kosztorysu",
+      "editChild": "Podpozycja kosztorysu",
+      "estimateHint": "Netto, zł",
+      "childEstimateHint": "Część szacunku pozycji nadrzędnej (netto, zł)",
+      "quoteAmount": "Wycena dostawcy (netto)",
+      "currency": "Waluta",
+      "quoteConverted": "≈ {{amount}} po kursie {{rate}}",
+      "actualHint": "Netto, zł — po zakupie / fakturze",
+      "forecastManual": "Prognoza (zł)",
+      "delete": "Usuń",
+      "deleteConfirm": "Usunąć pozycję „{{name}}”?",
+      "deleteChildren": "Razem z nią zostaną usunięte podpozycje ({{count}}).",
+      "moveUp": "Przesuń w górę",
+      "moveDown": "Przesuń w dół"
+    },
+    "settingsDrawer": {
+      "title": "Ustawienia kosztorysu",
+      "eurRate": "Kurs EUR/PLN",
+      "eurRateNote": "Źródło kursu",
+      "sources": "Źródła danych",
+      "sourcesHint": "Np. szacunek, wycena, podział w konsorcjum — po jednym w wierszu.",
+      "contract": "Podział wynagrodzenia w konsorcjum",
+      "contractValue": "Wynagrodzenie z umowy",
+      "partnerBudget": "Budżet Arsanit wg aneksu",
+      "partnerStages": "W tym (np. etapy)",
+      "stageName": "Nazwa",
+      "stageAmount": "Kwota",
+      "addStage": "Dodaj",
+      "partnerMargin": "Stała marża Arsanit",
+      "guaranteeReserve": "Rezerwa gwarancyjna (wspólna)",
+      "reserveShare": "Udział Envcheck w niewykorzystanej rezerwie (%)",
+      "contractSource": "Źródło"
+    },
+    "summary": {
+      "byCategory": "Koszty Envcheck wg kategorii (zł netto)",
+      "byBudget": "Koszty wg budżetu (zł netto)",
+      "totalEnvcheck": "Razem Envcheck",
+      "total": "Razem",
+      "shareTotal": "% całości",
+      "partner": "Zakres Arsanit a aneks (zł netto)",
+      "partnerBudget": "Budżet Arsanit wg aneksu",
+      "stage": "w tym {{name}}",
+      "partnerAssigned": "Pozycje przypisane do Arsanit w kosztorysie",
+      "partnerDiff": "Różnica: aneks minus kosztorys",
+      "result": "Podział wynagrodzenia i wynik Envcheck (zł netto)",
+      "position": "Pozycja",
+      "shareEnvcheck": "% kwoty Envcheck",
+      "contractValue": "Wynagrodzenie z umowy",
+      "partnerMargin": "Stała marża Arsanit",
+      "guaranteeReserve": "Rezerwa gwarancyjna (wspólna)",
+      "envcheckAmount": "Kwota Envcheck",
+      "envcheckCost": "Koszt Envcheck",
+      "envcheckResult": "Wynik Envcheck",
+      "reserveShare": "Udział Envcheck w niewykorzystanej rezerwie",
+      "maxReserveReturn": "Maks. zwrot z rezerwy dla Envcheck",
+      "noContract": "Podział wynagrodzenia w konsorcjum nie jest ustawiony — uzupełnij go w Ustawieniach.",
+      "sources": "Źródła",
+      "eurRate": "Kurs EUR/PLN: {{rate}}"
+    },
+    "purchase": {
+      "fromPlan": "Pozycja z planu zakupów — status zamówienia",
+      "critical": "krytyczny"
+    }
   }
 }
