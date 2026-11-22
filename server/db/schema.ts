@@ -362,12 +362,28 @@ export const costEstimateItems = pgTable(
     forecastManual: numeric('forecast_manual', { precision: 14, scale: 2, mode: 'number' }),
     supplier: text('supplier'),
     notes: text('notes'),
+    /** Pozycja nieaktywna: zostaje na liście, prognoza = 0; powód (adnotacja) obowiązkowy. */
+    inactive: boolean('inactive').notNull().default(false),
+    inactiveReason: text('inactive_reason'),
     /** Powiązana pozycja planu zakupów (status, komponent krytyczny). */
     purchaseItemId: uuid('purchase_item_id').references(() => purchaseItems.id),
     version: integer('version').notNull().default(1),
     ...auditColumns,
   },
   (t) => [index('cost_estimate_items_project_idx').on(t.projectId), index('cost_estimate_items_parent_idx').on(t.parentId)],
+)
+
+/** Komentarze do pozycji kosztorysu — historia z autorem i datą. */
+export const costEstimateComments = pgTable(
+  'cost_estimate_comments',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    projectId: uuid('project_id').notNull().references(() => projects.id),
+    itemId: uuid('item_id').notNull().references(() => costEstimateItems.id),
+    body: text('body').notNull(),
+    ...auditColumns,
+  },
+  (t) => [index('cost_estimate_comments_item_idx').on(t.itemId)],
 )
 
 // ---------------- E3: Awizacje (M5) — dane osobowe ----------------

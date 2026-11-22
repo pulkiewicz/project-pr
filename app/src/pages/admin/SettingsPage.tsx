@@ -9,6 +9,7 @@ import { api } from '../../lib/api'
 import { ProjectContext } from '../../lib/project'
 import { AvizationSettingsCard } from '../../features/avizations/AvizationSettingsCard'
 import { CostCategoriesCard } from '../../features/invoices/CostCategoriesCard'
+import { CostEstimateAccessCard } from '../../features/costEstimate/CostEstimateAccessCard'
 import { InvoiceSettingsCard } from '../../features/invoices/InvoiceSettingsCard'
 import { ManagementSettingsCard } from '../../features/management/ManagementSettingsCard'
 import { TimesheetImportCard, TimesheetSettingsCard } from '../../features/timesheets/TimesheetSettingsCard'
@@ -52,6 +53,7 @@ export function SettingsPage() {
       </Card>
       <InvoiceSettingsCard />
       <CostCategoriesCard />
+      <CostEstimateAccessCard />
       <ManagementSettingsCard />
       <TimesheetSettingsCard />
       <TimesheetImportCard />

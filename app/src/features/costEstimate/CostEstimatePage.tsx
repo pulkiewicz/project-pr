@@ -1,4 +1,4 @@
-import { ActionIcon, Alert, Badge, Box, Button, Group, Loader, Menu, Paper, SegmentedControl, Select, SimpleGrid, Stack, Table, Tabs, Text, TextInput, Title, Tooltip } from '@mantine/core'
+import { ActionIcon, Alert, Badge, Box, Button, Group, Loader, Menu, Textarea, Paper, SegmentedControl, Select, SimpleGrid, Stack, Table, Tabs, Text, TextInput, Title, Tooltip } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
 import {
@@ -16,6 +16,9 @@ import {
   IconStar,
   IconSubtask,
   IconTrash,
+  IconMessage,
+  IconCircleOff,
+  IconCircleCheck,
 } from '@tabler/icons-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -23,9 +26,9 @@ import { compareCategories, type CostBudget, type CostEstimateResponse, type Cos
 import { useAuth } from '../../auth/AuthProvider'
 import { downloadFile } from '../../lib/api'
 import { errorMessage } from '../../lib/errors'
-import { formatNumber, formatPLN, formatPLNWhole } from '../../lib/format'
+import { formatDateTime, formatNumber, formatPLN, formatPLNWhole } from '../../lib/format'
 import { useProjectId } from '../hrf/api'
-import { useCostEstimate, useDeleteCostItem, useMoveCostItem } from './api'
+import { useCostEstimate, useDeleteCostItem, useMoveCostItem, useSaveCostItem } from './api'
 import { CostItemDrawer, type CostDrawerState } from './CostItemDrawer'
 import { CostSettingsDrawer } from './CostSettingsDrawer'
 import { CostSummary } from './CostSummary'
@@ -87,6 +90,7 @@ export function CostEstimatePage() {
   const q = useCostEstimate()
   const del = useDeleteCostItem()
   const move = useMoveCostItem()
+  const save = useSaveCostItem()
   const [drawer, setDrawer] = useState<CostDrawerState | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [budget, setBudget] = useState<'all' | CostBudget>('all')
@@ -150,6 +154,37 @@ export function CostEstimatePage() {
       onConfirm: () => del.mutate(i.id, { onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }) }),
     })
 
+  const setActive = (i: CostItemDto, inactive: boolean, inactiveReason: string | null) =>
+    save.mutate(
+      { id: i.id, version: i.version, data: { inactive, inactiveReason } },
+      {
+        onSuccess: () => notifications.show({ color: 'green', message: t(inactive ? 'costEstimate.inactive.done' : 'costEstimate.inactive.restored') }),
+        onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }),
+      },
+    )
+
+  const confirmDeactivate = (i: CostItemDto) => {
+    let reason = ''
+    modals.openConfirmModal({
+      title: t('costEstimate.inactive.title', { name: i.name }),
+      children: (
+        <Stack gap="xs">
+          <Text size="sm">{t('costEstimate.inactive.hint')}</Text>
+          <Textarea label={t('costEstimate.inactive.reason')} required autosize minRows={2} data-autofocus onChange={(e) => (reason = e.currentTarget.value)} />
+        </Stack>
+      ),
+      labels: { confirm: t('costEstimate.inactive.deactivate'), cancel: t('app.cancel') },
+      confirmProps: { color: 'orange' },
+      onConfirm: () => {
+        if (!reason.trim()) {
+          notifications.show({ color: 'red', message: t('errors.cost_inactive_reason_required') })
+          return
+        }
+        setActive(i, true, reason.trim())
+      },
+    })
+  }
+
   const doMove = (i: CostItemDto, direction: 'up' | 'down') => move.mutate({ id: i.id, direction }, { onError: (e) => notifications.show({ color: 'red', message: errorMessage(e) }) })
 
   const rowMenu = (i: CostItemDto) =>
@@ -176,6 +211,16 @@ export function CostEstimatePage() {
               </Menu.Item>
             </>
           )}
+          {canEdit &&
+            (i.inactive ? (
+              <Menu.Item leftSection={<IconCircleCheck size={14} />} onClick={() => setActive(i, false, null)}>
+                {t('costEstimate.inactive.activate')}
+              </Menu.Item>
+            ) : (
+              <Menu.Item color="orange" leftSection={<IconCircleOff size={14} />} onClick={() => confirmDeactivate(i)}>
+                {t('costEstimate.inactive.deactivate')}
+              </Menu.Item>
+            ))}
           {canDelete && (
             <Menu.Item color="red" leftSection={<IconTrash size={14} />} onClick={() => confirmDelete(i)}>
               {t('costEstimate.drawer.delete')}
@@ -213,7 +258,7 @@ export function CostEstimatePage() {
     const diff = i.forecast - (i.allocatedEstimate ?? 0)
     const open = !collapsed.has(i.id)
     return (
-      <Table.Tr key={i.id} onClick={() => setDrawer({ item: i, parent: child ? data.items.find((p) => p.id === i.parentId) : undefined })} style={{ cursor: 'pointer' }} bg={child ? 'var(--mantine-color-gray-0)' : undefined}>
+      <Table.Tr key={i.id} onClick={() => setDrawer({ item: i, parent: child ? data.items.find((p) => p.id === i.parentId) : undefined })} style={{ cursor: 'pointer', opacity: i.inactive ? 0.55 : undefined }} bg={child ? 'var(--mantine-color-gray-0)' : undefined}>
         <Table.Td>
           <Group gap={4} wrap="nowrap" pl={child ? 28 : 0}>
             {!child &&
@@ -233,16 +278,33 @@ export function CostEstimatePage() {
                 <Box w={18} />
               ))}
             <Stack gap={0}>
-              <Group gap={6} wrap="nowrap">
-                <Text size="sm" fw={i.childCount ? 600 : undefined}>
+              <Group gap={6} wrap="wrap">
+                <Text size="sm" fw={i.childCount ? 600 : undefined} td={i.inactive ? 'line-through' : undefined}>
                   {child ? '↳ ' : ''}
                   {i.name}
                 </Text>
-                {modeBadge(i)}
+                {i.inactive && (
+                  <Badge size="xs" color="gray" variant="filled" leftSection={<IconCircleOff size={10} />} style={{ flexShrink: 0, maxWidth: 'none' }}>
+                    {t('costEstimate.inactive.badge')}
+                  </Badge>
+                )}
+                {!i.inactive && modeBadge(i)}
+                {i.commentCount > 0 && (
+                  <Tooltip label={`${t('costEstimate.comments.count', { count: i.commentCount })}${i.lastCommentAt ? ` · ${t('costEstimate.comments.last', { at: formatDateTime(i.lastCommentAt) })}` : ''}`}>
+                    <Badge size="xs" variant="light" color="blue" leftSection={<IconMessage size={10} />} style={{ flexShrink: 0, maxWidth: 'none' }}>
+                      {i.commentCount}
+                    </Badge>
+                  </Tooltip>
+                )}
               </Group>
+              {i.inactive && i.inactiveReason && (
+                <Text size="xs" c="orange.8" fs="italic" lineClamp={2} maw={340}>
+                  {t('costEstimate.inactive.reasonShort', { reason: i.inactiveReason })}
+                </Text>
+              )}
               {purchaseBadges(i)}
               {(!child || i.supplier || i.notes) && (
-                <Text size="xs" c="dimmed" lineClamp={1} maw={520}>
+                <Text size="xs" c="dimmed" lineClamp={1} maw={340}>
                   {[child ? null : i.category, i.childCount > 0 ? t('costEstimate.children.count', { count: i.childCount }) : null, i.supplier, i.notes].filter(Boolean).join(' · ')}
                 </Text>
               )}
@@ -376,7 +438,7 @@ export function CostEstimatePage() {
             {!data.items.length ? (
               <Text c="dimmed">{t('costEstimate.empty')}</Text>
             ) : (
-              <Table.ScrollContainer minWidth={1000} maxHeight="calc(100vh - 360px)">
+              <Table.ScrollContainer type="native" minWidth={1000} maxHeight="calc(100vh - 360px)">
                 <Table stickyHeader highlightOnHover verticalSpacing={4} fz="sm">
                   <Table.Thead>
                     <Table.Tr>
@@ -387,7 +449,11 @@ export function CostEstimatePage() {
                       <Table.Th w={120} ta="right">{t('costEstimate.col.quotePln')}</Table.Th>
                       <Table.Th w={120} ta="right">{t('costEstimate.col.actual')}</Table.Th>
                       <Table.Th w={120} ta="right">{t('costEstimate.col.forecast')}</Table.Th>
-                      <Table.Th w={120} ta="right">{t('costEstimate.col.diff')}</Table.Th>
+                      <Table.Th w={110} ta="right">
+                        <Tooltip label={t('costEstimate.col.diffHint')}>
+                          <span>{t('costEstimate.col.diff')}</span>
+                        </Tooltip>
+                      </Table.Th>
                       <Table.Th w={36} />
                     </Table.Tr>
                   </Table.Thead>

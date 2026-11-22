@@ -1,12 +1,16 @@
 import { z, type RouteConfig } from '@hono/zod-openapi'
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import ExcelJS from 'exceljs'
+import type { Context } from 'hono'
 import {
   computeCostEstimate,
   costItemInput,
   costItemMove,
   costItemPatch,
+  costCommentInput,
+  costEstimateAccessInput,
   costSettingsInput,
+  type CostCommentDto,
   type Action,
   type CostBudget,
   type CostCurrency,
@@ -16,9 +20,11 @@ import {
   type CostSettingsDto,
   type ModuleKey,
 } from '#shared'
+import type { AppEnv } from '../../context.ts'
 import type { Database } from '../../db/client.ts'
-import { costEstimateItems, costEstimates, hrfTasks, purchaseItems } from '../../db/schema.ts'
-import { HttpProblem, conflict, notFound } from '../../lib/problem.ts'
+import { appSettings, costEstimateComments, costEstimateItems, costEstimates, hrfTasks, purchaseItems, users } from '../../db/schema.ts'
+import { COST_ESTIMATE_SETTING_KEY, costEstimateSettings } from '../../auth/access.ts'
+import { HttpProblem, conflict, forbidden, notFound } from '../../lib/problem.ts'
 import { newRouter, secureRoute } from '../../routing.ts'
 import { diffFields, writeAudit } from '../audit/service.ts'
 import { getProject } from '../hrf/service.ts'
@@ -34,6 +40,7 @@ const ok = { 200: { description: 'OK', ...json(z.any()) } }
 const BASE = '/projects/{projectId}/cost-estimate'
 const projectParam = z.object({ projectId: z.uuid() })
 const itemParam = projectParam.extend({ itemId: z.uuid() })
+const commentParam = itemParam.extend({ commentId: z.uuid() })
 const route = <R extends RouteConfig>(r: R, action: Action, module: ModuleKey = 'costEstimate') => secureRoute('', r, { permission: { module, action } })
 
 type ItemRow = typeof costEstimateItems.$inferSelect
@@ -53,6 +60,8 @@ const toRow = (r: ItemRow): CostItemRow => ({
   forecastManual: r.forecastManual,
   supplier: r.supplier,
   notes: r.notes,
+  inactive: r.inactive,
+  inactiveReason: r.inactiveReason,
   purchaseItemId: r.purchaseItemId,
   version: r.version,
 })
@@ -83,7 +92,13 @@ async function load(db: Database, projectId: string): Promise<CostEstimateRespon
         .where(and(inArray(purchaseItems.id, ids), isNull(purchaseItems.deletedAt)))
     : []
   const purchases = new Map(linked.map(({ id, ...p }) => [id, p]))
-  return { settings, ...computeCostEstimate(rows, settings, purchases) }
+  const counts = await db
+    .select({ itemId: costEstimateComments.itemId, count: sql<number>`count(*)::int`, last: sql<string | null>`to_char(max(${costEstimateComments.createdAt}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')` })
+    .from(costEstimateComments)
+    .where(and(eq(costEstimateComments.projectId, projectId), isNull(costEstimateComments.deletedAt)))
+    .groupBy(costEstimateComments.itemId)
+  const comments = new Map(counts.map((r) => [r.itemId, { count: r.count, last: r.last }]))
+  return { settings, ...computeCostEstimate(rows, settings, purchases, comments) }
 }
 
 async function getItem(db: Database, projectId: string, itemId: string) {
@@ -99,6 +114,14 @@ async function getItem(db: Database, projectId: string, itemId: string) {
 function assertParent(parent: ItemRow) {
   if (parent.parentId) throw new HttpProblem(422, 'cost_nested_too_deep')
   if (parent.budget !== 'Envcheck') throw new HttpProblem(422, 'cost_children_envcheck_only')
+}
+
+/** Dezaktywacja wymaga powodu (adnotacji); po ponownej aktywacji powód jest czyszczony. */
+function normalizeInactive<T extends { inactive?: boolean; inactiveReason?: string | null }>(v: T, current?: { inactive: boolean; inactiveReason: string | null }): T {
+  const inactive = v.inactive ?? current?.inactive ?? false
+  const reason = v.inactiveReason !== undefined ? v.inactiveReason : (current?.inactiveReason ?? null)
+  if (inactive && !reason?.trim()) throw new HttpProblem(422, 'cost_inactive_reason_required')
+  return v.inactive === false ? { ...v, inactiveReason: null } : v
 }
 
 const nextPosition = async (db: Database, projectId: string, parentId: string | null) => {
@@ -148,12 +171,12 @@ costEstimateRouter.openapi(
     const { db } = c.get('deps')
     const user = c.get('user')
     await getProject(db, projectId)
-    let values = input
+    let values = normalizeInactive(input)
     if (parentId) {
       const parent = await getItem(db, projectId, parentId)
       assertParent(parent)
       // Podpozycja dziedziczy kategorię i budżet.
-      values = { ...input, category: parent.category, budget: 'Envcheck' }
+      values = { ...values, category: parent.category, budget: 'Envcheck' }
     }
     const id = await db.transaction(async (tx) => {
       const position = await nextPosition(tx, projectId, parentId ?? null)
@@ -171,10 +194,11 @@ costEstimateRouter.openapi(
 
 costEstimateRouter.openapi(route({ method: 'patch', path: `${BASE}/items/{itemId}`, request: { params: itemParam, body: body(costItemPatch) }, responses: ok }, 'edit'), async (c) => {
   const { projectId, itemId } = c.req.valid('param')
-  const { version, ...patch } = c.req.valid('json')
+  const { version, ...input } = c.req.valid('json')
   const { db } = c.get('deps')
   const user = c.get('user')
   const current = await getItem(db, projectId, itemId)
+  const patch = normalizeInactive(input, current)
   if (current.parentId) {
     // Kategoria i budżet podpozycji pochodzą z pozycji nadrzędnej.
     delete patch.category
@@ -197,6 +221,11 @@ costEstimateRouter.openapi(route({ method: 'patch', path: `${BASE}/items/{itemId
         .update(costEstimateItems)
         .set({ category: patch.category, updatedAt: sql`now()`, updatedBy: user.id })
         .where(and(eq(costEstimateItems.parentId, itemId), isNull(costEstimateItems.deletedAt)))
+    }
+    if (patch.inactive !== undefined && patch.inactive !== current.inactive) {
+      // Dezaktywacja / aktywacja trafia też do historii komentarzy pozycji (z autorem).
+      const body = patch.inactive ? `Dezaktywowano pozycję: ${patch.inactiveReason ?? current.inactiveReason ?? ''}`.trim() : 'Przywrócono pozycję (aktywna)'
+      await tx.insert(costEstimateComments).values({ projectId, itemId, body, createdBy: user.id, updatedBy: user.id })
     }
     await writeAudit(c, { action: 'costEstimate.update', entity: 'cost_estimate_items', entityId: itemId, projectId, changes: diffFields(current, patch) }, tx)
     return true
@@ -241,6 +270,109 @@ costEstimateRouter.openapi(route({ method: 'delete', path: `${BASE}/items/{itemI
     await writeAudit(c, { action: 'costEstimate.delete', entity: 'cost_estimate_items', entityId: itemId, projectId, changes: { name: current.name, children: kids.length } }, tx)
   })
   return c.json(await load(db, projectId), 200)
+})
+
+// ---------------- Ustawienia (Admin): kto ma dostęp do Kosztorysu ----------------
+
+const ACCESS_ROLES = ['Admin', 'EnvcheckInternal'] as const
+
+costEstimateRouter.openapi(
+  secureRoute('', { method: 'get', path: '/admin/settings/cost-estimate', responses: ok }, { permission: { module: 'admin', action: 'view' } }),
+  async (c) => {
+    const { db } = c.get('deps')
+    const staff = await db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .where(and(inArray(users.role, [...ACCESS_ROLES]), eq(users.isActive, true), isNull(users.deletedAt)))
+      .orderBy(asc(users.name))
+    return c.json({ settings: await costEstimateSettings(db), users: staff }, 200)
+  },
+)
+
+costEstimateRouter.openapi(
+  secureRoute('', { method: 'put', path: '/admin/settings/cost-estimate', request: { body: body(costEstimateAccessInput) }, responses: ok }, { permission: { module: 'admin', action: 'edit' } }),
+  async (c) => {
+    const value = c.req.valid('json')
+    const { db } = c.get('deps')
+    if (value.userIds.length) {
+      const found = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(inArray(users.id, value.userIds), inArray(users.role, [...ACCESS_ROLES]), isNull(users.deletedAt)))
+      if (found.length !== new Set(value.userIds).size) throw new HttpProblem(422, 'user_not_staff')
+    }
+    const before = await costEstimateSettings(db)
+    const me = c.get('user').id
+    await db.transaction(async (tx) => {
+      await tx
+        .insert(appSettings)
+        .values({ key: COST_ESTIMATE_SETTING_KEY, value, updatedBy: me })
+        .onConflictDoUpdate({ target: appSettings.key, set: { value, updatedAt: sql`now()`, updatedBy: me } })
+      await writeAudit(c, { action: 'settings.cost_estimate', entity: 'app_settings', entityId: COST_ESTIMATE_SETTING_KEY, changes: { old: before, new: value } }, tx)
+    })
+    return c.json(value, 200)
+  },
+)
+
+// ---------------- Komentarze do pozycji ----------------
+
+async function listComments(c: Context<AppEnv>, db: Database, itemId: string): Promise<CostCommentDto[]> {
+  const user = c.get('user')
+  const perms = c.get('permissions')
+  const rows = await db
+    .select({ id: costEstimateComments.id, body: costEstimateComments.body, createdAt: costEstimateComments.createdAt, authorId: costEstimateComments.createdBy, authorName: users.name })
+    .from(costEstimateComments)
+    .leftJoin(users, eq(users.id, costEstimateComments.createdBy))
+    .where(and(eq(costEstimateComments.itemId, itemId), isNull(costEstimateComments.deletedAt)))
+    .orderBy(asc(costEstimateComments.createdAt))
+  return rows.map((r) => ({
+    id: r.id,
+    body: r.body,
+    createdAt: new Date(r.createdAt).toISOString(),
+    authorId: r.authorId,
+    authorName: r.authorName,
+    canDelete: r.authorId === user.id || perms.has('costEstimate:delete'),
+  }))
+}
+
+costEstimateRouter.openapi(route({ method: 'get', path: `${BASE}/items/{itemId}/comments`, request: { params: itemParam }, responses: ok }, 'view'), async (c) => {
+  const { projectId, itemId } = c.req.valid('param')
+  const { db } = c.get('deps')
+  await getItem(db, projectId, itemId)
+  return c.json(await listComments(c, db, itemId), 200)
+})
+
+costEstimateRouter.openapi(
+  route({ method: 'post', path: `${BASE}/items/{itemId}/comments`, request: { params: itemParam, body: body(costCommentInput) }, responses: { 201: { description: 'Utworzono', ...json(z.any()) } } }, 'create'),
+  async (c) => {
+    const { projectId, itemId } = c.req.valid('param')
+    const { body: text } = c.req.valid('json')
+    const { db } = c.get('deps')
+    const user = c.get('user')
+    await getItem(db, projectId, itemId)
+    await db.transaction(async (tx) => {
+      const [r] = await tx.insert(costEstimateComments).values({ projectId, itemId, body: text, createdBy: user.id, updatedBy: user.id }).returning({ id: costEstimateComments.id })
+      await writeAudit(c, { action: 'costEstimate.comment', entity: 'cost_estimate_comments', entityId: r!.id, projectId, changes: { itemId } }, tx)
+    })
+    return c.json(await listComments(c, db, itemId), 201)
+  },
+)
+
+costEstimateRouter.openapi(route({ method: 'delete', path: `${BASE}/items/{itemId}/comments/{commentId}`, request: { params: commentParam }, responses: ok }, 'create'), async (c) => {
+  const { projectId, itemId, commentId } = c.req.valid('param')
+  const { db } = c.get('deps')
+  const user = c.get('user')
+  const [cm] = await db
+    .select()
+    .from(costEstimateComments)
+    .where(and(eq(costEstimateComments.id, commentId), eq(costEstimateComments.itemId, itemId), eq(costEstimateComments.projectId, projectId), isNull(costEstimateComments.deletedAt)))
+  if (!cm) throw notFound()
+  if (cm.createdBy !== user.id && !c.get('permissions').has('costEstimate:delete')) throw forbidden('not_own_record')
+  await db.transaction(async (tx) => {
+    await tx.update(costEstimateComments).set({ deletedAt: sql`now()`, deletedBy: user.id }).where(eq(costEstimateComments.id, commentId))
+    await writeAudit(c, { action: 'costEstimate.comment_delete', entity: 'cost_estimate_comments', entityId: commentId, projectId, changes: { itemId, body: cm.body } }, tx)
+  })
+  return c.json(await listComments(c, db, itemId), 200)
 })
 
 costEstimateRouter.openapi(
@@ -336,6 +468,8 @@ export async function buildCostEstimateXlsx(data: CostEstimateResponse): Promise
     { header: 'Prognoza (zł)', key: 'forecast', width: 16, style: { numFmt: PLN } },
     { header: 'Dostawca', key: 'supplier', width: 20 },
     { header: 'Uwagi', key: 'notes', width: 60 },
+    { header: 'Nieaktywna — powód', key: 'inactiveReason', width: 40 },
+    { header: 'Komentarze', key: 'commentCount', width: 11 },
   ]
   head(ws.getRow(1))
   for (const i of items) {
@@ -346,9 +480,12 @@ export async function buildCostEstimateXlsx(data: CostEstimateResponse): Promise
       quoteAmount: i.childCount ? null : i.quoteAmount,
       quoteCurrency: i.childCount || i.quoteAmount == null ? '' : i.quoteCurrency,
       actual: i.actualTotal,
+      inactiveReason: i.inactive ? (i.inactiveReason ?? 'tak') : '',
+      commentCount: i.commentCount || null,
     })
     if (i.childCount) row.font = { bold: true }
     if (i.parentId) row.font = { color: { argb: 'FF555555' } }
+    if (i.inactive) row.font = { strike: true, color: { argb: 'FF999999' } }
   }
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: ws.columns.length } }
   return (await wb.xlsx.writeBuffer()) as ArrayBuffer

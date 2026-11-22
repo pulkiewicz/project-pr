@@ -1,4 +1,4 @@
-import { Alert, Autocomplete, Button, Divider, Drawer, Group, NumberInput, Select, SimpleGrid, Stack, Table, Text, TextInput, Textarea } from '@mantine/core'
+import { Alert, Autocomplete, Button, Divider, Drawer, Group, NumberInput, Select, SimpleGrid, Stack, Switch, Table, Text, TextInput, Textarea } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { IconInfoCircle, IconSubtask } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/AuthProvider'
 import { errorMessage } from '../../lib/errors'
 import { formatNumber, formatPLN } from '../../lib/format'
 import { useSaveCostItem } from './api'
+import { CostComments } from './CostComments'
 
 /** `item` — edycja; `parent` — podpozycja (nowa lub edytowana). */
 export interface CostDrawerState {
@@ -27,9 +28,11 @@ interface Form {
   forecastManual: number | null
   supplier: string | null
   notes: string | null
+  inactive: boolean
+  inactiveReason: string | null
 }
 
-const EMPTY: Form = { category: '', name: '', budget: 'Envcheck', estimate: null, quoteAmount: null, quoteCurrency: 'EUR', actual: null, forecastMode: 'auto', forecastManual: null, supplier: null, notes: null }
+const EMPTY: Form = { category: '', name: '', budget: 'Envcheck', estimate: null, quoteAmount: null, quoteCurrency: 'EUR', actual: null, forecastMode: 'auto', forecastManual: null, supplier: null, notes: null, inactive: false, inactiveReason: null }
 const numOrNull = (v: string | number) => (v === '' || v == null ? null : Number(v))
 
 function Money({ label, value, onChange, disabled, description, suffix = ' zł' }: { label: string; value: number | null; onChange: (v: number | null) => void; disabled?: boolean; description?: string; suffix?: string }) {
@@ -66,7 +69,7 @@ export function CostItemDrawer({ state, data, categories, onClose, onAddChild }:
     if (!state) return
     if (state.item) {
       const i = state.item
-      setF({ category: i.category, name: i.name, budget: i.budget, estimate: i.estimate, quoteAmount: i.quoteAmount, quoteCurrency: i.quoteCurrency, actual: i.actual, forecastMode: i.forecastMode, forecastManual: i.forecastManual, supplier: i.supplier, notes: i.notes })
+      setF({ category: i.category, name: i.name, budget: i.budget, estimate: i.estimate, quoteAmount: i.quoteAmount, quoteCurrency: i.quoteCurrency, actual: i.actual, forecastMode: i.forecastMode, forecastManual: i.forecastManual, supplier: i.supplier, notes: i.notes, inactive: i.inactive, inactiveReason: i.inactiveReason })
     } else if (state.parent) setF({ ...EMPTY, category: state.parent.category, budget: 'Envcheck' })
     else setF(EMPTY)
   }, [state])
@@ -181,6 +184,27 @@ export function CostItemDrawer({ state, data, categories, onClose, onAddChild }:
           disabled={!editable}
         />
         {f.forecastMode === 'manual' && <Money label={t('costEstimate.drawer.forecastManual')} value={f.forecastManual} onChange={(v) => set('forecastManual', v)} disabled={!editable} />}
+        <Switch
+          color="orange"
+          label={t('costEstimate.inactive.switch')}
+          checked={f.inactive}
+          onChange={(e) => {
+            const on = e.currentTarget.checked
+            setF((x) => ({ ...x, inactive: on, inactiveReason: on ? x.inactiveReason : null }))
+          }}
+          disabled={!editable}
+        />
+        {f.inactive && (
+          <Textarea
+            label={t('costEstimate.inactive.reason')}
+            required
+            autosize
+            minRows={2}
+            value={f.inactiveReason ?? ''}
+            onChange={(e) => set('inactiveReason', e.currentTarget.value || null)}
+            disabled={!editable}
+          />
+        )}
         <TextInput label={t('costEstimate.col.supplier')} value={f.supplier ?? ''} onChange={(e) => set('supplier', e.currentTarget.value || null)} disabled={!editable} />
         <Textarea label={t('costEstimate.col.notes')} autosize minRows={2} value={f.notes ?? ''} onChange={(e) => set('notes', e.currentTarget.value || null)} disabled={!editable} />
 
@@ -227,12 +251,19 @@ export function CostItemDrawer({ state, data, categories, onClose, onAddChild }:
           </>
         )}
 
+        {current && (
+          <>
+            <Divider label={t('costEstimate.comments.title', { count: current.commentCount })} labelPosition="left" />
+            <CostComments itemId={current.id} />
+          </>
+        )}
+
         {editable && (
           <Group justify="flex-end" mt="sm">
             <Button variant="default" onClick={onClose}>
               {t('app.cancel')}
             </Button>
-            <Button onClick={submit} loading={save.isPending} disabled={!f.name.trim() || !f.category.trim()}>
+            <Button onClick={submit} loading={save.isPending} disabled={!f.name.trim() || !f.category.trim() || (f.inactive && !f.inactiveReason?.trim())}>
               {t('app.save')}
             </Button>
           </Group>

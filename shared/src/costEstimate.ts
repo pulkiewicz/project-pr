@@ -54,8 +54,12 @@ const costItemBase = z.object({
   forecastManual: optMoney,
   supplier: optText(200),
   notes: optText(5000),
+  /** Nieaktywna: zostaje na liście, prognoza = 0; wymaga powodu (adnotacji). */
+  inactive: z.boolean(),
+  inactiveReason: optText(1000),
 })
 export const costItemInput = costItemBase.extend({
+  inactive: costItemBase.shape.inactive.default(false),
   quoteCurrency: costItemBase.shape.quoteCurrency.default('EUR'),
   forecastMode: costItemBase.shape.forecastMode.default('auto'),
   /** Podpozycja: id pozycji nadrzędnej (budżet Envcheck); kategoria i budżet dziedziczone. */
@@ -64,6 +68,25 @@ export const costItemInput = costItemBase.extend({
 export type CostItemInput = z.input<typeof costItemInput>
 export const costItemPatch = costItemBase.partial().extend({ version: z.number().int() })
 export type CostItemPatch = z.infer<typeof costItemPatch>
+
+/** Ustawienie `costEstimate.access`: kto ma dostęp do Kosztorysu (uprawnienia z roli działają tylko dla osób z listy). */
+export interface CostEstimateAccessSettings {
+  userIds: string[]
+}
+export const costEstimateAccessInput = z.object({ userIds: z.array(z.uuid()).max(50) })
+
+/** Komentarz do pozycji. */
+export const costCommentInput = z.object({ body: z.string().trim().min(1).max(5000) })
+
+export interface CostCommentDto {
+  id: string
+  body: string
+  createdAt: string
+  authorId: string | null
+  authorName: string | null
+  /** Autor (albo osoba z `costEstimate:delete`) może usunąć komentarz. */
+  canDelete: boolean
+}
 
 /** Kolejność pozycji (w obrębie rodzica). */
 export const costItemMove = z.object({ direction: z.enum(['up', 'down']) })
@@ -115,6 +138,8 @@ export interface CostItemRow {
   forecastManual: number | null
   supplier: string | null
   notes: string | null
+  inactive: boolean
+  inactiveReason: string | null
   purchaseItemId: string | null
   version: number
 }
@@ -134,6 +159,8 @@ export interface CostItemDto extends CostItemRow {
   childrenEstimate: number | null
   /** Szacunek pozycji nierozpisany na podpozycje (wchodzi do prognozy); 0, gdy są podpozycje bez własnego szacunku. */
   unallocated: number | null
+  commentCount: number
+  lastCommentAt: string | null
   /** Powiązana pozycja planu zakupów. */
   purchase: { status: PurchaseStatus; isCritical: boolean; hrfTaskCode: string | null } | null
 }
@@ -185,6 +212,7 @@ export function quoteInPln(row: Pick<CostItemRow, 'quoteAmount' | 'quoteCurrency
 }
 
 function leafForecast(row: CostItemRow, quotePln: number | null, estimate: number | null): number {
+  if (row.inactive) return 0
   if (row.forecastMode === 'manual') return row.forecastManual ?? 0
   if (row.actual != null) return row.actual
   if (row.forecastMode === 'auto' && quotePln != null) return quotePln
@@ -208,7 +236,9 @@ export function computeCostEstimate(
   rows: CostItemRow[],
   settings: Pick<CostSettingsDto, 'eurRate' | 'contract'>,
   purchases: ReadonlyMap<string, NonNullable<CostItemDto['purchase']>> = new Map(),
+  comments: ReadonlyMap<string, { count: number; last: string | null }> = new Map(),
 ): { items: CostItemDto[]; summary: CostEstimateSummary } {
+  const commentInfo = (id: string) => ({ commentCount: comments.get(id)?.count ?? 0, lastCommentAt: comments.get(id)?.last ?? null })
   const children = new Map<string, CostItemRow[]>()
   for (const r of rows) if (r.parentId) children.set(r.parentId, [...(children.get(r.parentId) ?? []), r])
   const byPos = (a: CostItemRow, b: CostItemRow) => a.position - b.position || a.name.localeCompare(b.name, 'pl')
@@ -218,7 +248,7 @@ export function computeCostEstimate(
     const quotePln = quoteInPln(r, settings.eurRate)
     const purchase = (r.purchaseItemId && purchases.get(r.purchaseItemId)) || null
     const allocatedEstimate = r.estimate ?? implicitEstimate
-    return { ...r, quotePln, actualTotal: r.actual, forecast: round2(leafForecast(r, quotePln, allocatedEstimate)), allocatedEstimate, share: null, childCount: 0, childrenEstimate: null, unallocated: null, purchase }
+    return { ...r, quotePln, actualTotal: r.actual, forecast: round2(leafForecast(r, quotePln, allocatedEstimate)), allocatedEstimate, share: null, childCount: 0, childrenEstimate: null, unallocated: null, purchase, ...commentInfo(r.id) }
   }
 
   const top = rows.filter((r) => !r.parentId || !rows.some((p) => p.id === r.parentId)).sort(byPos)
@@ -242,7 +272,7 @@ export function computeCostEstimate(
       return leaf(k, seen === withoutEstimate ? round2(remaining - part * (withoutEstimate - 1)) : part)
     })
     const unallocated = withoutEstimate ? 0 : round2(remaining)
-    const forecast = r.forecastMode === 'manual' ? (r.forecastManual ?? 0) : round2(kids.reduce((s, k) => s + k.forecast, 0) + unallocated)
+    const forecast = r.inactive ? 0 : r.forecastMode === 'manual' ? (r.forecastManual ?? 0) : round2(kids.reduce((s, k) => s + k.forecast, 0) + unallocated)
     computed.set(r.id, {
       ...r,
       // Bez wycen / faktycznych w podpozycjach liczy się kwota wpisana w samej pozycji.
@@ -255,6 +285,7 @@ export function computeCostEstimate(
       childrenEstimate,
       unallocated,
       purchase: (r.purchaseItemId && purchases.get(r.purchaseItemId)) || null,
+      ...commentInfo(r.id),
     })
     for (const k of kids) computed.set(k.id, k)
   }

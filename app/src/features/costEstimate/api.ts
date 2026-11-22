@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { CostEstimateResponse, CostItemInput, CostItemPatch, CostSettingsInput } from '#shared'
+import type { CostCommentDto, CostEstimateResponse, CostItemInput, CostItemPatch, CostSettingsInput } from '#shared'
 import { api } from '../../lib/api'
 import { useProjectId } from '../hrf/api'
 
@@ -16,7 +16,11 @@ function useCostMutation<V>(fn: (pid: string, v: V) => Promise<CostEstimateRespo
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (v: V) => fn(pid, v),
-    onSuccess: (data) => qc.setQueryData(key(pid), data),
+    onSuccess: (data) => {
+      qc.setQueryData(key(pid), data)
+      // Dezaktywacja / aktywacja dopisuje wpis do historii komentarzy.
+      void qc.invalidateQueries({ queryKey: ['costEstimateComments', pid] })
+    },
     onError: () => void qc.invalidateQueries({ queryKey: key(pid) }),
   })
 }
@@ -37,3 +41,28 @@ export const useMoveCostItem = () =>
 
 export const useSaveCostSettings = () =>
   useCostMutation((pid, v: CostSettingsInput) => api<CostEstimateResponse>(`/projects/${pid}/cost-estimate/settings`, { method: 'PUT', json: v }))
+
+export function useCostComments(itemId: string | undefined) {
+  const pid = useProjectId()
+  return useQuery({
+    queryKey: ['costEstimateComments', pid, itemId],
+    queryFn: () => api<CostCommentDto[]>(`/projects/${pid}/cost-estimate/items/${itemId}/comments`),
+    enabled: !!itemId,
+  })
+}
+
+/** Dodanie / usunięcie komentarza: odświeża historię i liczniki w kosztorysie. */
+export function useCostCommentMutation(itemId: string | undefined) {
+  const pid = useProjectId()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { body: string } | { deleteId: string }) =>
+      'deleteId' in v
+        ? api<CostCommentDto[]>(`/projects/${pid}/cost-estimate/items/${itemId}/comments/${v.deleteId}`, { method: 'DELETE' })
+        : api<CostCommentDto[]>(`/projects/${pid}/cost-estimate/items/${itemId}/comments`, { method: 'POST', json: v }),
+    onSuccess: (data) => {
+      qc.setQueryData(['costEstimateComments', pid, itemId], data)
+      void qc.invalidateQueries({ queryKey: key(pid) })
+    },
+  })
+}

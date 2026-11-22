@@ -17,6 +17,8 @@ const row = (p: Partial<CostItemRow>): CostItemRow => ({
   forecastManual: null,
   supplier: null,
   notes: null,
+  inactive: false,
+  inactiveReason: null,
   purchaseItemId: null,
   version: 1,
   ...p,
@@ -64,6 +66,18 @@ describe('computeCostEstimate', () => {
     const { items } = computeCostEstimate([p, ...kids], { eurRate: 4, contract: null })
     expect(items.slice(1).map((i) => i.allocatedEstimate)).toEqual([33_333.33, 33_333.33, 33_333.34])
     expect(items[0]!.forecast).toBe(100_000)
+  })
+
+  it('pozycja nieaktywna: zostaje na liście, prognoza 0 (także pozycja z podpozycjami i podpozycja)', () => {
+    const a = row({ estimate: 500, quoteAmount: 100, quoteCurrency: 'PLN', inactive: true, inactiveReason: 'Poza zakresem' })
+    const p = row({ estimate: 1_000 })
+    const k1 = row({ parentId: p.id, estimate: 400, inactive: true, inactiveReason: 'Rezygnacja' })
+    const k2 = row({ parentId: p.id, estimate: 600 })
+    const q = row({ estimate: 300, inactive: true, inactiveReason: 'x' })
+    const q1 = row({ parentId: q.id, estimate: 300 })
+    const { items, summary } = computeCostEstimate([a, p, k1, k2, q, q1], { eurRate: 4, contract: null })
+    expect(items.map((i) => i.forecast)).toEqual([0, 600, 0, 600, 0, 300])
+    expect(summary.envcheck).toMatchObject({ estimate: 1_800, quote: 100, forecast: 600 })
   })
 
   it('wynik w konsorcjum', () => {

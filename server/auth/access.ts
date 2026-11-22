@@ -1,5 +1,5 @@
 import { and, eq, isNull, sql } from 'drizzle-orm'
-import { DEFAULT_INVOICE_SYNC_FROM, ROLES, defaultPartyForRole, type InvoiceSettings, type ManagementSettings, type TimesheetSettings, isStaffOnlyModule, isStaffRole, type Action, type ModuleKey, type Role } from '#shared'
+import { DEFAULT_INVOICE_SYNC_FROM, ROLES, type CostEstimateAccessSettings, defaultPartyForRole, type InvoiceSettings, type ManagementSettings, type TimesheetSettings, isStaffOnlyModule, isStaffRole, type Action, type ModuleKey, type Role } from '#shared'
 import type { Database } from '../db/client.ts'
 import { appSettings, auditLog, permissions, projectMembers, projects, users } from '../db/schema.ts'
 import type { IdentityClaims } from './identity.ts'
@@ -83,6 +83,21 @@ export async function managementSettings(db: Database): Promise<ManagementSettin
 export function restrictManagementPermissions(perms: Set<`${ModuleKey}:${Action}`>, userId: string, settings: ManagementSettings) {
   if (settings.userIds.includes(userId)) return perms
   return new Set([...perms].filter((p) => !MANAGEMENT_MODULES.some((m) => p.startsWith(`${m}:`))))
+}
+
+export const COST_ESTIMATE_SETTING_KEY = 'costEstimate.access'
+
+/** Kosztorys projektu: lista osób z dostępem (decyzja 22.11.2026 — jak Plan finansowy, niezależnie od roli). */
+export async function costEstimateSettings(db: Database): Promise<CostEstimateAccessSettings> {
+  const [row] = await db.select().from(appSettings).where(eq(appSettings.key, COST_ESTIMATE_SETTING_KEY))
+  const v = (row?.value ?? {}) as Partial<CostEstimateAccessSettings>
+  return { userIds: Array.isArray(v.userIds) ? v.userIds : [] }
+}
+
+/** Uprawnienia Kosztorysu z roli obowiązują tylko osoby z listy `costEstimate.access`. */
+export function restrictCostEstimatePermissions(perms: Set<`${ModuleKey}:${Action}`>, userId: string, settings: CostEstimateAccessSettings) {
+  if (settings.userIds.includes(userId)) return perms
+  return new Set([...perms].filter((p) => !p.startsWith('costEstimate:')))
 }
 
 export const TIMESHEETS_SETTING_KEY = 'timesheets.access'

@@ -389,7 +389,8 @@
     "bom_incomplete": "Kosztorys niekompletny — w kroku 7 dodaj brakujące pozycje albo zaakceptuj alerty z uzasadnieniem",
     "bom_rule_not_found": "Nie znaleziono reguły",
     "cost_children_envcheck_only": "Podpozycje można dodawać tylko w pozycjach budżetu Envcheck",
-    "cost_nested_too_deep": "Podpozycja nie może mieć własnych podpozycji"
+    "cost_nested_too_deep": "Podpozycja nie może mieć własnych podpozycji",
+    "cost_inactive_reason_required": "Podaj powód dezaktywacji pozycji"
   },
   "validation": {
     "totpCode": "Kod musi mieć 6 cyfr",
@@ -2659,7 +2660,7 @@
   },
   "costEstimate": {
     "title": "Kosztorys",
-    "internalHint": "Widoczny tylko dla Envcheck. Kwoty netto w zł.",
+    "internalHint": "Widoczny tylko dla osób wskazanych w Ustawieniach (Kosztorys — kto ma dostęp). Kwoty netto w zł.",
     "add": "Dodaj pozycję",
     "addChild": "Dodaj podpozycję",
     "settings": "Ustawienia",
@@ -2690,10 +2691,11 @@
       "quotePln": "Wycena (zł)",
       "actual": "Faktyczne",
       "forecast": "Prognoza",
-      "diff": "Prognoza − szacunek",
+      "diff": "Różnica",
       "supplier": "Dostawca",
       "notes": "Uwagi",
-      "total": "Razem"
+      "total": "Razem",
+      "diffHint": "Prognoza minus szacunek (dla podpozycji — minus przydzielona część szacunku)"
     },
     "cards": {
       "estimate": "Szacowane Envcheck",
@@ -2791,6 +2793,36 @@
     "purchase": {
       "fromPlan": "Pozycja z planu zakupów — status zamówienia",
       "critical": "krytyczny"
+    },
+    "inactive": {
+      "deactivate": "Dezaktywuj",
+      "activate": "Aktywuj ponownie",
+      "badge": "nieaktywna",
+      "title": "Dezaktywować „{{name}}”?",
+      "hint": "Pozycja zostanie na liście, ale jej prognoza będzie równa 0. Szacunek zostaje do porównania.",
+      "reason": "Powód (adnotacja)",
+      "reasonShort": "Nieaktywna: {{reason}}",
+      "done": "Pozycja dezaktywowana",
+      "restored": "Pozycja znów aktywna",
+      "switch": "Pozycja nieaktywna (prognoza 0)"
+    },
+    "comments": {
+      "empty": "Brak komentarzy.",
+      "unknown": "Nieznany użytkownik",
+      "delete": "Usuń komentarz",
+      "placeholder": "Dodaj komentarz…",
+      "hint": "Ctrl/⌘ + Enter — wyślij",
+      "add": "Dodaj komentarz",
+      "count_one": "{{count}} komentarz",
+      "count_few": "{{count}} komentarze",
+      "count_many": "{{count}} komentarzy",
+      "last": "Ostatni: {{at}}",
+      "title": "Komentarze ({{count}})"
+    },
+    "access": {
+      "title": "Kosztorys projektów — kto ma dostęp",
+      "users": "Osoby z dostępem",
+      "usersHint": "Tylko te osoby (Admin, Envcheck wewnętrzny) widzą Kosztorys w projektach — uprawnienia z roli działają wyłącznie dla nich."
     }
   }
 }

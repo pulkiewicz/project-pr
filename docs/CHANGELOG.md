@@ -1,5 +1,18 @@
 # Changelog
 
+## Kosztorys: dostęp tylko dla osób z listy w Ustawieniach (22.11.2026)
+
+- Kosztorys działa jak Plan finansowy: uprawnienia z roli (Admin, Envcheck wewnętrzny) obowiązują wyłącznie osoby z listy **Ustawienia → „Kosztorys projektów — kto ma dostęp”** (`costEstimate.access`). Osoby spoza listy nie widzą pozycji w menu i dostają 403 z API.
+- Na listę można wpisać tylko użytkowników z rolą Admin lub Envcheck wewnętrzny; listę zmienia Admin (zmiana w audit logu `settings.cost_estimate`).
+- Migracja wypełnia listę na start osobami z dostępem do Finansów (`invoices.access`) o tych rolach.
+
+## Kosztorys: dezaktywacja pozycji, komentarze, wycena Elektronika S.A. (21.11.2026)
+
+- **Dezaktywacja pozycji.** W menu wiersza („Dezaktywuj” / „Aktywuj ponownie”) albo przełącznikiem w szufladzie. Nieaktywna pozycja zostaje na liście (przekreślona, z powodem), jej prognoza wynosi 0, a szacunek zostaje do porównania. Powód (adnotacja) jest obowiązkowy. Działa też dla pozycji z podpozycjami i dla samych podpozycji.
+- **Komentarze przy pozycjach.** W szufladzie pozycji jest historia komentarzy z autorem i datą oraz pole nowego komentarza (Ctrl/⌘ + Enter). Liczba komentarzy jest widoczna w wierszu. Autor może usunąć swój komentarz, a osoba z prawem usuwania w Kosztorysie — każdy. Dezaktywacja i aktywacja pozycji dopisują się do historii automatycznie.
+- **Wycena Elektronika S.A.** (Wycena_20261120.xlsx, 531 123 EUR netto, ceny przed skontem): 20 linii z ilością i ceną jednostkową jako podpozycje 8 pozycji (sprężarki, osprzęt, sprężarki serwisowe, parowniki, skraplacze, schładzacze gazu, chłodnice KFL, wymienniki płytowe). Wycena pozycji jest teraz sumą linii, więc sumy się nie zmieniają. Pusta podpozycja z planu zakupów w takiej pozycji jest zastępowana liniami, które przejmują jej powiązanie (status, „krytyczny”), a w planie zakupów uzupełniany jest dostawca. Pozycja z podpozycją planu z ręcznie wpisaną kwotą jest pomijana i trafia do audit logu `costEstimate.elektronika_quote`. Linie osprzętu sprężarek mają prognozę na szacunku, tak jak pozycja.
+- Eksport XLSX: kolumny „Nieaktywna — powód” i „Komentarze”.
+
 ## Projekt: Kosztorys [W] (z arkusza „PIT-RADWAR – koszty szacunek, wyceny, wykonanie”); Plan zakupów poza menu (21.11.2026)
 
 - Nowy moduł projektu **Kosztorys** (`/projekty/{kod}/kosztorys`), tylko dla Envcheck: moduł `costEstimate` (staffOnly), Admin i Envcheck wewnętrzny pełny dostęp, role zewnętrzne i Księgowość bez dostępu.

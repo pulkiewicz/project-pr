@@ -4,7 +4,7 @@ import type { Action, ModuleKey } from '#shared'
 import type { AppEnv } from '../context.ts'
 import { HttpProblem, forbidden, unauthorized } from '../lib/problem.ts'
 import { writeAudit } from '../modules/audit/service.ts'
-import { canAccessProject, invoiceSettings, loadPermissions, managementSettings, mfaRequiredRoles, resolveUser, restrictInvoicePermissions, restrictManagementPermissions, restrictTimesheetPermissions, timesheetSettings } from './access.ts'
+import { canAccessProject, costEstimateSettings, invoiceSettings, loadPermissions, managementSettings, mfaRequiredRoles, resolveUser, restrictCostEstimatePermissions, restrictInvoicePermissions, restrictManagementPermissions, restrictTimesheetPermissions, timesheetSettings } from './access.ts'
 import { MFA_COOKIE, mfaCookieHeader, shouldRefresh, signMfaSession, verifyMfaSession } from './mfa-session.ts'
 
 const nowSec = (c: Parameters<MiddlewareHandler<AppEnv>>[0]) =>
@@ -31,18 +31,23 @@ export const authenticate: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (resolved.linked) await writeAudit(c, { action: 'user.identity_linked', entity: 'users', entityId: user.id })
 
   // Równolegle: polityka 2FA i uprawnienia roli (uprawnienia odrzucane, jeśli sesja 2FA nie jest ważna).
-  const [requiredRoles, allRolePermissions, invoices, management, timesheets] = await Promise.all([
+  const [requiredRoles, allRolePermissions, invoices, management, timesheets, costEstimate] = await Promise.all([
     mfaRequiredRoles(deps.db),
     loadPermissions(deps.db, user.role),
     invoiceSettings(deps.db),
     managementSettings(deps.db),
     timesheetSettings(deps.db),
+    costEstimateSettings(deps.db),
   ])
-  // Listy dostępu (Koszty, Zarząd, Czas pracy) zawężają pracowników Envcheck; Księgowość ma dostęp wyłącznie z tabeli uprawnień roli.
+  // Listy dostępu (Koszty, Zarząd, Czas pracy, Kosztorys) zawężają pracowników Envcheck; Księgowość ma dostęp wyłącznie z tabeli uprawnień roli.
   const rolePermissions =
     user.role === 'Accounting'
       ? allRolePermissions
-      : restrictTimesheetPermissions(restrictManagementPermissions(restrictInvoicePermissions(allRolePermissions, user.id, invoices), user.id, management), user.id, timesheets)
+      : restrictCostEstimatePermissions(
+          restrictTimesheetPermissions(restrictManagementPermissions(restrictInvoicePermissions(allRolePermissions, user.id, invoices), user.id, management), user.id, timesheets),
+          user.id,
+          costEstimate,
+        )
   const required = requiredRoles.includes(user.role)
   let verified = false
   const cookie = getCookie(c, MFA_COOKIE)
